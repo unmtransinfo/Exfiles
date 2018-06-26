@@ -31,15 +31,53 @@ APPNAME <- "Ex-files"
 gene <- read_delim("exfiles_gene.csv", ",") # gene attributes
 eps <- read_delim("exfiles_eps.csv", ",") # expression profiles
 tissues <- read_delim("exfiles_tissues.csv", ",") # tissue metadata
+n_tissues <- nrow(tissues)
 ###
 # Select cols to limit memory.  Unfortunately cols_only() seems to fail at that.
 # "Gi", "Gj", "Cluster", "rho", "RMSD", "ABC", "wrho", "tmoto"
 ###
 #ggc <- read_delim("exfiles_ggc.csv.gz", ",", col_types="cccddddd")
-ggc <- read_delim("exfiles_ggc.csv.gz", ",", col_types=cols_only(Gi="c", Gj="c", Cluster="c", wrho="d", tmoto="d"))
+ggc <- read_delim("exfiles_ggc.csv.gz", ",", col_types=cols_only(Gi="c", Gj="c", Cluster="c", wrho="d", ABC="d"))
 ###
 #
 qryArand <- sample(union(ggc$Gi, ggc$Gj), 1) # initial random query
+#
+###
+ABC <- function(A,B) {
+  abc <- 0
+  for (i in 1:(length(A)-1)) {
+    Amid <- mean(A[i],A[i+1])
+    Bmid <- mean(B[i],B[i+1])
+    if (A[i]>=B[i]) {
+      if (A[i+1]>=B[i+1]) {
+        abc <- abc + (AreaUnderLineSegment(A[i], A[i+1], 1) - AreaUnderLineSegment(B[i], B[i+1], 1))
+      } else {
+        abc <- abc + (AreaUnderLineSegment(A[i], Amid, .5) - AreaUnderLineSegment(B[i], Bmid, .5))
+        abc <- abc + (AreaUnderLineSegment(Bmid, B[i+1], .5) - AreaUnderLineSegment(Amid, A[i+1], .5))
+      }
+    } else { 
+      if (A[i+1]<B[i+1]) {
+        abc <- abc + (AreaUnderLineSegment(B[i], B[i+1], 1) - AreaUnderLineSegment(A[i], A[i+1], 1))
+      } else {
+        abc <- abc + (AreaUnderLineSegment(B[i], Bmid, .5) - AreaUnderLineSegment(A[i], Amid, .5))
+        abc <- abc + (AreaUnderLineSegment(Amid, A[i+1], .5) - AreaUnderLineSegment(Bmid, B[i+1], .5))
+      }
+    }
+  }
+  return(abc)
+}
+ABC_sim <- function(A,B) {
+  n <- length(A)
+  abc <- ABC(A,B)
+  sim <- (1 / (1 + abc/n))
+  return(sim)
+}
+#
+AreaUnderLineSegment <- function(y1, y2, w) {
+  a <- min(y1,y2) * w
+  a <- a + 0.5 * w * abs(y1-y2)
+  return(a)
+}
 #
 RMSD <- function(A,B) {
   sqrt(sum((A-B)^2)/length(A))
@@ -127,18 +165,18 @@ ui <- fluidPage(
           selectizeInput("qryA", label=NULL, choices = gene_choices, selected=qryArand),
           selectizeInput("qryB", label="GeneB (optional)", choices = c(list('None'='none'), gene_choices)),
           radioButtons("mode", "Mode", choices=c("View", "Search", "Compare"), selected="Search", inline=T),
-          checkboxInput("sabv", span("SABV", icon("venus",lib="font-awesome"),icon("mars", lib="font-awesome")), value=F),
-          radioButtons("metric", "Metric", choices=c("Tanimoto", "wRho", "Combo"), selected="Tanimoto", inline=T),
+          checkboxInput("sabv", span("SABV", icon("venus",lib="font-awesome"),icon("mars", lib="font-awesome")), value=T),
+          radioButtons("metric", "Metric", choices=c("ABC", "wRho", "Combo"), selected="ABC", inline=T),
           checkboxInput("dissim", "Dissimilarity", value=F),
           checkboxGroupInput("searchgroups", "Searchgroups", choiceValues=list("MF","F","M"), 
                              choiceNames = list(
                                span("MF", icon("mars",lib="font-awesome"),icon("venus", lib="font-awesome")),
-                               span("M", icon("mars",lib="font-awesome")),
-                               span("F", icon("venus", lib="font-awesome"))
+                               span("F", icon("venus",lib="font-awesome")),
+                               span("M", icon("mars", lib="font-awesome"))
                              ),
                              selected=c("MF"), inline=T),
           div(style="display:inline-block;vertical-align:top;", sliderInput("simcutoff", "Sim_cutoff", 0, 1, .8, step=.1, width="120px")),
-          div(style="display:inline-block;vertical-align:top;", sliderInput("nmax", "Max_hits", 0, 100, 10, step=10, width="120px")),
+          #div(style="display:inline-block;vertical-align:top;", sliderInput("nmax", "Max_hits", 0, 100, 10, step=10, width="120px")),
           br(),
           actionButton("showhelp", "Help", style='padding:4px; background-color:#DDDDDD; font-weight:bold')
           )),
@@ -202,7 +240,8 @@ server <- function(input, output, session) {
       ggc_this <- ggc_this[ggc_this$Cluster %in% input$searchgroups,]
     }
 
-    ggc_this$Combo <- round(ggc_this$wrho*ggc_this$tmoto, digits=3)
+    #ggc_this$Combo <- round(ggc_this$wrho*ggc_this$tmoto, digits=3)
+    ggc_this$Combo <- round(ggc_this$wrho/(1 + ggc_this$ABC/n_tissues), digits=3)
 
     if (input$metric=="wRho") {
       ggc_this$sim <- ggc_this$wrho
@@ -210,13 +249,15 @@ server <- function(input, output, session) {
 #      ggc_this$sim <- ggc_this$rho
 #    } else if (input$metric=="RMSD") {
 #      ggc_this$sim <- -ggc_this$RMSD
-#    } else if (input$metric=="ABC") {
-#      ggc_this$sim <- -ggc_this$ABC
-    } else if (input$metric=="Tanimoto") {
-      ggc_this$sim <- ggc_this$tmoto
+    } else if (input$metric=="ABC") {
+      ggc_this$sim <- (1 / (1 + ggc_this$ABC/n_tissues))
+#    } else if (input$metric=="Tanimoto") {
+#      ggc_this$sim <- ggc_this$tmoto
     } else if (input$metric=="Combo") {
       ggc_this$sim <- ggc_this$Combo
     }
+    
+    ggc_this$sim <- round(ggc_this$sim, digits=3)
     
     ggc_this <- ggc_this[order(-ggc_this$sim),]
     
@@ -233,7 +274,7 @@ server <- function(input, output, session) {
 #        ggc_this <- ggc_this[ggc_this$sim>=input$simcutoff,]
 #      }
 #    }
-    ggc_this <- ggc_this[1:input$nmax,]
+    #ggc_this <- ggc_this[1:input$nmax,]
     return(ggc_this)
   })
   
@@ -289,8 +330,9 @@ server <- function(input, output, session) {
     rhoAfm <- cor(qryA_profile_f, qryA_profile_m, method = "spearman")
     wrhoAfm <- wPearson(qryA_profile_f, qryA_profile_m )
 
-    rmsdAfm <- RMSD(qryA_profile_f, qryA_profile_m)
-    tmotoAfm <- Tanimoto(qryA_profile_f, qryA_profile_m)
+    abcAfm <- ABC_sim(qryA_profile_f, qryA_profile_m)
+    #rmsdAfm <- RMSD(qryA_profile_f, qryA_profile_m)
+    #tmotoAfm <- Tanimoto(qryA_profile_f, qryA_profile_m)
     
     if (input$mode == "Compare") {
       qryB_profile_m <- as.numeric(eps[eps$gene==qryB() & eps$sex=="M",][1,5:44])
@@ -299,8 +341,9 @@ server <- function(input, output, session) {
       rho <- cor(qryA_profile, qryB_profile, method = "spearman")
       wrho <- wPearson(qryA_profile, qryB_profile)
 
-      rmsd <- RMSD(qryA_profile, qryB_profile)
-      tmoto <- Tanimoto(qryA_profile, qryB_profile)
+      abc <- ABC_sim(qryA_profile, qryB_profile)
+      #rmsd <- RMSD(qryA_profile, qryB_profile)
+      #tmoto <- Tanimoto(qryA_profile, qryB_profile)
 
       rhoBfm <- cor(qryB_profile_f, qryB_profile_m, method = "spearman")
       rhoFab <- cor(qryA_profile_f, qryB_profile_f, method = "spearman")
@@ -310,13 +353,17 @@ server <- function(input, output, session) {
       wrhoFab <- wPearson(qryA_profile_f, qryB_profile_f)
       wrhoMab <- wPearson(qryA_profile_m, qryB_profile_m)
 
-      rmsdBfm <- RMSD(qryB_profile_f, qryB_profile_m)
-      rmsdFab <- RMSD(qryA_profile_f, qryB_profile_f)
-      rmsdMab <- RMSD(qryA_profile_m, qryB_profile_m)
+      abcBfm <- ABC_sim(qryB_profile_f, qryB_profile_m)
+      abcFab <- ABC_sim(qryA_profile_f, qryB_profile_f)
+      abcMab <- ABC_sim(qryA_profile_m, qryB_profile_m)
 
-      tmotoBfm <- Tanimoto(qryB_profile_f, qryB_profile_m)
-      tmotoFab <- Tanimoto(qryA_profile_f, qryB_profile_f)
-      tmotoMab <- Tanimoto(qryA_profile_m, qryB_profile_m)
+      #rmsdBfm <- RMSD(qryB_profile_f, qryB_profile_m)
+      #rmsdFab <- RMSD(qryA_profile_f, qryB_profile_f)
+      #rmsdMab <- RMSD(qryA_profile_m, qryB_profile_m)
+
+      #tmotoBfm <- Tanimoto(qryB_profile_f, qryB_profile_m)
+      #tmotoFab <- Tanimoto(qryA_profile_f, qryB_profile_f)
+      #tmotoMab <- Tanimoto(qryA_profile_m, qryB_profile_m)
 
     } else { ## Hit only if Search
       hit_profile_m <- as.numeric(eps[eps$gene==hit() & eps$sex=="M",][1,5:44])
@@ -325,8 +372,9 @@ server <- function(input, output, session) {
       rho <- cor(qryA_profile, hit_profile, method = "spearman")
       wrho <- wPearson(qryA_profile, hit_profile)
 
-      rmsd <- RMSD(qryA_profile, hit_profile)
-      tmoto <- Tanimoto(qryA_profile, hit_profile)
+      abc <- ABC_sim(qryA_profile, hit_profile)
+      #rmsd <- RMSD(qryA_profile, hit_profile)
+      #tmoto <- Tanimoto(qryA_profile, hit_profile)
 
       ### "B" = hit
       rhoBfm <- cor(hit_profile_f, hit_profile_m, method = "spearman")
@@ -337,13 +385,17 @@ server <- function(input, output, session) {
       wrhoFab <- wPearson(qryA_profile_f, hit_profile_f)
       wrhoMab <- wPearson(qryA_profile_m, hit_profile_m)
 
-      rmsdBfm <- RMSD(hit_profile_f, hit_profile_m)
-      rmsdFab <- RMSD(qryA_profile_f, hit_profile_f)
-      rmsdMab <- RMSD(qryA_profile_m, hit_profile_m)
+      abcBfm <- ABC_sim(hit_profile_f, hit_profile_m)
+      abcFab <- ABC_sim(qryA_profile_f, hit_profile_f)
+      abcMab <- ABC_sim(qryA_profile_m, hit_profile_m)
 
-      tmotoBfm <- Tanimoto(hit_profile_f, hit_profile_m)
-      tmotoFab <- Tanimoto(qryA_profile_f, hit_profile_f)
-      tmotoMab <- Tanimoto(qryA_profile_m, hit_profile_m)
+      #rmsdBfm <- RMSD(hit_profile_f, hit_profile_m)
+      #rmsdFab <- RMSD(qryA_profile_f, hit_profile_f)
+      #rmsdMab <- RMSD(qryA_profile_m, hit_profile_m)
+
+      #tmotoBfm <- Tanimoto(hit_profile_f, hit_profile_m)
+      #tmotoFab <- Tanimoto(qryA_profile_f, hit_profile_f)
+      #tmotoMab <- Tanimoto(qryA_profile_m, hit_profile_m)
     }
 
     ### PLOT:
@@ -399,14 +451,20 @@ server <- function(input, output, session) {
             text = paste0(qryA(), ": ", tissues$tissue_name))
     #
       if (input$mode == "View") {
-        annotxt <- sprintf("Afm: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoAfm, rhoAfm, tmotoAfm, rmsdAfm)
+        #annotxt <- sprintf("Afm: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoAfm, rhoAfm, tmotoAfm, rmsdAfm)
+        annotxt <- sprintf("Afm: wrho = %.2f; rho = %.2f; abc = %.2f", wrhoAfm, rhoAfm, abcAfm)
       } else if (input$mode == "Search") {
         annotxt <- paste(sep="<BR>",
-            sprintf("Uab: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrho, rho, tmoto, rmsd),
-            sprintf("Fab: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoFab, rhoFab, tmotoFab, rmsdFab),
-            sprintf("Mab: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoMab, rhoMab, tmotoMab, rmsdMab),
-            sprintf("Afm: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoAfm, rhoAfm, tmotoAfm, rmsdAfm),
-            sprintf("Bfm: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoBfm, rhoBfm, tmotoBfm, rmsdBfm))
+            #sprintf("Uab: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrho, rho, tmoto, rmsd),
+            #sprintf("Fab: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoFab, rhoFab, tmotoFab, rmsdFab),
+            #sprintf("Mab: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoMab, rhoMab, tmotoMab, rmsdMab),
+            #sprintf("Afm: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoAfm, rhoAfm, tmotoAfm, rmsdAfm),
+            #sprintf("Bfm: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoBfm, rhoBfm, tmotoBfm, rmsdBfm))
+            sprintf("Uab: wrho = %.2f; rho = %.2f; abc = %.2f", wrho, rho, abc),
+            sprintf("Fab: wrho = %.2f; rho = %.2f; abc = %.2f", wrhoFab, rhoFab, abcFab),
+            sprintf("Mab: wrho = %.2f; rho = %.2f; abc = %.2f", wrhoMab, rhoMab, abcMab),
+            sprintf("Afm: wrho = %.2f; rho = %.2f; abc = %.2f", wrhoAfm, rhoAfm, abcAfm),
+            sprintf("Bfm: wrho = %.2f; rho = %.2f; abc = %.2f", wrhoBfm, rhoBfm, abcBfm))
         p <- add_trace(p, name = paste("(F)", hit()), x = tissues$tissue_name, y = hit_profile_f,
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
@@ -418,11 +476,16 @@ server <- function(input, output, session) {
             text = paste0(hit(), ": ", tissues$tissue_name))
       } else if (input$mode == "Compare") {
         annotxt <- paste(sep="<BR>",
-            sprintf("Uab: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrho, rho, tmoto, rmsd),
-            sprintf("Fab: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoFab, rhoFab, tmotoFab, rmsdFab),
-            sprintf("Mab: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoMab, rhoMab, tmotoMab, rmsdMab),
-            sprintf("Afm: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoAfm, rhoAfm, tmotoAfm, rmsdAfm),
-            sprintf("Bfm: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoBfm, rhoBfm, tmotoBfm, rmsdBfm))
+            sprintf("Uab: wrho = %.2f; rho = %.2f; abc = %.2f", wrho, rho, abc),
+            sprintf("Fab: wrho = %.2f; rho = %.2f; abc = %.2f", wrhoFab, rhoFab, abcFab),
+            sprintf("Mab: wrho = %.2f; rho = %.2f; abc = %.2f", wrhoMab, rhoMab, abcMab),
+            sprintf("Afm: wrho = %.2f; rho = %.2f; abc = %.2f", wrhoAfm, rhoAfm, abcAfm),
+            sprintf("Bfm: wrho = %.2f; rho = %.2f; abc = %.2f", wrhoBfm, rhoBfm, abcBfm))
+            #sprintf("Uab: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrho, rho, tmoto, rmsd),
+            #sprintf("Fab: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoFab, rhoFab, tmotoFab, rmsdFab),
+            #sprintf("Mab: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoMab, rhoMab, tmotoMab, rmsdMab),
+            #sprintf("Afm: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoAfm, rhoAfm, tmotoAfm, rmsdAfm),
+            #sprintf("Bfm: wrho = %.2f; rho = %.2f; tmoto = %.2f; rmsd = %.2f", wrhoBfm, rhoBfm, tmotoBfm, rmsdBfm))
         p <- add_trace(p, name = paste("(F)", qryB()), x = tissues$tissue_name, y = qryB_profile_f,
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
