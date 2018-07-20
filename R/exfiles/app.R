@@ -15,7 +15,6 @@
 ##########################################################################################
 library(readr)
 library(wCorr)
-#library(boot)
 library(shiny, quietly = T)
 library(DT, quietly = T) #datatable
 library(dplyr, quietly = T)
@@ -98,16 +97,16 @@ for (i in 1:nrow(gene))
 #
 #############################################################################
 HelpHtm <- function() {(
-"<P><B>Ex-files</B> allows exploration and analysis of genes represented by their expression profiles.
-With <B>GTEx</B> as the data source, expression profiles are real valued vectors of expression levels across the
-defined tissue types.</P>
+"<P><B>Ex-files</B> allows exploration and analysis of co-expression patterns via gene expression profiles.
+With <B>GTEx</B> as the data source, gene expression profiles are computed as real valued vectors of expression levels 
+across the defined tissue types.</P>
 <P>
 <B>Inputs</B> are query geneA, and <I>optionally</I>, geneB.
-Ex-files has two modes of operation:
+Ex-files modes of operation:
 <UL>
-<LI><B>View</B> - view one gene: input geneA
-<LI><B>Search</B> - search for genes based on input geneA and selected metric
-<LI><B>Compare</B> - compare input geneA vs. geneB based on selected metric
+<LI><B>View</B> - view profile for one gene
+<LI><B>Search</B> - search for genes based on profile similarity
+<LI><B>Compare</B> - compare input genes via profiles
 </UL>
 <B>SABV:</B> This checkbox invokes <B><I>Sex As a Biological Variable</I></B> analysis.</P>
 <P>
@@ -174,7 +173,7 @@ ui <- fluidPage(
                                span("F", icon("venus",lib="font-awesome")),
                                span("M", icon("mars", lib="font-awesome"))
                              ),
-                             selected=c("MF"), inline=T),
+                             selected=c("MF","F","M"), inline=T),
           div(style="display:inline-block;vertical-align:top;", sliderInput("simcutoff", "Sim_cutoff", 0, 1, .8, step=.1, width="120px")),
           #div(style="display:inline-block;vertical-align:top;", sliderInput("nmax", "Max_hits", 0, 100, 10, step=10, width="120px")),
           br(),
@@ -256,8 +255,6 @@ server <- function(input, output, session) {
     
     genehits$sim <- round(genehits$sim, digits=3)
     
-
-    
     genehits$Gene <- NA
     genehits$Gene[genehits$Gi == qryA()] <- genehits$Gj[genehits$Gi == qryA()]
     genehits$Gene[genehits$Gj == qryA()] <- genehits$Gi[genehits$Gj == qryA()]
@@ -295,9 +292,9 @@ server <- function(input, output, session) {
     } else if (input$mode == "Search") {
       htm <- sprintf("<B>Results (%s):</B> Gene query: %s \"%s\" ; metric: %s ; profiles found: %d ; top hit: %s \"%s\"", input$mode, qryA(), gene$name[gene$sym==qryA()], input$metric, nrow(hits()), hit(), gene$name[gene$sym==hit()])
       sim <- hits()$sim[1]
-      if ((input$dissim & sim>input$simcutoff) | (!input$dissim & sim<input$simcutoff)) {
-        htm <- paste(htm, sprintf("<B>WARNING:</B> top hit Sim (%.2f) does not satisfy Sim_cutoff (%.2f).", sim, input$simcutoff))
-      }
+      #if ((input$dissim & sim>input$simcutoff) | (!input$dissim & sim<input$simcutoff)) {
+      #  htm <- paste(htm, sprintf("<B>WARNING:</B> top hit Sim (%.2f) does not satisfy Sim_cutoff (%.2f).", sim, input$simcutoff))
+      #}
       searchgroup <- hits()$Cluster[1]
       if (!(searchgroup %in% input$searchgroups)) {
         htm <- paste(htm, sprintf("<B>WARNING:</B> top hit searchgroup: %s ; none in specified searchgroups: %s.", searchgroup, paste(collapse=", ", input$searchgroups)))
@@ -311,20 +308,24 @@ server <- function(input, output, session) {
     return(htm)
   })
   
+  #Without-DT method:
   #output$datarows <- renderDataTable(hits(), options = list(pageLength=min(10,nrow(hits())), lengthChange=F, pagingType="simple", searching=F, info=T))
   
-  observe({
-      x <- input$datarows_rows_selected
-      x <- ifelse(is.na(x), "NA", x)
-      message(sprintf("DEBUG: input$datarows_rows_selected = %s", x))
-  })
+#  observe({
+#      rows_selected <- input$datarows_rows_selected
+#      if (!is.null(rows_selected)) {
+#        message(sprintf("DEBUG: input$datarows_rows_selected: %s (%s)", 
+#                        paste0(rows_selected, collapse=","),
+#                        paste0(hits()$Gene[rows_selected], collapse=",")))
+#      }
+#  })
 
   ### Creates input$datarows_rows_selected
   output$datarows <- renderDataTable({
     dt = hits()
     DT::datatable(data = dt,
 	rownames = F,
-	selection = "single",
+	selection = "multiple",
 	class = "cell-border stripe",
 	style = "bootstrap",
 	options = list(autoWidth=T),
@@ -420,8 +421,8 @@ server <- function(input, output, session) {
          margin = list(t=100, r=80, b=160, l=60),
          legend = list(x=.9, y=1),
          font = list(family="Arial", size=14)
-      ) %>%
-      add_annotations(text=format(Sys.time(), "%Y-%m-%d"), showarrow=F, x=1.0, y=.2, xref="paper", yref="paper")
+      )
+    # %>% add_annotations(text=format(Sys.time(), "%Y-%m-%d"), showarrow=F, x=1.0, y=.2, xref="paper", yref="paper")
     #
     if (!input$sabv) {
       p <-  add_trace(p, name = qryA(), x = tissues$tissue_name, y = qryA_profile,
@@ -442,6 +443,22 @@ server <- function(input, output, session) {
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
             text = paste0(hit(), ": ", tissues$tissue_name))
+        ###
+        # Include genes selected via interactive table.
+        rows_selected <- input$datarows_rows_selected
+        if (!is.null(rows_selected)) {
+          gsyms <- hits()$Gene[rows_selected]
+          for (gsym in gsyms) {
+            if (gsym == hit()) { next; }
+            profile_m <- as.numeric(eps[eps$gene==gsym & eps$sex=="M",][1,5:44])
+            profile_f <- as.numeric(eps[eps$gene==gsym & eps$sex=="F",][1,5:44])
+            profile <- (profile_f + profile_m)/2
+            p <- add_trace(p, name = gsym, x = tissues$tissue_name, y = profile,
+                type = 'scatter', mode = 'lines+markers',
+                marker = list(symbol="circle", size=10),
+                text = paste0(gsym, ": ", tissues$tissue_name))
+          }
+        }
       }
     } else if (input$sabv) {
       p <-  add_trace(p, name = paste("(F)", qryA()), x = tissues$tissue_name, y = qryA_profile_f,
@@ -467,11 +484,29 @@ server <- function(input, output, session) {
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
             text = paste0(hit(), ": ", tissues$tissue_name))
-        #
         p <- add_trace(p, name = paste("(M)", hit()), x = tissues$tissue_name, y = hit_profile_m,
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
             text = paste0(hit(), ": ", tissues$tissue_name))
+        ###
+        # Include genes selected via interactive table.
+        rows_selected <- input$datarows_rows_selected
+        if (!is.null(rows_selected)) {
+          gsyms <- hits()$Gene[rows_selected]
+          for (gsym in gsyms) {
+            if (gsym == hit()) { next; }
+            profile_m <- as.numeric(eps[eps$gene==gsym & eps$sex=="M",][1,5:44])
+            profile_f <- as.numeric(eps[eps$gene==gsym & eps$sex=="F",][1,5:44])
+            p <- add_trace(p, name = paste("(M)", gsym), x = tissues$tissue_name, y = profile_m,
+                type = 'scatter', mode = 'lines+markers',
+                marker = list(symbol="circle", size=10),
+                text = paste0(gsym, ": ", tissues$tissue_name))
+            p <- add_trace(p, name = paste("(F)", gsym), x = tissues$tissue_name, y = profile_f,
+                type = 'scatter', mode = 'lines+markers',
+                marker = list(symbol="circle", size=10),
+                text = paste0(gsym, ": ", tissues$tissue_name))
+          }
+        }
       } else if (input$mode == "Compare") {
         annotxt <- paste(sep="<BR>",
             sprintf("Uab: rho = %.2f; sim = %.2f", wrho, abc),
@@ -491,7 +526,7 @@ server <- function(input, output, session) {
       }
     } else { return(NULL) } #ERROR
     #
-    p <- add_annotations(p, text=annotxt, showarrow=F, x=.1, y=1, xref="paper", yref="paper")
+    #p <- add_annotations(p, text=annotxt, showarrow=F, x=.1, y=1, xref="paper", yref="paper")
     p$elementId <- NULL #Hack to suppress spurious warnings.
     return(p)
   })
