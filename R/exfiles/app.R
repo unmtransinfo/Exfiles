@@ -112,23 +112,12 @@ Ex-files modes of operation:
 <P>
 <B>Metrics:</B>
 <UL>
-<LI><B>Tanimoto</B> - Similarity metric defined by dot products (AdotB)/(AdotA + BdotB - AdotB)
-<LI><B>RMSD</B> - Root Mean Square Distance, a standard metric comparing two sets of points in a space of any dimensionality.  Each of the 
-expression values in each profile is considered a point in a 1D space.
 <LI><B>ABC</B> - Area Between the Curves, a novel metric defined by the absolute value of the difference in the profile plots.
 <LI><B>ABC_sim</B> - ABC transformed to [0-1] similarity by formula (1 / (1 + ABC/N_tissues))
 <LI><B>wRho</B> - Weighted Pearson correlation coefficient, weighted by average values for each tissue, to mitigate noise.
-<LI><B>Rho</B> - Spearman rank correlation coefficient.
 <LI><B>Combo</B> - Product wRho*Tanimoto, balancing correlation and similarity.
 </UL>
 <B>Dissimilarity:</B> This checkbox affects Search results, reversing the chosen metric.</P>
-<P>
-<B>Searchgroups:</B>
-<UL>
-<LI><B>M</B> - search males-only 
-<LI><B>F</B> - search females-only 
-<LI><B>MF</B> - search both sexes
-</UL></P>
 <P>
 <B>Results:</B>
 <UL>
@@ -139,17 +128,9 @@ plot, and other hits displayed in a table and downloadable as CSV.
 <LI>Expression units are <B>LOG<SUB>10</SUB>(1 + TPM)</B>, where<BR>
 <B>TPM</B> = RNA-seq median Transcripts Per Million-kilobase
 </UL></P>
-<B>Abbrevations:</B>
-<UL>
-<LI><B>Uab</B> - Unisex geneA vs. geneB
-<LI><B>Fab</B> - Female geneA vs. geneB
-<LI><B>Mab</B> - Male geneA vs. geneB
-<LI><B>Afm</B> - GeneA Female vs. Male
-<LI><B>Bfm</B> - GeneB Female vs. Male
-</UL>
 <B>Algorithms:</B> Giovanni Bocci, Oleg Ursu, Cristian Bologa, Steve Mathias, Jeremy Yang &amp; Tudor Oprea<BR/>
 <B>Web app:</B> Jeremy Yang<BR/>
-Data from <A HREF=\"https://www.gtexportal.org/\">GTEx, The Genotype-Tissue Expression Project</A>.<BR/>
+Data from <A HREF=\"https://www.gtexportal.org/\" TARGET=\"_blank\">GTEx, The Genotype-Tissue Expression Project</A>.<BR/>
 Built with R-Shiny &amp; Plotly.<BR/>
 ")}
 #
