@@ -25,9 +25,14 @@ library(plotly, quietly = T)
 ### GGC = gene-gene associations
 ### GGC cols: "Gi","Gj","Cluster","rho","RMSD","ABC","wrho","tmoto"
 APPNAME <- "Ex-files"
+###
+# Tissues now in eps column header.
+#tissues <- read_delim("exfiles_tissues.csv", ",") # tissue metadata
+###
 gene <- read_delim("exfiles_gene.csv", ",") # gene attributes
 eps <- read_delim("exfiles_eps.csv", ",") # expression profiles
-tissues <- read_delim("exfiles_tissues.csv", ",") # tissue metadata
+###
+tissues <- data.frame(id = 1:(ncol(eps)-4), name = colnames(eps)[5:ncol(eps)])
 n_tissues <- nrow(tissues)
 ###
 # Select cols to limit memory.  Unfortunately cols_only() seems to fail at that.
@@ -42,6 +47,7 @@ qryArand <- sample(union(ggc$Gi, ggc$Gj), 1) # initial random query
 #Area_Between_Curves_(ABC)
 ABC <- function(A,B) {
   abc <- 0
+  if (length(A)!=length(B)) { return(abc); }
   for (i in 1:(length(A)-1)) {
     Amid <- mean(A[i],A[i+1])
     Bmid <- mean(B[i],B[i+1])
@@ -122,11 +128,12 @@ Ex-files modes of operation:
 <B>Results:</B>
 <UL>
 <LI>Search results include the top hit, displayed against the query in the
-plot, and other hits displayed in a table and downloadable as CSV.
+plot, and other hits displayed in a table and downloadable as CSV.  <B>Note: current dataset includes only highly
+correlated or anti-correlated profiles.</B>
 <LI>Compare results consist of the plot of GeneA vs. GeneB.
 <LI>SABV results include both sexes for both genes, thus four profiles.
-<LI>Expression units are <B>LOG<SUB>10</SUB>(1 + TPM)</B>, where<BR>
-<B>TPM</B> = RNA-seq median Transcripts Per Million-kilobase
+<LI>Expression units are <B>LOG<SUB>10</SUB>(1 + TPM)</B>, where <B>TPM</B> = RNA-seq median Transcripts Per Million-kilobase.
+<LI>Groups denote correlations among F-only, M-only or F+M.
 </UL></P>
 <B>Algorithms:</B> Giovanni Bocci, Oleg Ursu, Cristian Bologa, Steve Mathias, Jeremy Yang &amp; Tudor Oprea<BR/>
 <B>Web app:</B> Jeremy Yang<BR/>
@@ -148,19 +155,19 @@ ui <- fluidPage(
           checkboxInput("sabv", span("SABV", icon("venus",lib="font-awesome"),icon("mars", lib="font-awesome")), value=T),
           radioButtons("metric", "Metric", choices=c("ABC", "wRho", "Combo"), selected="Combo", inline=T),
           checkboxInput("dissim", "Dissimilarity", value=F),
-          checkboxGroupInput("searchgroups", "Searchgroups", choiceValues=list("MF","F","M"), 
-                             choiceNames = list(
-                               span("MF", icon("mars",lib="font-awesome"),icon("venus", lib="font-awesome")),
-                               span("F", icon("venus",lib="font-awesome")),
-                               span("M", icon("mars", lib="font-awesome"))
-                             ),
-                             selected=c("MF","F","M"), inline=T),
-          div(style="display:inline-block;vertical-align:top;", sliderInput("simcutoff", "Sim_cutoff", 0, 1, .8, step=.1, width="120px")),
-          #div(style="display:inline-block;vertical-align:top;", sliderInput("nmax", "Max_hits", 0, 100, 10, step=10, width="120px")),
+#          checkboxGroupInput("searchgroups", "Searchgroups", choiceValues=list("MF","F","M"), 
+#                             choiceNames = list(
+#                               span("MF", icon("mars",lib="font-awesome"),icon("venus", lib="font-awesome")),
+#                               span("F", icon("venus",lib="font-awesome")),
+#                               span("M", icon("mars", lib="font-awesome"))
+#                             ),
+#                             selected=c("MF","F","M"), inline=T),
+#          div(style="display:inline-block;vertical-align:top;", sliderInput("simcutoff", "Sim_cutoff", 0, 1, .8, step=.1, width="120px")),
+#          div(style="display:inline-block;vertical-align:top;", sliderInput("nmax", "Max_hits", 0, 100, 10, step=10, width="120px")),
           br(),
           actionButton("showhelp", "Help", style='padding:4px; background-color:#DDDDDD; font-weight:bold')
           )),
-    column(8, plotlyOutput("plot", height = "640px"))
+    column(8, plotlyOutput("plot", height = "580px"))
   ),
   fluidRow(
     column(12, wellPanel(
@@ -219,9 +226,9 @@ server <- function(input, output, session) {
     if (input$mode != "Search") { return(NA) }
     genehits <- ggc[ggc$Gi == qryA() | ggc$Gj == qryA(),]
     
-    if (length(intersect(genehits$Cluster,input$searchgroups))>0) {
-      genehits <- genehits[genehits$Cluster %in% input$searchgroups,]
-    }
+    #if (length(intersect(genehits$Cluster,input$searchgroups))>0) {
+    #  genehits <- genehits[genehits$Cluster %in% input$searchgroups,]
+    #}
 
     #genehits$Combo <- round(genehits$wrho*genehits$tmoto, digits=3)
     genehits$Combo <- round(genehits$wrho/(1 + genehits$ABC/n_tissues), digits=3)
@@ -276,10 +283,10 @@ server <- function(input, output, session) {
       #if ((input$dissim & sim>input$simcutoff) | (!input$dissim & sim<input$simcutoff)) {
       #  htm <- paste(htm, sprintf("<B>WARNING:</B> top hit Sim (%.2f) does not satisfy Sim_cutoff (%.2f).", sim, input$simcutoff))
       #}
-      searchgroup <- hits()$Cluster[1]
-      if (!(searchgroup %in% input$searchgroups)) {
-        htm <- paste(htm, sprintf("<B>WARNING:</B> top hit searchgroup: %s ; none in specified searchgroups: %s.", searchgroup, paste(collapse=", ", input$searchgroups)))
-      }
+      #searchgroup <- hits()$Cluster[1]
+      #if (!(searchgroup %in% input$searchgroups)) {
+      #  htm <- paste(htm, sprintf("<B>WARNING:</B> top hit searchgroup: %s ; none in specified searchgroups: %s.", searchgroup, paste(collapse=", ", input$searchgroups)))
+      #}
     } else {
       htm <- sprintf("<B>Results:</B> ERROR: invalid mode: %s", input$mode)
     }
@@ -335,7 +342,11 @@ server <- function(input, output, session) {
 
     rhoAfm <- cor(qryA_profile_f, qryA_profile_m, method = "spearman")
     wrhoAfm <- wPearson(qryA_profile_f, qryA_profile_m )
-
+    
+    #message(sprintf("DEBUG: qryA_profile_f = %s", paste0(as.character(qryA_profile_f), collapse=", ")))
+    #message(sprintf("DEBUG: qryA_profile_m = %s", paste0(as.character(qryA_profile_m), collapse=", ")))
+    #message(sprintf("DEBUG: qryA_profile = %s", paste0(as.character(qryA_profile), collapse=", ")))
+    
     abcAfm <- ABC_sim(qryA_profile_f, qryA_profile_m)
     
     if (input$mode == "Compare") {
@@ -366,6 +377,7 @@ server <- function(input, output, session) {
       rho <- cor(qryA_profile, hit_profile, method = "spearman")
       wrho <- wPearson(qryA_profile, hit_profile)
 
+      #
       abc <- ABC_sim(qryA_profile, hit_profile)
 
       ### "B" = hit
@@ -385,7 +397,7 @@ server <- function(input, output, session) {
       
 
     ### PLOT:
-    xaxis = list(tickangle=45, tickfont=list(family="Arial", size=10))
+    xaxis = list(tickangle=45, tickfont=list(family="Arial", size=10), categoryorder = "array", categoryarray = tissues$name)
     yaxis = list(title="Expression: LOG<SUB>10</SUB>(1 + TPM)")
 
     if (input$mode == "View") {
@@ -406,24 +418,24 @@ server <- function(input, output, session) {
     # %>% add_annotations(text=format(Sys.time(), "%Y-%m-%d"), showarrow=F, x=1.0, y=.2, xref="paper", yref="paper")
     #
     if (!input$sabv) {
-      p <-  add_trace(p, name = qryA(), x = tissues$tissue_name, y = qryA_profile,
+      p <-  add_trace(p, name = qryA(), x = tissues$name, y = qryA_profile,
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
-            text = paste0(qryA(), ": ", tissues$tissue_name))
+            text = paste0(qryA(), ": ", tissues$name))
       if (input$mode == "View") {
         annotxt <- ""
       } else if (input$mode == "Compare") {
         annotxt <- sprintf("rho = %.2f; sim = %.2f", rho, abc)
-        p <- add_trace(p, name = qryB(), x = tissues$tissue_name, y = qryB_profile,
+        p <- add_trace(p, name = qryB(), x = tissues$name, y = qryB_profile,
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
-            text = paste0(qryB(), ": ", tissues$tissue_name))
+            text = paste0(qryB(), ": ", tissues$name))
       } else if (input$mode == "Search") {
         annotxt <- sprintf("rho = %.2f; sim = %.2f", rho, abc)
-        p <- add_trace(p, name = hit(), x = tissues$tissue_name, y = hit_profile,
+        p <- add_trace(p, name = hit(), x = tissues$name, y = hit_profile,
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
-            text = paste0(hit(), ": ", tissues$tissue_name))
+            text = paste0(hit(), ": ", tissues$name))
         ###
         # Include genes selected via interactive table.
         rows_selected <- input$datarows_rows_selected
@@ -434,23 +446,23 @@ server <- function(input, output, session) {
             profile_m <- as.numeric(eps[eps$gene==gsym & eps$sex=="M",][1,5:44])
             profile_f <- as.numeric(eps[eps$gene==gsym & eps$sex=="F",][1,5:44])
             profile <- (profile_f + profile_m)/2
-            p <- add_trace(p, name = gsym, x = tissues$tissue_name, y = profile,
+            p <- add_trace(p, name = gsym, x = tissues$name, y = profile,
                 type = 'scatter', mode = 'lines+markers',
                 marker = list(symbol="circle", size=10),
-                text = paste0(gsym, ": ", tissues$tissue_name))
+                text = paste0(gsym, ": ", tissues$name))
           }
         }
       }
     } else if (input$sabv) {
-      p <-  add_trace(p, name = paste("(F)", qryA()), x = tissues$tissue_name, y = qryA_profile_f,
+      p <-  add_trace(p, name = paste("(F)", qryA()), x = tissues$name, y = qryA_profile_f,
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
-            text = paste0(qryA(), ": ", tissues$tissue_name))
+            text = paste0(qryA(), ": ", tissues$name))
     #
-      p <- add_trace(p, name = paste("(M)", qryA()), x = tissues$tissue_name, y = qryA_profile_m,
+      p <- add_trace(p, name = paste("(M)", qryA()), x = tissues$name, y = qryA_profile_m,
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
-            text = paste0(qryA(), ": ", tissues$tissue_name))
+            text = paste0(qryA(), ": ", tissues$name))
     #
       if (input$mode == "View") {
         annotxt <- sprintf("Afm: rho = %.2f; sim = %.2f", wrhoAfm, abcAfm)
@@ -461,15 +473,15 @@ server <- function(input, output, session) {
             sprintf("Mab: rho = %.2f; sim = %.2f", wrhoMab, abcMab),
             sprintf("Afm: rho = %.2f; sim = %.2f", wrhoAfm, abcAfm),
             sprintf("Bfm: rho = %.2f; sim = %.2f", wrhoBfm, abcBfm))
-        p <- add_trace(p, name = paste("(F)", hit()), x = tissues$tissue_name, y = hit_profile_f,
+        p <- add_trace(p, name = paste("(F)", hit()), x = tissues$name, y = hit_profile_f,
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
-            text = paste0(hit(), ": ", tissues$tissue_name))
-        p <- add_trace(p, name = paste("(M)", hit()), x = tissues$tissue_name, y = hit_profile_m,
+            text = paste0(hit(), ": ", tissues$name))
+        p <- add_trace(p, name = paste("(M)", hit()), x = tissues$name, y = hit_profile_m,
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
-            text = paste0(hit(), ": ", tissues$tissue_name))
-        ###
+            text = paste0(hit(), ": ", tissues$name))
+        ##
         # Include genes selected via interactive table.
         rows_selected <- input$datarows_rows_selected
         if (!is.null(rows_selected)) {
@@ -478,14 +490,14 @@ server <- function(input, output, session) {
             if (gsym == hit()) { next; }
             profile_m <- as.numeric(eps[eps$gene==gsym & eps$sex=="M",][1,5:44])
             profile_f <- as.numeric(eps[eps$gene==gsym & eps$sex=="F",][1,5:44])
-            p <- add_trace(p, name = paste("(M)", gsym), x = tissues$tissue_name, y = profile_m,
+            p <- add_trace(p, name = paste("(M)", gsym), x = tissues$name, y = profile_m,
                 type = 'scatter', mode = 'lines+markers',
                 marker = list(symbol="circle", size=10),
-                text = paste0(gsym, ": ", tissues$tissue_name))
-            p <- add_trace(p, name = paste("(F)", gsym), x = tissues$tissue_name, y = profile_f,
+                text = paste0(gsym, ": ", tissues$name))
+            p <- add_trace(p, name = paste("(F)", gsym), x = tissues$name, y = profile_f,
                 type = 'scatter', mode = 'lines+markers',
                 marker = list(symbol="circle", size=10),
-                text = paste0(gsym, ": ", tissues$tissue_name))
+                text = paste0(gsym, ": ", tissues$name))
           }
         }
       } else if (input$mode == "Compare") {
@@ -495,15 +507,15 @@ server <- function(input, output, session) {
             sprintf("Mab: rho = %.2f; sim = %.2f", wrhoMab, abcMab),
             sprintf("Afm: rho = %.2f; sim = %.2f", wrhoAfm, abcAfm),
             sprintf("Bfm: rho = %.2f; sim = %.2f", wrhoBfm, abcBfm))
-        p <- add_trace(p, name = paste("(F)", qryB()), x = tissues$tissue_name, y = qryB_profile_f,
+        p <- add_trace(p, name = paste("(F)", qryB()), x = tissues$name, y = qryB_profile_f,
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
-            text = paste0(qryB(), ": ", tissues$tissue_name))
+            text = paste0(qryB(), ": ", tissues$name))
         #
-        p <- add_trace(p, name = paste("(M)", qryB()), x = tissues$tissue_name, y = qryB_profile_m,
+        p <- add_trace(p, name = paste("(M)", qryB()), x = tissues$name, y = qryB_profile_m,
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
-            text = paste0(qryB(), ": ", tissues$tissue_name))
+            text = paste0(qryB(), ": ", tissues$name))
       }
     } else { return(NULL) } #ERROR
     #
