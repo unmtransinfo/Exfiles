@@ -292,8 +292,7 @@ if __name__=='__main__':
 
   if args.ofile_median:
     print("Output TPM median file: %s"%args.ofile_median, file=sys.stderr)
-    rnaseq_med.to_csv(args.ofile_median, sep='\t')
-
+    rnaseq_med.round(3).to_csv(args.ofile_median, sep='\t', index=False)
 
   ### LOG10(TPM+1) useful transformation.
 
@@ -310,7 +309,7 @@ if __name__=='__main__':
 
   if args.ofile_level:
     print("Output TPM level file: %s"%args.ofile_level, file=sys.stderr)
-    rnaseq_level.to_csv(args.ofile_level, sep='\t')
+    rnaseq_level.round(3).to_csv(args.ofile_level, sep='\t', index=False)
 
 
   SABV(rnaseq_level, args.verbose)
