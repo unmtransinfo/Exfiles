@@ -13,10 +13,8 @@ $cwd/python/gtex_rnaseq_prep_app.py \
 	--i_sample $SRCDATADIR/GTEx_v7_Annotations_SampleAttributesDS.txt \
 	--i_rnaseq $rnaseqfile \
 	--i_gene $DATADIR/biomart_ENSG2NCBI.tsv \
-	--o_median $DATADIR/gtex_rnaseq_prep_median.tsv \
-	--o_level $DATADIR/gtex_rnaseq_prep_level.tsv \
-	--o_median_sex $DATADIR/gtex_rnaseq_prep_median_sex.tsv \
-	--o_level_sex $DATADIR/gtex_rnaseq_prep_level_sex.tsv \
+	--o $DATADIR/gtex_rnaseq_prep_nosex.tsv \
+	--o_sabv $DATADIR/gtex_rnaseq_prep_sabv.tsv \
 	--o_tau $DATADIR/gtex_rnaseq_prep_tau.tsv \
 	-v
 #
