@@ -48,6 +48,18 @@ def ReadSubjects(ifile, verbose):
   return subjects
 
 #############################################################################
+### Format: one line per tissue name, in preferred order.
+#############################################################################
+def ReadTissues(ifile, verbose):
+  fin = open(ifile)
+  print('=== GTEx Tissues datafile: %s'%fin.name, file=sys.stdout)
+  tissues = pandas.read_csv(fin, sep=';', index_col=False, header=None, names=['name'])
+  tissues = tissues.name.str.strip()
+  if verbose: print("n_tissues: %d:"%(tissues.size), file=sys.stdout)
+  if verbose: print("DEBUG: tissues:\n%s"%(str(tissues)), file=sys.stderr)
+  return tissues
+
+#############################################################################
 ### Keep only healthier subjects: 
 ### (DTHHRDY = 4-point Hardy Scale Death Classification.)
 #############################################################################
@@ -105,11 +117,16 @@ def DescribeSamples(samples):
   print("=== DescribeSamples:", file=sys.stdout)
   for name,val in samples.SEX.value_counts().sort_index().iteritems():
     print('\tSEX %s: %4d'%(name,val), file=sys.stdout)
-  for name,val in (samples.SMTS+" : "+samples.SMTSD).value_counts().sort_index().iteritems():
-    print('\tSMTS:SMTSD %s: %4d'%(name,val), file=sys.stdout)
+  i=0
+  for name,val in samples.SMTSD.value_counts().sort_index().iteritems():
+    i+=1
+    print('\t%d. SMTSD "%s": %4d'%(i,name,val), file=sys.stdout)
 
 #############################################################################
 ### READ GENE TPMs (full or demo subset)
+### Top 2 rows, format:
+###	#1.2
+###	nrow	ncol
 ### Full file is ~56k rows, 2.6GB uncompressed.  Demo ~1k rows.
 ### *   GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm.gct.gz
 ### *   GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm_demo.gct.gz
@@ -156,6 +173,8 @@ def CleanRnaseq(rnaseq, verbose):
   rnaseq = pandas.merge(rnaseq, sex_count, left_on=['ENSG', 'SMTSD'], right_index=True)
   rnaseq = rnaseq[rnaseq['sex_count'] == 2]
   rnaseq.drop(columns=['sex_count'], inplace=True)
+  rnaseq = rnaseq.reset_index(drop=True)
+
   return rnaseq
 
 #############################################################################
@@ -163,15 +182,12 @@ def SABV_stratify(rnaseq, verbose):
   print("=== SABV_stratify:", file=sys.stdout)
   #print("=== Assign levels (Low-Med-High) to ranks, cutoff quantiles .25, .75:", file=sys.stdout)
   #rnaseq['LEVEL'] = rnaseq.TPM_RANK.apply(lambda x: 'Not detected' if x==0 else 'Low' if x<.25 else 'Medium' if x<.75 else 'High')
-
+  #print("DEBUG: rnaseq.shape = %s"%(str(rnaseq.shape)), file=sys.stderr)
   #print("DEBUG: rnaseq.columns = %s"%(str(rnaseq.columns)), file=sys.stderr)
-
-  rnaseq['AGE'] = 'ALL'
-  rnaseq['SEX'] = 'ALL'
 
   ### Compute median TPM by gene+tissue+sex:
   rnaseq_sex = rnaseq[['ENSG', 'SMTSD', 'SEX', 'TPM']].groupby(by=['ENSG','SMTSD','SEX'], as_index=False).median()
-  #print(rnaseq_sex.shape)
+  #print("DEBUG: rnaseq_sex.shape = %s"%(str(rnaseq_sex.shape)), file=sys.stderr)
   #print("DEBUG: rnaseq_sex.columns = %s"%(str(rnaseq_sex.columns)), file=sys.stderr)
 
   ### Compute TAU by gene+sex:
@@ -213,27 +229,75 @@ def SABV_analyze(rnaseq, verbose):
   print("=== Compute Log fold-change, log of ratio (F/M):", file=sys.stdout)
   rnaseq_ranks['log2foldchange'] = ((rnaseq_ranks.TPM_F+1) / (rnaseq_ranks.TPM_M+1)).apply(lambda x: numpy.log2(max(x, 1/x)))
 
-  #WilcoxonSignedRank(rnaseq_ranks, rnaseq, verbose)
+  rnaseq = WilcoxonSignedRank(rnaseq, rnaseq_ranks, verbose)
 
-  return rnaseq_ranks
+  return rnaseq
 
 
 #############################################################################
-def WilcoxonSignedRank(rnaseq_ranks, rnaseq, verbose):
+def WilcoxonSignedRank(rnaseq, rnaseq_ranks, verbose):
   print("=== WilcoxonSignedRank:", file=sys.stdout)
   ### For each gene, compute sex difference via Wilcoxon signed-rank test,
   ### with Wilcox treatment, discarding all zero-differences.
 
-  wilcox = pandas.DataFrame({'ENSG':rnaseq.ENSG.drop_duplicates().sort_values(), 'stat':None, 'pval':None}).reset_index(drop=True)
+  results = pandas.DataFrame({'ENSG':rnaseq.ENSG.drop_duplicates().sort_values(), 'WilcoxonSignedRank_stat':None, 'WilcoxonSignedRank_pval':None}).reset_index(drop=True)
 
-  for i in range(wilcox.shape[0]):
-    tpm_f_this = rnaseq.TPM_F[rnaseq_ranks.ENSG == wilcox.ENSG[i]]
-    tpm_m_this = rnaseq.TPM_M[rnaseq_ranks.ENSG == wilcox.ENSG[i]]
+  for i in range(results.shape[0]):
+    tpm_f_this = rnaseq_ranks.TPM_F_RANK[rnaseq_ranks.ENSG==results.ENSG[i]]
+    tpm_m_this = rnaseq_ranks.TPM_M_RANK[rnaseq_ranks.ENSG==results.ENSG[i]]
+    #print("DEBUG: tpm_f_this = %s"%(str(tpm_f_this)), file=sys.stderr)
+    #print("DEBUG: tpm_m_this = %s"%(str(tpm_m_this)), file=sys.stderr)
+
+    ### What is best minimum size??
+    if tpm_f_this[tpm_f_this>0].size<8 or tpm_m_this[tpm_m_this>0].size<8:
+      continue
+
     stat, pval = scipy.stats.wilcoxon(x=tpm_f_this, y=tpm_m_this, zero_method='wilcox')
-    wilcox.stat.iloc[i] = stat
-    wilcox.pval.iloc[i] = pval 
+    results.WilcoxonSignedRank_stat.iloc[i] = stat
+    results.WilcoxonSignedRank_pval.iloc[i] = pval 
 
-  # Output?
+  rnaseq = pandas.merge(rnaseq, results, on=['ENSG'])
+
+  return rnaseq
+
+#############################################################################
+### Reshape to one-row-per-gene format.
+### From:   ENSG,SMTSD,SEX,TPM,LOG_TPM
+### To:	    ENSG,SEX,TPM_1,TPM_2,...TPM_N (N tissues)
+### Preserve tissue order.
+#############################################################################
+def PivotToProfiles(rnaseq, tissues_ordered, verbose):
+  tissues = pandas.Series(pandas.unique(rnaseq.SMTSD.sort_values()))
+  if type(tissues_ordered)==pandas.core.series.Series:
+    if set(tissues) == set(tissues_ordered):
+      tissues = tissues_ordered
+      print("Note: input tissues (ordered): %s"%(str(set(tissues))), file=sys.stderr)
+    else:
+      print("Warning: input tissues missing in samples: %s"%(str(set(tissues_ordered) - set(tissues))), file=sys.stderr)
+      print("Warning: sample tissues missing in input: %s"%(str(set(tissues) - set(tissues_ordered))), file=sys.stderr)
+
+  print("DEBUG: rnaseq n_rows = %d"%(rnaseq.shape[0]), file=sys.stderr)
+
+  # Assure only 1-row per unique (ensg,smtsd) tuple (or pivot will fail).
+  #rnaseq = rnaseq.drop_duplicates(subset=['ENSG','SMTSD'], keep='first')
+
+  rnaseq_f = rnaseq[['ENSG','SMTSD','TPM_F']]
+  rnaseq_m = rnaseq[['ENSG','SMTSD','TPM_M']]
+
+  exfiles_f = rnaseq_f.pivot(index='ENSG', columns='SMTSD')
+  exfiles_f.columns = exfiles_f.columns.get_level_values(1)
+  exfiles_f = exfiles_f.reset_index(drop=False)
+  exfiles_f['SEX'] = 'female'
+  exfiles_m = rnaseq_m.pivot(index='ENSG', columns='SMTSD')
+  exfiles_m.columns = exfiles_m.columns.get_level_values(1)
+  exfiles_m = exfiles_m.reset_index(drop=False)
+  exfiles_m['SEX'] = 'male'
+  exfiles = pandas.concat([exfiles_f, exfiles_m])
+  cols = ['ENSG','SEX']+tissues.tolist()
+  exfiles = exfiles[cols]
+  DescribeDf(exfiles,verbose)
+  return exfiles
+
 
 #############################################################################
 ### Compute tissue specificity index (Yanai et al., 2004).
@@ -278,18 +342,26 @@ if __name__=='__main__':
   parser.add_argument("--i_sample",dest="ifile_sample",help="input samples file")
   parser.add_argument("--i_rnaseq",dest="ifile_rnaseq",help="input rnaseq file")
   parser.add_argument("--i_gene",dest="ifile_gene",help="input gene file")
+  parser.add_argument("--i_tissue",dest="ifile_tissue",help="input (ordered) tissue file")
   parser.add_argument("--o",dest="ofile",help="output (TSV)")
   parser.add_argument("--o_sabv",dest="ofile_sabv",help="output SABV (TSV)")
   parser.add_argument("--o_tau",dest="ofile_tau",help="output TAU (TSV)")
+  parser.add_argument("--o_tissue",dest="ofile_tissue",help="output tissues (TSV)")
+  parser.add_argument("--o_profiles",dest="ofile_profiles",help="output profiles, 1-row/gene (TSV)")
   parser.add_argument("--decimals",type=int,default=3,help="output decimal places")
   parser.add_argument("-v","--verbose",action="count")
   args = parser.parse_args()
 
-  if not args.ifile_subject:
-    parser.error('Input subject file required.')
-
   if args.verbose:
     print('Python: %s\nPandas: %s'%(sys.version,pandas.__version__), file=sys.stdout)
+
+  if args.ifile_tissue:
+    tissues = ReadTissues(args.ifile_tissue, args.verbose)
+  else:
+    tissues = None
+
+  if not args.ifile_subject:
+    parser.error('Input subject file required.')
 
   subjects = ReadSubjects(args.ifile_subject, args.verbose)
 
@@ -307,6 +379,12 @@ if __name__=='__main__':
 
   if args.verbose:
     DescribeSamples(samples)
+
+  if args.ofile_tissue:
+    sample_tissues = samples[['SMTS','SMTSD']].reset_index(drop=True)
+    sample_tissues = sample_tissues.drop_duplicates().sort_values(['SMTS', 'SMTSD'])
+    print("=== Output tissues file: %s"%args.ofile_tissue, file=sys.stdout)
+    sample_tissues.round(args.decimals).to_csv(args.ofile_tissue, sep='\t', index=False)
 
   samples = CleanSamples(samples, args.verbose)
 
@@ -338,6 +416,7 @@ if __name__=='__main__':
   print('=== Non-SABV analysis:', file=sys.stdout)
   print('=== Compute median TPM by gene+tissue:', file=sys.stdout)
   rnaseq_nosex = rnaseq[['ENSG', 'SMTSD', 'TPM']].groupby(by=['ENSG','SMTSD'], as_index=False).median()
+  rnaseq_nosex['SEX'] = 'ALL'
   print("RNAseq unique counts: genes: %d ; tissues: %d ; gene-tissue pairs: %d"%(rnaseq_nosex.ENSG.nunique(), rnaseq_nosex.SMTSD.nunique(), rnaseq_nosex.shape[0]), file=sys.stdout)
 
   print('=== Compute LOG10(TPM+1):', file=sys.stdout)
@@ -371,3 +450,12 @@ if __name__=='__main__':
   if args.ofile_sabv:
     print("=== Output SABV file: %s"%args.ofile_sabv, file=sys.stdout)
     rnaseq_sex.round(args.decimals).to_csv(args.ofile_sabv, sep='\t', index=False)
+
+  print("=== Pivot to one-row-per-gene format: %s"%args.ofile, file=sys.stdout)
+  t0 = time.time()
+  rnaseq_profiles = PivotToProfiles(rnaseq_sex, tissues, args.verbose)
+  print("PivotToProfiles elapsed: %ds"%(time.time()-t0), file=sys.stderr)
+  if args.ofile_profiles:
+    print("=== Output profiles file: %s"%args.ofile_profiles, file=sys.stdout)
+    rnaseq_profiles.round(args.decimals).to_csv(args.ofile_profiles, sep='\t', index=False)
+
