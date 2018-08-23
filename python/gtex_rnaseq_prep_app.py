@@ -258,7 +258,7 @@ def WilcoxonSignedRank(rnaseq, rnaseq_ranks, verbose):
 
     try:
       stat, pval = scipy.stats.wilcoxon(x=tpm_f_this, y=tpm_m_this, zero_method='wilcox')
-    except Exception, e:
+    except Exception as e:
       print("Exception [i=%d; ensg=%s]: %s"%(i+1,results.ENSG[i],str(e)), file=sys.stderr)
       print("DEBUG: tpm_f_this=%s; tpm_m_this=%s"%(str(tpm_f_this),str(tpm_m_this)), file=sys.stderr)
       continue
