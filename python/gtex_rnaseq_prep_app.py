@@ -469,7 +469,7 @@ if __name__=='__main__':
 
   print("SABV TPM median unique counts: genes: %d"%(rnaseq.ENSG.nunique()), file=sys.stdout)
 
-  print("=== Pivot to one-row-per-gene format: %s"%args.ofile, file=sys.stdout)
+  print("=== Pivot to one-row-per-gene format (profiles).", file=sys.stdout)
   rnaseq_profiles = PivotToProfiles(rnaseq, tissues, args.verbose)
   if args.ofile_profiles:
     print("=== Output profiles file: %s"%args.ofile_profiles, file=sys.stdout)

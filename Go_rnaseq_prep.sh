@@ -16,7 +16,7 @@ $cwd/python/gtex_rnaseq_prep_app.py \
 	--i_subject $SRCDATADIR/GTEx_v7_Annotations_SubjectPhenotypesDS.txt \
 	--i_sample $SRCDATADIR/GTEx_v7_Annotations_SampleAttributesDS.txt \
 	--i_rnaseq $rnaseqfile \
-	--i_gene $DATADIR/biomart_ENSG2NCBI.tsv \
+	--i_gene $HOME/Downloads/biomart_ENSG2NCBI.tsv \
 	--o_sabv $DATADIR/gtex_rnaseq_prep_sabv.tsv \
 	--o_tau $DATADIR/gtex_rnaseq_prep_tau.tsv \
 	--o_tissue $DATADIR/gtex_rnaseq_prep_tissues.tsv \
