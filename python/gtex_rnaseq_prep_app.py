@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """gtex_rnaseq_prep_app.py
 
-GTEx RNAseq Preprocessing
+GTEx RNAseq Preprocessing, with Sex As Biological Variable (SABV)
 
 Command-line version; see also Jupyter notebook gtex_rnaseq_prep.ipynb
 
@@ -10,26 +10,26 @@ Command-line version; see also Jupyter notebook gtex_rnaseq_prep.ipynb
  - Required: Python3, Pandas 0.22+
 
 Workflow:
- - READ: GTEx Subjects data
- - READ: GTEx Samples data
- - READ: GTEx RNAseq expression TPM data
+ - READ: GTEx Subjects data, 1-row/subject.
+ - READ: GTEx Samples data, 1-row/sample.
+ - READ: GTEx RNAseq expression TPM data, 1-row/gene, 1-col/sample.
  - READ: Ensembl gene IDs file ENSG2NCBI, from Ensembl-Biomart (Gene stable ID version, NCBI gene ID, HGNC symbol).
  - REMOVE: samples with Hardy score >2 (prefer healthier).
  - REMOVE: samples with high degree of autolysis (self-digestion).
- - MERGE: Samples and subjects, to one row per sample.
- - RESHAPE: RNAseq data from 1 col/sample, to 3 cols: gene, sample, TPM.
+ - MERGE: Samples and subjects, to 1-row/sample.
+ - RESHAPE: RNAseq data from 1-col/sample, to 3 cols: gene, sample, TPM.
  - REMOVE: genes in pseudoautosomal regions (PAR) of chromosome Y.
- - COMPUTE: median TPM by gene+tissue.
- - COMPUTE: LOG10(TPM+1)
- - COMPUTE: TAU, tissue specificity index (Yanai et al., 2004).
+ - AGGREGATE: samples, computing median TPM by gene+tissue.
+ - AGGREGATE: samples, computing median TPM by gene+tissue+sex.
 
- - STRATIFY: RNAseq data by sex.
- - RESHAPE: into one row per gene+tissue, TPM_F, TPM_M.
- - COMPUTE: median TPM by gene+tissue+sex.
- - COMPUTE: Log fold-change, log of ratio (F/M).
- - COMPUTE: TAU, tissue specificity index, by gene+sex (TAU_F, TAU_M).
+ - COMPUTE: ranks, each gene+tissue, among tissues.
+ - COMPUTE: Wilcoxon signed rank test, F vs M, each gene+tissue.
+ - COMPUTE: Log fold-change, log of ratio (TPM_F/TPM_M).
+ - COMPUTE: TAU, TAU_F, TAU_M, tissue specificity index (Yanai et al., 2004)., by gene and gene+sex.
 
- - SAVE: files for downstream SABV expression profile analytics.
+ - OUTPUT: expression profiles, 1-row/gene+sex.
+ - OUTPUT: TAU, TAU_F, TAU_M, 1-row/gene.
+ - OUTPUT: SABV metrics, Wilcoxon signed rank and Log fold-change, 1-row/gene+tissue.
 
 """
 #############################################################################
@@ -251,14 +251,18 @@ def WilcoxonSignedRank(rnaseq, rnaseq_ranks, verbose):
   for i in range(results.shape[0]):
     tpm_f_this = rnaseq_ranks.TPM_F_RANK[rnaseq_ranks.ENSG==results.ENSG[i]]
     tpm_m_this = rnaseq_ranks.TPM_M_RANK[rnaseq_ranks.ENSG==results.ENSG[i]]
-    #print("DEBUG: tpm_f_this = %s"%(str(tpm_f_this)), file=sys.stderr)
-    #print("DEBUG: tpm_m_this = %s"%(str(tpm_m_this)), file=sys.stderr)
 
     ### What is best minimum size??
     if tpm_f_this[tpm_f_this>0].size<8 or tpm_m_this[tpm_m_this>0].size<8:
       continue
 
-    stat, pval = scipy.stats.wilcoxon(x=tpm_f_this, y=tpm_m_this, zero_method='wilcox')
+    try:
+      stat, pval = scipy.stats.wilcoxon(x=tpm_f_this, y=tpm_m_this, zero_method='wilcox')
+    except Exception, e:
+      print("Exception [i=%d; ensg=%s]: %s"%(i+1,results.ENSG[i],str(e)), file=sys.stderr)
+      print("DEBUG: tpm_f_this=%s; tpm_m_this=%s"%(str(tpm_f_this),str(tpm_m_this)), file=sys.stderr)
+      continue
+      
     results.WilcoxonSignedRank_stat.iloc[i] = stat
     results.WilcoxonSignedRank_pval.iloc[i] = pval 
 
@@ -363,7 +367,7 @@ if __name__=='__main__':
   parser.add_argument("--i_rnaseq",dest="ifile_rnaseq",help="input rnaseq file")
   parser.add_argument("--i_gene",dest="ifile_gene",help="input gene file")
   parser.add_argument("--i_tissue",dest="ifile_tissue",help="input (ordered) tissue file")
-  parser.add_argument("--o",dest="ofile",help="output (TSV)")
+  #parser.add_argument("--o",dest="ofile",help="output (TSV)")
   parser.add_argument("--o_sabv",dest="ofile_sabv",help="output SABV (TSV)")
   parser.add_argument("--o_tau",dest="ofile_tau",help="output TAU (TSV)")
   parser.add_argument("--o_tissue",dest="ofile_tissue",help="output tissues (TSV)")
@@ -453,10 +457,10 @@ if __name__=='__main__':
   rnaseq_nosex = GTRanks(rnaseq_nosex.copy(), 'TPM')
   print("TPM level unique counts: genes: %d"%(rnaseq_nosex.ENSG.nunique()), file=sys.stdout)
 
-  if args.ofile:
-    print("=== Output file (non-SABV): %s"%args.ofile, file=sys.stdout)
-    rnaseq_nosex.round(args.decimals).to_csv(args.ofile, sep='\t', index=False)
-
+  ### Needed?
+  #if args.ofile:
+  #  print("=== Output file (non-SABV): %s"%args.ofile, file=sys.stdout)
+  #  rnaseq_nosex.round(args.decimals).to_csv(args.ofile, sep='\t', index=False)
   ###
 
   print('=== SABV analysis:', file=sys.stdout)
