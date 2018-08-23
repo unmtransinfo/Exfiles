@@ -135,10 +135,8 @@ def ReadRnaseq(ifile, verbose):
   print("=== ReadRnaseq:", file=sys.stdout)
   fin = open(ifile, "rb")
   print('GTEx RNAseq TPM datafile: %s'%fin.name, file=sys.stdout)
-  t0 = time.time()
   rnaseq = pandas.read_table(fin, compression='gzip', sep='\t', skiprows=2)
   print("RNAseq dataset nrows: %d ; ncols: %d:"%(rnaseq.shape[0],rnaseq.shape[1]), file=sys.stdout)
-  print("ReadRnaseq elapsed: %ds"%(time.time()-t0), file=sys.stdout)
   rnaseq = rnaseq.drop(columns=['Description'])
   rnaseq = rnaseq.rename(columns={'Name':'ENSG'})
   return rnaseq
@@ -161,82 +159,90 @@ def ReadGenes(ifile, verbose):
 ### Remove data for gene-tissue pairs not present in both sexes.
 #############################################################################
 def CleanRnaseq(rnaseq, verbose):
+  print("DEBUG: CleanRnaseq IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
   print("=== CleanRnaseq:", file=sys.stdout)
-  max_tpm_0 = (rnaseq[['ENSG', 'SMTSD', 'TPM']].groupby(by=['ENSG','SMTSD'], as_index=True).max() == 0).rename(columns={'TPM':'max_tpm_0'})
-  #print(max_tpm_0.max_tpm_0.value_counts(), file=sys.stdout)
-  rnaseq = pandas.merge(rnaseq, max_tpm_0, left_on=['ENSG', 'SMTSD'], right_index=True)
-  rnaseq = rnaseq[~rnaseq['max_tpm_0']]
-  rnaseq.drop(columns=['max_tpm_0'], inplace=True)
 
-  sex_count = (rnaseq[['ENSG', 'SMTSD', 'SEX']].groupby(by=['ENSG','SMTSD'], as_index=True).nunique()).rename(columns={'SEX':'sex_count'})
+  maxtpm_0  = (rnaseq[['ENSG','SMTSD','TPM']].groupby(by=['ENSG','SMTSD'], as_index=True).max()==0).rename(columns={'TPM':'maxtpm_0'})
+  #print(maxtpm_0.maxtpm_0.value_counts(), file=sys.stdout)
+  rnaseq = pandas.merge(rnaseq, maxtpm_0, left_on=['ENSG', 'SMTSD'], right_index=True)
+  rnaseq = rnaseq[~rnaseq['maxtpm_0']]
+  rnaseq.drop(columns=['maxtpm_0'], inplace=True)
+
+  sex_count = (rnaseq[['ENSG','SMTSD','SEX']].groupby(by=['ENSG','SMTSD'], as_index=True).nunique()).rename(columns={'SEX':'sex_count'})
+  sex_count = sex_count[['sex_count']] #Why needed?
   #print(sex_count.sex_count.value_counts(), file=sys.stdout)
   rnaseq = pandas.merge(rnaseq, sex_count, left_on=['ENSG', 'SMTSD'], right_index=True)
+
   rnaseq = rnaseq[rnaseq['sex_count'] == 2]
   rnaseq.drop(columns=['sex_count'], inplace=True)
   rnaseq = rnaseq.reset_index(drop=True)
 
+  print("DEBUG: CleanRnaseq OUT: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
   return rnaseq
 
 #############################################################################
-def SABV_stratify(rnaseq, verbose):
-  print("=== SABV_stratify:", file=sys.stdout)
-  #print("=== Assign levels (Low-Med-High) to ranks, cutoff quantiles .25, .75:", file=sys.stdout)
-  #rnaseq['LEVEL'] = rnaseq.TPM_RANK.apply(lambda x: 'Not detected' if x==0 else 'Low' if x<.25 else 'Medium' if x<.75 else 'High')
-  #print("DEBUG: rnaseq.shape = %s"%(str(rnaseq.shape)), file=sys.stderr)
-  #print("DEBUG: rnaseq.columns = %s"%(str(rnaseq.columns)), file=sys.stderr)
+def SABV_aggregate_median(rnaseq, verbose):
+  print("=== SABV_aggregate_median:", file=sys.stdout)
+  print("DEBUG: SABV_aggregate_median IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
 
   ### Compute median TPM by gene+tissue+sex:
-  rnaseq_sex = rnaseq[['ENSG', 'SMTSD', 'SEX', 'TPM']].groupby(by=['ENSG','SMTSD','SEX'], as_index=False).median()
-  #print("DEBUG: rnaseq_sex.shape = %s"%(str(rnaseq_sex.shape)), file=sys.stderr)
-  #print("DEBUG: rnaseq_sex.columns = %s"%(str(rnaseq_sex.columns)), file=sys.stderr)
+  rnaseq = rnaseq[['ENSG', 'SMTSD', 'SEX', 'TPM']].groupby(by=['ENSG','SMTSD','SEX'], as_index=False).median()
 
-  ### Compute TAU by gene+sex:
-  rnaseq_tau_f = rnaseq_sex.loc[rnaseq_sex['SEX']=='female'].groupby(['ENSG']).TPM.agg(TAU)
-  rnaseq_tau_f = pandas.DataFrame(rnaseq_tau_f).rename(columns={'TPM':'TAU_F'})
-  #print("DEBUG: rnaseq_tau_f.columns = %s"%(str(rnaseq_tau_f.columns)), file=sys.stderr)
-  rnaseq_tau_m = rnaseq_sex.loc[rnaseq_sex['SEX']=='male'].groupby(['ENSG']).TPM.agg(TAU)
-  rnaseq_tau_m = pandas.DataFrame(rnaseq_tau_m).rename(columns={'TPM':'TAU_M'})
-  #print("DEBUG: rnaseq_tau_m.columns = %s"%(str(rnaseq_tau_m.columns)), file=sys.stderr)
-
-  rnaseq_tau = pandas.merge(rnaseq_tau_f, rnaseq_tau_m, left_index=True, right_index=True)
-  #print("DEBUG: rnaseq_tau.columns = %s"%(str(rnaseq_tau.columns)), file=sys.stderr)
-
-  ### Combine rows into one row per gene+tissue, cols for M and F TPM.
-  rnaseq_sex_f = rnaseq_sex.loc[rnaseq_sex['SEX']=='female']
-  rnaseq_sex_f = rnaseq_sex_f[['ENSG', 'SMTSD', 'TPM']].rename(columns={'TPM':'TPM_F'})
-  rnaseq_sex_m = rnaseq_sex.loc[rnaseq_sex['SEX']=='male']
-  rnaseq_sex_m = rnaseq_sex_m[['ENSG','SMTSD','TPM']].rename(columns={'TPM':'TPM_M'})
-  rnaseq_sex = pandas.merge(rnaseq_sex_f, rnaseq_sex_m, how='inner', on=['ENSG','SMTSD'])
-  rnaseq_sex = pandas.merge(rnaseq_sex, rnaseq_tau, left_on=['ENSG'], right_index=True)
-  return rnaseq_sex
+  print("DEBUG: SABV_aggregate_median OUT: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
+  return rnaseq
 
 #############################################################################
-def SABV_analyze(rnaseq, verbose):
-  print("=== SABV_analyze:", file=sys.stdout)
+def SABV_TAU(rnaseq, verbose):
+  print("=== SABV_TAU:", file=sys.stdout)
+  print("DEBUG: SABV_TAU IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
+
+  ### Compute TAU by gene:
+  rnaseq_nosex_tau = rnaseq.groupby(['ENSG']).TPM.agg(TAU)
+  rnaseq_nosex_tau = pandas.DataFrame(rnaseq_nosex_tau).rename(columns={'TPM':'TAU'})
+  rnaseq_nosex_tau['SEX'] = 'ALL'
+
+
+  ### Compute TAU by gene+sex:
+  rnaseq_tau_f = rnaseq.loc[rnaseq['SEX']=='female'].groupby(['ENSG']).TPM.agg(TAU)
+  rnaseq_tau_f = pandas.DataFrame(rnaseq_tau_f).rename(columns={'TPM':'TAU'})
+  rnaseq_tau_f = rnaseq_tau_f.reset_index(drop=False)
+  rnaseq_tau_f['SEX'] = 'female'
+  print("DEBUG: rnaseq_tau_f.columns = %s"%(str(rnaseq_tau_f.columns)), file=sys.stderr)
+
+  rnaseq_tau_m = rnaseq.loc[rnaseq['SEX']=='male'].groupby(['ENSG']).TPM.agg(TAU)
+  rnaseq_tau_m = pandas.DataFrame(rnaseq_tau_m).rename(columns={'TPM':'TAU'})
+  rnaseq_tau_m = rnaseq_tau_m.reset_index(drop=False)
+  rnaseq_tau_m['SEX'] = 'male'
+  print("DEBUG: rnaseq_tau_m.columns = %s"%(str(rnaseq_tau_m.columns)), file=sys.stderr)
+
+  rnaseq_tau = pandas.concat([rnaseq_nosex_tau, rnaseq_tau_f, rnaseq_tau_m])
+
+  print("DEBUG: SABV_TAU OUT: nrows = %d, cols: %s"%(rnaseq_tau.shape[0],str(rnaseq_tau.columns.tolist())), file=sys.stderr)
+  return rnaseq_tau
+
+
+#############################################################################
+def SABV_GTRanks(rnaseq, verbose):
+  print("=== SABV_GTRanks:", file=sys.stdout)
+  print("DEBUG: SABV_GTRanks IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
   print("=== Assign gene-tissue rank (quantile) among tissues (F):", file=sys.stdout)
   t0 = time.time()
   rnaseq_ranks_f = GTRanks(rnaseq[['ENSG','SMTSD','TPM_F']].copy(), 'TPM_F')
   print("GTRanks (F) elapsed: %ds"%(time.time()-t0), file=sys.stderr)
-  #rnaseq_ranks_f['LEVEL_F'] = rnaseq_ranks_f.TPM_F_RANK.apply(lambda x: 'Not detected' if x==0 else 'Low' if x<.25 else 'Medium' if x<.75 else 'High')
+  rnaseq_ranks_f['LEVEL_F'] = rnaseq_ranks_f.TPM_F_RANK.apply(lambda x: 'Not detected' if x==0 else 'Low' if x<.25 else 'Medium' if x<.75 else 'High')
   print("=== Assign gene-tissue rank (quantile) among tissues (M):", file=sys.stdout)
   t0 = time.time()
   rnaseq_ranks_m = GTRanks(rnaseq[['ENSG','SMTSD','TPM_M']].copy(), 'TPM_M')
   print("GTRanks (M) Elapsed: %ds"%(time.time()-t0), file=sys.stderr)
-  #rnaseq_ranks_m['LEVEL_M'] = rnaseq_ranks_m.TPM_M_RANK.apply(lambda x: 'Not detected' if x==0 else 'Low' if x<.25 else 'Medium' if x<.75 else 'High')
-
-  rnaseq_ranks = pandas.merge(rnaseq_ranks_f, rnaseq_ranks_m, on = ['ENSG','SMTSD'], how = 'inner')
-
-  print("=== Compute Log fold-change, log of ratio (F/M):", file=sys.stdout)
-  rnaseq_ranks['log2foldchange'] = ((rnaseq_ranks.TPM_F+1) / (rnaseq_ranks.TPM_M+1)).apply(lambda x: numpy.log2(max(x, 1/x)))
-
-  rnaseq = WilcoxonSignedRank(rnaseq, rnaseq_ranks, verbose)
-
+  rnaseq_ranks_m['LEVEL_M'] = rnaseq_ranks_m.TPM_M_RANK.apply(lambda x: 'Not detected' if x==0 else 'Low' if x<.25 else 'Medium' if x<.75 else 'High')
+  rnaseq = pandas.merge(rnaseq_ranks_f, rnaseq_ranks_m, on=['ENSG','SMTSD'], how='inner')
+  print("DEBUG: SABV_GTRanks OUT: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
   return rnaseq
-
 
 #############################################################################
 def WilcoxonSignedRank(rnaseq, rnaseq_ranks, verbose):
   print("=== WilcoxonSignedRank:", file=sys.stdout)
+  print("DEBUG: WilcoxonSignedRank IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
   ### For each gene, compute sex difference via Wilcoxon signed-rank test,
   ### with Wilcox treatment, discarding all zero-differences.
 
@@ -257,6 +263,7 @@ def WilcoxonSignedRank(rnaseq, rnaseq_ranks, verbose):
     results.WilcoxonSignedRank_pval.iloc[i] = pval 
 
   rnaseq = pandas.merge(rnaseq, results, on=['ENSG'])
+  print("DEBUG: WilcoxonSignedRank OUT: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
 
   return rnaseq
 
@@ -267,6 +274,7 @@ def WilcoxonSignedRank(rnaseq, rnaseq_ranks, verbose):
 ### Preserve tissue order.
 #############################################################################
 def PivotToProfiles(rnaseq, tissues_ordered, verbose):
+  print("DEBUG: PivotToProfiles IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
   tissues = pandas.Series(pandas.unique(rnaseq.SMTSD.sort_values()))
   if type(tissues_ordered)==pandas.core.series.Series:
     if set(tissues) == set(tissues_ordered):
@@ -276,13 +284,14 @@ def PivotToProfiles(rnaseq, tissues_ordered, verbose):
       print("Warning: input tissues missing in samples: %s"%(str(set(tissues_ordered) - set(tissues))), file=sys.stderr)
       print("Warning: sample tissues missing in input: %s"%(str(set(tissues) - set(tissues_ordered))), file=sys.stderr)
 
-  print("DEBUG: rnaseq n_rows = %d"%(rnaseq.shape[0]), file=sys.stderr)
-
   # Assure only 1-row per unique (ensg,smtsd) tuple (or pivot will fail).
   #rnaseq = rnaseq.drop_duplicates(subset=['ENSG','SMTSD'], keep='first')
 
-  rnaseq_f = rnaseq[['ENSG','SMTSD','TPM_F']]
-  rnaseq_m = rnaseq[['ENSG','SMTSD','TPM_M']]
+  rnaseq_f = rnaseq[rnaseq.SEX=='female'].drop(columns=['SEX'])
+  rnaseq_m = rnaseq[rnaseq.SEX=='male'].drop(columns=['SEX'])
+
+  rnaseq_f = rnaseq_f[['ENSG','SMTSD','TPM']]
+  rnaseq_m = rnaseq_m[['ENSG','SMTSD','TPM']]
 
   exfiles_f = rnaseq_f.pivot(index='ENSG', columns='SMTSD')
   exfiles_f.columns = exfiles_f.columns.get_level_values(1)
@@ -296,8 +305,19 @@ def PivotToProfiles(rnaseq, tissues_ordered, verbose):
   cols = ['ENSG','SEX']+tissues.tolist()
   exfiles = exfiles[cols]
   DescribeDf(exfiles,verbose)
+  print("DEBUG: PivotToProfiles OUT: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())), file=sys.stderr)
   return exfiles
 
+#############################################################################
+def SABV_LogFoldChange(rnaseq, verbose):
+  ### Combine rows into one row per gene+tissue, cols TPM_F, TPM_M.
+  rnaseq_f = rnaseq.loc[rnaseq['SEX']=='female']
+  rnaseq_f = rnaseq_f[['ENSG', 'SMTSD', 'TPM']].rename(columns={'TPM':'TPM_F'})
+  rnaseq_m = rnaseq.loc[rnaseq['SEX']=='male']
+  rnaseq_m = rnaseq_m[['ENSG','SMTSD','TPM']].rename(columns={'TPM':'TPM_M'})
+  rnaseq = pandas.merge(rnaseq_f, rnaseq_m, how='inner', on=['ENSG','SMTSD'])
+  rnaseq['Log2FoldChange'] = ((rnaseq.TPM_F+1) / (rnaseq.TPM_M+1)).apply(lambda x: numpy.log2(max(x, 1/x)))
+  return rnaseq
 
 #############################################################################
 ### Compute tissue specificity index (Yanai et al., 2004).
@@ -352,6 +372,9 @@ if __name__=='__main__':
   parser.add_argument("-v","--verbose",action="count")
   args = parser.parse_args()
 
+  PROG=os.path.basename(sys.argv[0])
+  t0 = time.time()
+
   if args.verbose:
     print('Python: %s\nPandas: %s'%(sys.version,pandas.__version__), file=sys.stdout)
 
@@ -394,7 +417,9 @@ if __name__=='__main__':
 
   if not args.ifile_rnaseq:
     parser.error('Input RNAseq file required.')
+  t1 = time.time()
   rnaseq = ReadRnaseq(args.ifile_rnaseq, args.verbose)
+  print("ReadRnaseq elapsed: %ds"%(time.time()-t1), file=sys.stdout)
 
   print('=== MELT: One row per ENSG+SAMPID+TPM triplet:', file=sys.stdout)
   ### Easier to handle but ~3x storage.
@@ -419,43 +444,50 @@ if __name__=='__main__':
   rnaseq_nosex['SEX'] = 'ALL'
   print("RNAseq unique counts: genes: %d ; tissues: %d ; gene-tissue pairs: %d"%(rnaseq_nosex.ENSG.nunique(), rnaseq_nosex.SMTSD.nunique(), rnaseq_nosex.shape[0]), file=sys.stdout)
 
-  print('=== Compute LOG10(TPM+1):', file=sys.stdout)
-  rnaseq_nosex['LOG_TPM'] = rnaseq_nosex.TPM.apply(lambda x: numpy.log10(x+1))
-
-  print('=== Compute TAU (tissue specificity, Yanai et al., 2004):', file=sys.stdout)
-  rnaseq_nosex_tau = rnaseq_nosex.groupby(['ENSG']).TPM.agg(TAU)
-  rnaseq_nosex_tau = pandas.DataFrame(rnaseq_nosex_tau).rename(columns={'TPM':'TAU'})
-  if args.ofile_tau:
-    print("=== Output TAU file: %s"%args.ofile_tau, file=sys.stdout)
-    rnaseq_nosex_tau.round(args.decimals).to_csv(args.ofile_tau, sep='\t') #Index is ENSG
+  ### Needed?
+  #print('=== Compute LOG10(TPM+1):', file=sys.stdout)
+  #rnaseq_nosex['LOG_TPM'] = rnaseq_nosex.TPM.apply(lambda x: numpy.log10(x+1))
+  ### 
 
   print('=== Compute gene-tissue ranks (GTRanks):', file=sys.stdout)
-  t0 = time.time()
   rnaseq_nosex = GTRanks(rnaseq_nosex.copy(), 'TPM')
-  print("GTRanks elapsed: %ds"%(time.time()-t0), file=sys.stderr)
   print("TPM level unique counts: genes: %d"%(rnaseq_nosex.ENSG.nunique()), file=sys.stdout)
 
   if args.ofile:
     print("=== Output file (non-SABV): %s"%args.ofile, file=sys.stdout)
     rnaseq_nosex.round(args.decimals).to_csv(args.ofile, sep='\t', index=False)
 
+  ###
+
   print('=== SABV analysis:', file=sys.stdout)
   print('=== Compute median TPM by gene+tissue+sex:', file=sys.stdout)
-  rnaseq_sex = SABV_stratify(rnaseq, args.verbose)
-  print("SABV TPM median unique counts: genes: %d"%(rnaseq_sex.ENSG.nunique()), file=sys.stdout)
+  rnaseq = SABV_aggregate_median(rnaseq, args.verbose)
 
-  rnaseq_sex = SABV_analyze(rnaseq_sex, args.verbose)
-  print("SABV TPM level unique counts: genes: %d"%(rnaseq_sex.ENSG.nunique()), file=sys.stdout)
-
-  if args.ofile_sabv:
-    print("=== Output SABV file: %s"%args.ofile_sabv, file=sys.stdout)
-    rnaseq_sex.round(args.decimals).to_csv(args.ofile_sabv, sep='\t', index=False)
+  print("SABV TPM median unique counts: genes: %d"%(rnaseq.ENSG.nunique()), file=sys.stdout)
 
   print("=== Pivot to one-row-per-gene format: %s"%args.ofile, file=sys.stdout)
-  t0 = time.time()
-  rnaseq_profiles = PivotToProfiles(rnaseq_sex, tissues, args.verbose)
-  print("PivotToProfiles elapsed: %ds"%(time.time()-t0), file=sys.stderr)
+  rnaseq_profiles = PivotToProfiles(rnaseq, tissues, args.verbose)
   if args.ofile_profiles:
     print("=== Output profiles file: %s"%args.ofile_profiles, file=sys.stdout)
     rnaseq_profiles.round(args.decimals).to_csv(args.ofile_profiles, sep='\t', index=False)
 
+  print('=== Compute TAU (tissue specificity, Yanai et al., 2004):', file=sys.stdout)
+  rnaseq_tau = SABV_TAU(rnaseq, args.verbose)
+  if args.ofile_tau:
+    print("=== Output TAU file: %s"%args.ofile_tau, file=sys.stdout)
+    rnaseq_tau.round(args.decimals).to_csv(args.ofile_tau, sep='\t') #Index is ENSG
+
+  print("=== Compute Log fold-change, log of ratio (F/M):", file=sys.stdout)
+  ### (Also combine rows into one row per gene+tissue, cols for M and F TPM.)
+  rnaseq = SABV_LogFoldChange(rnaseq, args.verbose)
+
+
+  ### Ranks needed for WilcoxonSignedRank test.
+  rnaseq_ranks = SABV_GTRanks(rnaseq, args.verbose)
+  rnaseq = WilcoxonSignedRank(rnaseq, rnaseq_ranks, args.verbose)
+
+  if args.ofile_sabv:
+    print("=== Output SABV file: %s"%args.ofile_sabv, file=sys.stdout)
+    rnaseq.round(args.decimals).to_csv(args.ofile_sabv, sep='\t', index=False)
+
+  print("%s Elapsed: %ds"%(PROG,(time.time()-t0)), file=sys.stderr)
