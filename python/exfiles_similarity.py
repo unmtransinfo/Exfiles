@@ -116,7 +116,7 @@ def Tanimoto_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
       if numpy.isnan(t):
         n_nan+=1
         #print("DEBUG: t=nan; AA=%f; BB=%f; AB=%f; A=%s; B=%s; idsA=%s; idsB=%s"%(AA,BB,AB,str(A.tolist()),str(B.tolist()),exfiles.iloc[i,idcols].tolist(),exfiles.iloc[j,idcols].tolist()), file=sys.stderr)
-      if c<minval:
+      if t<minval:
         n_submin+=1
         continue
       n_out+=1
