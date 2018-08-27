@@ -37,7 +37,8 @@ def Pearson_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
       c = numpy.corrcoef(numpy.array([A.tolist(),B.tolist()]))[0][1]
       if numpy.isnan(c):
         n_nan+=1
-      if c<minval:
+        continue
+      elif c<minval:
         n_submin+=1
         continue
       n_out+=1
@@ -69,7 +70,8 @@ def Spearman_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
 
       if numpy.isnan(c.correlation):
         n_nan+=1
-      if c<minval:
+        continue
+      elif c<minval:
         n_submin+=1
         continue
       if c.correlation==0: n_zero+=1
@@ -115,8 +117,8 @@ def Tanimoto_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
       t = (AB / den) if den>0 else numpy.nan
       if numpy.isnan(t):
         n_nan+=1
-        #print("DEBUG: t=nan; AA=%f; BB=%f; AB=%f; A=%s; B=%s; idsA=%s; idsB=%s"%(AA,BB,AB,str(A.tolist()),str(B.tolist()),exfiles.iloc[i,idcols].tolist(),exfiles.iloc[j,idcols].tolist()), file=sys.stderr)
-      if t<minval:
+        continue
+      elif t<minval:
         n_submin+=1
         continue
       n_out+=1

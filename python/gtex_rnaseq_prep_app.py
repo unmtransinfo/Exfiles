@@ -9,7 +9,7 @@ Command-line version; see also Jupyter notebook gtex_rnaseq_prep.ipynb
  - Based on R code by Oleg Ursu.
  - Required: Python3, Pandas 0.22+
 
-Workflow:
+Workflow (prep):
  - READ: GTEx Subjects data, 1-row/subject.
  - READ: GTEx Samples data, 1-row/sample.
  - READ: GTEx RNAseq expression TPM data, 1-row/gene, 1-col/sample.
@@ -21,13 +21,15 @@ Workflow:
  - REMOVE: genes in pseudoautosomal regions (PAR) of chromosome Y.
  - AGGREGATE: samples, computing median TPM by gene+tissue.
  - AGGREGATE: samples, computing median TPM by gene+tissue+sex.
+ - OUTPUT: median TPMs, 1-row/gene+tissue+sex.
+ - OUTPUT: expression profiles, 1-row/gene+sex.
 
+Workflow (analysis):
  - COMPUTE: ranks, each gene+tissue, among tissues.
  - COMPUTE: Wilcoxon signed rank test, F vs M, each gene+tissue.
  - COMPUTE: Log fold-change, log of ratio (TPM_F/TPM_M).
  - COMPUTE: TAU, TAU_F, TAU_M, tissue specificity index (Yanai et al., 2004)., by gene and gene+sex.
 
- - OUTPUT: expression profiles, 1-row/gene+sex.
  - OUTPUT: TAU, TAU_F, TAU_M, 1-row/gene.
  - OUTPUT: SABV metrics, Wilcoxon signed rank and Log fold-change, 1-row/gene+tissue.
 
@@ -367,11 +369,10 @@ if __name__=='__main__':
   parser.add_argument("--i_rnaseq",dest="ifile_rnaseq",help="input rnaseq file")
   parser.add_argument("--i_gene",dest="ifile_gene",help="input gene file")
   parser.add_argument("--i_tissue",dest="ifile_tissue",help="input (ordered) tissue file")
-  #parser.add_argument("--o",dest="ofile",help="output (TSV)")
+  parser.add_argument("--o_median",dest="ofile_median",help="output median TPM, 1-row/gene+tissue+sex (TSV)")
+  parser.add_argument("--o_profiles",dest="ofile_profiles",help="output profiles, 1-row/gene+sex (TSV)")
   parser.add_argument("--o_sabv",dest="ofile_sabv",help="output SABV (TSV)")
-  parser.add_argument("--o_tau",dest="ofile_tau",help="output TAU (TSV)")
   parser.add_argument("--o_tissue",dest="ofile_tissue",help="output tissues (TSV)")
-  parser.add_argument("--o_profiles",dest="ofile_profiles",help="output profiles, 1-row/gene (TSV)")
   parser.add_argument("--decimals",type=int,default=3,help="output decimal places")
   parser.add_argument("-v","--verbose",action="count")
   args = parser.parse_args()
@@ -457,17 +458,15 @@ if __name__=='__main__':
   rnaseq_nosex = GTRanks(rnaseq_nosex.copy(), 'TPM')
   print("TPM level unique counts: genes: %d"%(rnaseq_nosex.ENSG.nunique()), file=sys.stdout)
 
-  ### Needed?
-  #if args.ofile:
-  #  print("=== Output file (non-SABV): %s"%args.ofile, file=sys.stdout)
-  #  rnaseq_nosex.round(args.decimals).to_csv(args.ofile, sep='\t', index=False)
-  ###
-
-  print('=== SABV analysis:', file=sys.stdout)
+  print('=== SABV prep:', file=sys.stdout)
   print('=== Compute median TPM by gene+tissue+sex:', file=sys.stdout)
   rnaseq = SABV_aggregate_median(rnaseq, args.verbose)
 
   print("SABV TPM median unique counts: genes: %d"%(rnaseq.ENSG.nunique()), file=sys.stdout)
+
+  if args.ofile_median:
+    print("=== Output medians file: %s"%args.ofile_median, file=sys.stdout)
+    rnaseq.round(args.decimals).to_csv(args.ofile_median, sep='\t', index=False)
 
   print("=== Pivot to one-row-per-gene format (profiles).", file=sys.stdout)
   rnaseq_profiles = PivotToProfiles(rnaseq, tissues, args.verbose)
@@ -475,16 +474,16 @@ if __name__=='__main__':
     print("=== Output profiles file: %s"%args.ofile_profiles, file=sys.stdout)
     rnaseq_profiles.round(args.decimals).to_csv(args.ofile_profiles, sep='\t', index=False)
 
+  print('=== SABV analysis:', file=sys.stdout)
   print('=== Compute TAU (tissue specificity, Yanai et al., 2004):', file=sys.stdout)
-  rnaseq_tau = SABV_TAU(rnaseq, args.verbose)
-  if args.ofile_tau:
-    print("=== Output TAU file: %s"%args.ofile_tau, file=sys.stdout)
-    rnaseq_tau.round(args.decimals).to_csv(args.ofile_tau, sep='\t') #Index is ENSG
+#  rnaseq_tau = SABV_TAU(rnaseq, args.verbose)
+#  if args.ofile_tau:
+#    print("=== Output TAU file: %s"%args.ofile_tau, file=sys.stdout)
+#    rnaseq_tau.round(args.decimals).to_csv(args.ofile_tau, sep='\t') #Index is ENSG
 
   print("=== Compute Log fold-change, log of ratio (F/M):", file=sys.stdout)
   ### (Also combine rows into one row per gene+tissue, cols for M and F TPM.)
   rnaseq = SABV_LogFoldChange(rnaseq, args.verbose)
-
 
   ### Ranks needed for WilcoxonSignedRank test.
   rnaseq_ranks = SABV_GTRanks(rnaseq, args.verbose)
