@@ -18,7 +18,6 @@ $cwd/python/gtex_rnaseq_prep_app.py \
 	--i_gene $HOME/Downloads/biomart_ENSG2NCBI.tsv \
 	--o_median $DATADIR/gtex_rnaseq_prep_median.tsv \
 	--o_profiles $DATADIR/gtex_rnaseq_prep_profiles.tsv \
-	--o_sabv $DATADIR/gtex_rnaseq_prep_sabv.tsv \
 	--o_tissue $DATADIR/gtex_rnaseq_prep_tissues.tsv \
 	-v
 #
