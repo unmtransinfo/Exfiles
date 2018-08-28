@@ -65,18 +65,17 @@ def Spearman_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
     for j in range(i+1, exfiles.shape[0]):
       B = exfiles.iloc[j,datacols]
 
-      ## Returns rho and p.
-      c = scipy.stats.spearmanr(A,B)
+      rho,pval = scipy.stats.spearmanr(A,B)
 
-      if numpy.isnan(c.correlation):
+      if numpy.isnan(rho):
         n_nan+=1
         continue
-      elif c<minval:
+      elif rho<minval:
         n_submin+=1
         continue
-      if c.correlation==0: n_zero+=1
+      if rho==0: n_zero+=1
       n_out+=1
-      fout.write('%s\t%f\t%f\n'%('\t'.join(exfiles.iloc[i,idcols].tolist()+exfiles.iloc[j,idcols].tolist()),c.correlation,c.pvalue))
+      fout.write('%s\t%f\t%f\n'%('\t'.join(exfiles.iloc[i,idcols].tolist()+exfiles.iloc[j,idcols].tolist()),rho,pval))
     
   print("n_out: %d"%(n_out), file=sys.stdout)
   print("n_nan: %d"%(n_nan), file=sys.stdout)
