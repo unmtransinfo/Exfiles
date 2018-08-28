@@ -36,7 +36,7 @@ import pandas
 def ReadSubjects(ifile, verbose):
   fin = open(ifile)
   print('=== GTEx Subjects datafile: %s'%fin.name, file=sys.stdout)
-  subjects = pandas.read_csv(fin, sep='\t', index_col='SUBJID')
+  subjects = pandas.read_csv(fin, sep='\t')
   print("Subjects dataset nrows: %d ; ncols: %d:"%(subjects.shape[0],subjects.shape[1]), file=sys.stdout)
   return subjects
 
@@ -84,13 +84,12 @@ def ReadSamples(ifile, verbose):
   print("=== ReadSamples:", file=sys.stdout)
   fin = open(ifile)
   print('GTEx Samples datafile: %s'%fin.name, file=sys.stdout)
-  samples = pandas.read_csv(fin, sep='\t', index_col='SAMPID')
-  samples = samples[['SMATSSCR', 'SMTS', 'SMTSD']]
+  samples = pandas.read_csv(fin, sep='\t')
+  samples = samples[['SAMPID', 'SMATSSCR', 'SMTS', 'SMTSD']]
   print("Samples dataset nrows: %d ; ncols: %d:"%(samples.shape[0],samples.shape[1]), file=sys.stdout)
-  DescribeDf(samples, verbose)
   ### SUBJID is first two hyphen-delimted fields of SAMPID.
-  samples['SUBJID'] = samples.index
-  samples['SUBJID'] = samples.SUBJID.str.extract('^([^-]+-[^-]+)-', expand=True)
+  samples['SUBJID'] = samples.SAMPID.str.extract('^([^-]+-[^-]+)-', expand=True)
+  DescribeDf(samples, verbose)
   return samples
 
 #############################################################################
@@ -113,7 +112,7 @@ def DescribeSamples(samples):
   i=0
   for name,val in samples.SMTSD.value_counts().sort_index().iteritems():
     i+=1
-    print('\t%d. SMTSD "%s": %4d'%(i,name,val), file=sys.stdout)
+    print('\t%d. "%s": %4d'%(i,name,val), file=sys.stdout)
 
 #############################################################################
 ### READ GENE TPMs (full or demo subset)
@@ -150,18 +149,19 @@ def ReadGenes(ifile, verbose):
 #############################################################################
 ### Remove data for gene-tissue pairs with all zero expression.
 ### Remove data for gene-tissue pairs not present in both sexes.
+### This removes most sex-specific tissues, but not breast.
 #############################################################################
 def CleanRnaseq(rnaseq, verbose):
   print("DEBUG: CleanRnaseq IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
   print("=== CleanRnaseq:", file=sys.stdout)
 
-  maxtpm_0  = (rnaseq[['ENSG','SMTSD','TPM']].groupby(by=['ENSG','SMTSD'], as_index=True).max()==0).rename(columns={'TPM':'maxtpm_0'})
+  maxtpm_0  = (rnaseq[['ENSG', 'SMTSD','TPM']].groupby(by=['ENSG', 'SMTSD'], as_index=True).max()==0).rename(columns={'TPM':'maxtpm_0'})
   #print(maxtpm_0.maxtpm_0.value_counts(), file=sys.stdout)
   rnaseq = pandas.merge(rnaseq, maxtpm_0, left_on=['ENSG', 'SMTSD'], right_index=True)
   rnaseq = rnaseq[~rnaseq['maxtpm_0']]
   rnaseq.drop(columns=['maxtpm_0'], inplace=True)
 
-  sex_count = (rnaseq[['ENSG','SMTSD','SEX']].groupby(by=['ENSG','SMTSD'], as_index=True).nunique()).rename(columns={'SEX':'sex_count'})
+  sex_count = (rnaseq[['ENSG', 'SMTSD','SEX']].groupby(by=['ENSG', 'SMTSD'], as_index=True).nunique()).rename(columns={'SEX':'sex_count'})
   sex_count = sex_count[['sex_count']] #Why needed?
   #print(sex_count.sex_count.value_counts(), file=sys.stdout)
   rnaseq = pandas.merge(rnaseq, sex_count, left_on=['ENSG', 'SMTSD'], right_index=True)
@@ -169,6 +169,8 @@ def CleanRnaseq(rnaseq, verbose):
   rnaseq = rnaseq[rnaseq['sex_count'] == 2]
   rnaseq.drop(columns=['sex_count'], inplace=True)
   rnaseq = rnaseq.reset_index(drop=True)
+
+  rnaseq = rnaseq[~rnaseq.SMTSD.str.match('^Breast')]
 
   print("DEBUG: CleanRnaseq OUT: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
   return rnaseq
@@ -266,7 +268,7 @@ if __name__=='__main__':
   samples = ReadSamples(args.ifile_sample, args.verbose)
 
   print('=== MERGE samples and subjects:', file=sys.stdout)
-  samples = pandas.merge(samples, subjects, how='inner', left_on='SUBJID', right_index=True)
+  samples = pandas.merge(samples, subjects, how='inner', on='SUBJID')
 
   if args.verbose:
     DescribeSamples(samples)
@@ -302,7 +304,7 @@ if __name__=='__main__':
   rnaseq = rnaseq[~rnaseq.ENSG.str.startswith('ENSGR')]
 
   print('=== Merge with samples:', file=sys.stdout)
-  rnaseq = pandas.merge(rnaseq, samples, how="inner", left_on="SAMPID", right_index=True)
+  rnaseq = pandas.merge(rnaseq, samples, how="inner", on="SAMPID")
 
   rnaseq = CleanRnaseq(rnaseq, args.verbose)
 
