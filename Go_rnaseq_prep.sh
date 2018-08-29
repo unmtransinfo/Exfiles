@@ -16,6 +16,7 @@ $cwd/python/gtex_rnaseq_prep_app.py \
 	--i_sample $SRCDATADIR/GTEx_v7_Annotations_SampleAttributesDS.txt \
 	--i_rnaseq $rnaseqfile \
 	--i_gene $HOME/Downloads/biomart_ENSG2NCBI.tsv \
+	--o_sample $DATADIR/gtex_rnaseq_prep_sample.tsv \
 	--o_median $DATADIR/gtex_rnaseq_prep_median.tsv \
 	--o_profiles $DATADIR/gtex_rnaseq_prep_profiles.tsv \
 	--o_tissue $DATADIR/gtex_rnaseq_prep_tissues.tsv \

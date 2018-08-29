@@ -74,7 +74,7 @@ def DescribeSubjects(subjects):
 #############################################################################
 def DescribeDf(df, verbose):
   buff = io.StringIO()
-  df.info(buf=buff,verbose=bool(verbose>0),null_counts=bool(verbose>0))
+  df.info(buf=buff,verbose=bool(verbose),null_counts=bool(verbose))
   print(re.sub(re.compile('^', re.M), '\t', buff.getvalue()), file=sys.stdout)
 
 #############################################################################
@@ -172,6 +172,10 @@ def CleanRnaseq(rnaseq, verbose):
 
   rnaseq = rnaseq[~rnaseq.SMTSD.str.match('^Breast')]
 
+  rnaseq = rnaseq[['ENSG', 'SMTSD', 'SAMPID', 'SMATSSCR', 'SEX', 'AGE', 'DTHHRDY', 'TPM']]
+
+  rnaseq = rnaseq.sort_values(by=['ENSG', 'SMTSD', 'SAMPID'])
+
   print("DEBUG: CleanRnaseq OUT: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
   return rnaseq
 
@@ -236,6 +240,7 @@ if __name__=='__main__':
   parser.add_argument("--i_gene",dest="ifile_gene",help="input gene file")
   parser.add_argument("--i_tissue",dest="ifile_tissue",help="input (ordered) tissue file")
   parser.add_argument("--o_median",dest="ofile_median",help="output median TPM, 1-row/gene+tissue+sex (TSV)")
+  parser.add_argument("--o_sample",dest="ofile_sample",help="output sample TPM, 1-row/gene+sample (TSV)")
   parser.add_argument("--o_profiles",dest="ofile_profiles",help="output profiles, 1-row/gene+sex (TSV)")
   parser.add_argument("--o_tissue",dest="ofile_tissue",help="output tissues (TSV)")
   parser.add_argument("--decimals",type=int,default=3,help="output decimal places")
@@ -308,13 +313,17 @@ if __name__=='__main__':
 
   rnaseq = CleanRnaseq(rnaseq, args.verbose)
 
+  if args.ofile_sample:
+    print("=== Output sample TPM file: %s"%args.ofile_sample, file=sys.stdout)
+    rnaseq.round(args.decimals).to_csv(args.ofile_sample, sep='\t', index=False)
+
   print('=== Compute median TPM by gene+tissue+sex:', file=sys.stdout)
   rnaseq = SABV_aggregate_median(rnaseq, args.verbose)
 
   print("SABV TPM median unique counts: genes: %d"%(rnaseq.ENSG.nunique()), file=sys.stdout)
 
   if args.ofile_median:
-    print("=== Output medians file: %s"%args.ofile_median, file=sys.stdout)
+    print("=== Output median (by gene+tissue+sex) TPM file: %s"%args.ofile_median, file=sys.stdout)
     rnaseq.round(args.decimals).to_csv(args.ofile_median, sep='\t', index=False)
 
   print("=== Pivot to one-row-per-gene format (profiles).", file=sys.stdout)
