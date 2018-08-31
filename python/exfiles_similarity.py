@@ -73,9 +73,69 @@ def Spearman_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
       elif rho<minval:
         n_submin+=1
         continue
-      if rho==0: n_zero+=1
       n_out+=1
       fout.write('%s\t%f\t%f\n'%('\t'.join(exfiles.iloc[i,idcols].tolist()+exfiles.iloc[j,idcols].tolist()),rho,pval))
+    
+  print("n_out: %d"%(n_out), file=sys.stdout)
+  print("n_nan: %d"%(n_nan), file=sys.stdout)
+  print("n_submin: %d"%(n_submin), file=sys.stdout)
+
+
+#############################################################################
+def ABC(A,B):
+  abc = 0.0
+  for i in range(len(A)-1):
+    Amid = numpy.mean(A[i:i+1])
+    Bmid = numpy.mean(B[i:i+1])
+    if (A[i]>=B[i]):
+      if (A[i+1]>=B[i+1]):
+        abc = abc + (AULS(A[i], A[i+1], 1) - AULS(B[i], B[i+1], 1))
+      else:
+        abc = abc + (AULS(A[i], Amid, .5) - AULS(B[i], Bmid , .5))
+        abc = abc + (AULS(Bmid, B[i+1], .5) - AULS(Amid, A[i+1], .5))
+    else:
+      if (A[i+1]<B[i+1]):
+        abc = abc + (AULS(B[i], B[i+1], 1) - AULS(A[i], A[i+1], 1))
+      else:
+        abc = abc + (AULS(B[i], Bmid, .5) - AULS(A[i], Amid , .5))
+        abc = abc + (AULS(Amid, A[i+1], .5) - AULS(Bmid, B[i+1], .5))
+  return(abc)
+#
+#############################################################################
+### Area Under Line Segment
+def AULS(y1, y2, w):
+  a = min(y1,y2) * w
+  a = a + 0.5 * w * abs(y1-y2)
+  return(a)
+
+#############################################################################
+def ABC_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
+  print("DEBUG: ABC_NxN IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())), file=sys.stderr)
+  print("DEBUG: idcols = %s ; datacols = %s"%(str(idcols),str(datacols)), file=sys.stderr)
+
+  idcoltags = exfiles.columns[idcols]
+  print("DEBUG: idcoltags = %s"%(str(idcoltags)), file=sys.stderr)
+
+  fout = open(ofile, 'w')
+  fout.write('%s\tABC\tABC_sim\n'%('\t'.join(['%sA'%tag for tag in idcoltags]+['%sB'%tag for tag in idcoltags])))
+
+  n_out=0; n_nan=0; n_submin=0;
+  for i in range(exfiles.shape[0]):
+    A = exfiles.iloc[i,datacols]
+    for j in range(i+1, exfiles.shape[0]):
+      B = exfiles.iloc[j,datacols]
+
+      abc = ABC(A,B)
+      abc_sim = (1 / (1 + abc/len(A)))
+
+      if numpy.isnan(abc_sim):
+        n_nan+=1
+        continue
+      elif abc_sim<minval:
+        n_submin+=1
+        continue
+      n_out+=1
+      fout.write('%s\t%f\t%f\n'%('\t'.join(exfiles.iloc[i,idcols].tolist()+exfiles.iloc[j,idcols].tolist()),abc,abc_sim))
     
   print("n_out: %d"%(n_out), file=sys.stdout)
   print("n_nan: %d"%(n_nan), file=sys.stdout)
@@ -150,6 +210,8 @@ if __name__=='__main__':
   parser.add_argument("--i",dest="ifile",help="input profiles, 1-row/gene (TSV)")
   parser.add_argument("--o_tanimoto",dest="ofile_tanimoto",help="output (TSV)")
   parser.add_argument("--tanimoto_min",type=float,default=0,help="minimum values output")
+  parser.add_argument("--o_abc",dest="ofile_abc",help="output (TSV)")
+  parser.add_argument("--abc_min",type=float,default=0,help="maximum values output")
   parser.add_argument("--o_pearson",dest="ofile_pearson",help="output (TSV)")
   parser.add_argument("--pearson_min",type=float,default=-1,help="minimum values output")
   parser.add_argument("--o_spearman",dest="ofile_spearman",help="output (TSV)")
@@ -179,5 +241,8 @@ if __name__=='__main__':
 
   if args.ofile_tanimoto:
     Tanimoto_NxN(exfiles, [0,1], list(range(2,exfiles.shape[1])), args.tanimoto_min, args.ofile_tanimoto, args.verbose)
+
+  if args.ofile_abc:
+    ABC_NxN(exfiles, [0,1], list(range(2,exfiles.shape[1])), args.abc_min, args.ofile_abc, args.verbose)
 
   print("%s Elapsed: %ds"%(PROG,(time.time()-t0)), file=sys.stderr)
