@@ -27,13 +27,13 @@ def Pearson_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
   print("DEBUG: idcoltags = %s"%(str(idcoltags)), file=sys.stderr)
 
   fout = open(ofile, 'w')
-  fout.write('%s\tPearson\n'%('\t'.join(['%sA'%tag for tag in idcoltags]+['%sB'%tag for tag in idcoltags])))
+  fout.write('%s\tPearson\n'%('\t'.join([tag+'A' for tag in idcoltags]+[tag+'B' for tag in idcoltags])))
 
   n_out=0; n_nan=0; n_submin=0;
-  for i in range(exfiles.shape[0]):
-    A = exfiles.iloc[i,datacols]
-    for j in range(i+1, exfiles.shape[0]):
-      B = exfiles.iloc[j,datacols]
+  for iA in range(exfiles.shape[0]):
+    A = exfiles.iloc[iA,datacols]
+    for iB in range(iA+1, exfiles.shape[0]):
+      B = exfiles.iloc[iB,datacols]
       c = numpy.corrcoef(numpy.array([A.tolist(),B.tolist()]))[0][1]
       if numpy.isnan(c):
         n_nan+=1
@@ -42,7 +42,7 @@ def Pearson_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
         n_submin+=1
         continue
       n_out+=1
-      fout.write('%s\t%f\n'%('\t'.join(exfiles.iloc[i,idcols].tolist()+exfiles.iloc[j,idcols].tolist()),c))
+      fout.write('%s\t%f\n'%('\t'.join(exfiles.iloc[iA,idcols].tolist()+exfiles.iloc[iB,idcols].tolist()),c))
     
   print("n_out: %d"%(n_out), file=sys.stdout)
   print("n_nan: %d"%(n_nan), file=sys.stdout)
@@ -57,15 +57,19 @@ def Spearman_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
   print("DEBUG: idcoltags = %s"%(str(idcoltags)), file=sys.stderr)
 
   fout = open(ofile, 'w')
-  fout.write('%s\tSpearmanRho\tSpearmanP\n'%('\t'.join(['%sA'%tag for tag in idcoltags]+['%sB'%tag for tag in idcoltags])))
+  fout.write('%s\tSpearmanRho\tSpearmanP\n'%('\t'.join([tag+'A' for tag in idcoltags]+[tag+'B' for tag in idcoltags])))
 
-  n_out=0; n_nan=0; n_submin=0;
-  for i in range(exfiles.shape[0]):
-    A = exfiles.iloc[i,datacols]
-    for j in range(i+1, exfiles.shape[0]):
-      B = exfiles.iloc[j,datacols]
+  n_out=0; n_nan=0; n_submin=0; n_err=0;
+  for iA in range(exfiles.shape[0]):
+    A = exfiles.iloc[iA,datacols]
+    for iB in range(iA+1, exfiles.shape[0]):
+      B = exfiles.iloc[iB,datacols]
 
-      rho,pval = scipy.stats.spearmanr(A,B)
+      try:
+        rho,pval = scipy.stats.spearmanr(A,B)
+      except Exception as e:
+        n_err+=1
+        continue
 
       if numpy.isnan(rho):
         n_nan+=1
@@ -74,7 +78,7 @@ def Spearman_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
         n_submin+=1
         continue
       n_out+=1
-      fout.write('%s\t%f\t%f\n'%('\t'.join(exfiles.iloc[i,idcols].tolist()+exfiles.iloc[j,idcols].tolist()),rho,pval))
+      fout.write('%s\t%f\t%f\n'%('\t'.join(exfiles.iloc[iA,idcols].tolist()+exfiles.iloc[iB,idcols].tolist()),rho,pval))
     
   print("n_out: %d"%(n_out), file=sys.stdout)
   print("n_nan: %d"%(n_nan), file=sys.stdout)
@@ -117,13 +121,13 @@ def ABC_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
   print("DEBUG: idcoltags = %s"%(str(idcoltags)), file=sys.stderr)
 
   fout = open(ofile, 'w')
-  fout.write('%s\tABC\tABC_sim\n'%('\t'.join(['%sA'%tag for tag in idcoltags]+['%sB'%tag for tag in idcoltags])))
+  fout.write('%s\tABC\tABC_sim\n'%('\t'.join([tag+'A' for tag in idcoltags]+[tag+'B' for tag in idcoltags])))
 
   n_out=0; n_nan=0; n_submin=0;
-  for i in range(exfiles.shape[0]):
-    A = exfiles.iloc[i,datacols]
-    for j in range(i+1, exfiles.shape[0]):
-      B = exfiles.iloc[j,datacols]
+  for iA in range(exfiles.shape[0]):
+    A = exfiles.iloc[iA,datacols]
+    for iB in range(iA+1, exfiles.shape[0]):
+      B = exfiles.iloc[iB,datacols]
 
       abc = ABC(A,B)
       abc_sim = (1 / (1 + abc/len(A)))
@@ -135,7 +139,7 @@ def ABC_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
         n_submin+=1
         continue
       n_out+=1
-      fout.write('%s\t%f\t%f\n'%('\t'.join(exfiles.iloc[i,idcols].tolist()+exfiles.iloc[j,idcols].tolist()),abc,abc_sim))
+      fout.write('%s\t%f\t%f\n'%('\t'.join(exfiles.iloc[iA,idcols].tolist()+exfiles.iloc[iB,idcols].tolist()),abc,abc_sim))
     
   print("n_out: %d"%(n_out), file=sys.stdout)
   print("n_nan: %d"%(n_nan), file=sys.stdout)
@@ -156,7 +160,7 @@ def Tanimoto_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
   print("DEBUG: idcoltags = %s"%(str(idcoltags)), file=sys.stderr)
 
   fout = open(ofile, 'w')
-  fout.write('%s\tTanimoto\n'%('\t'.join(['%sA'%tag for tag in idcoltags]+['%sB'%tag for tag in idcoltags])))
+  fout.write('%s\tTanimoto\n'%('\t'.join([tag+'A' for tag in idcoltags]+[tag+'B' for tag in idcoltags])))
 
   #First compute |V|^2 for each vector.
   VV = numpy.ndarray(shape=(exfiles.shape[0],1), dtype=float)
@@ -165,12 +169,12 @@ def Tanimoto_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
     VV[i] = numpy.dot(V,V)
 
   n_out=0; n_nan=0; n_submin=0;
-  for i in range(exfiles.shape[0]):
-    A = exfiles.iloc[i,datacols]
-    for j in range(i+1, exfiles.shape[0]):
-      B = exfiles.iloc[j,datacols]
-      AA = VV[i]
-      BB = VV[j]
+  for iA in range(exfiles.shape[0]):
+    A = exfiles.iloc[iA,datacols]
+    for iB in range(iA+1, exfiles.shape[0]):
+      B = exfiles.iloc[iB,datacols]
+      AA = VV[iA]
+      BB = VV[iB]
       AB = numpy.dot(A,B)
       den = AA + BB - AB
       t = (AB / den) if den>0 else numpy.nan
@@ -181,7 +185,7 @@ def Tanimoto_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
         n_submin+=1
         continue
       n_out+=1
-      fout.write('%s\t%f\n'%('\t'.join(exfiles.iloc[i,idcols].tolist()+exfiles.iloc[j,idcols].tolist()),t))
+      fout.write('%s\t%f\n'%('\t'.join(exfiles.iloc[iA,idcols].tolist()+exfiles.iloc[iB,idcols].tolist()),t))
     
   print("n_out: %d"%(n_out), file=sys.stdout)
   print("n_nan: %d"%(n_nan), file=sys.stdout)
