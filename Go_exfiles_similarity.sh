@@ -8,8 +8,8 @@ IFILE="$DATADIR/gtex_rnaseq_prep_profiles.tsv"
 #
 OFILE_TANIMOTO="$DATADIR/gtex_rnaseq_profiles_Tanimoto.tsv"
 TANIMOTO_MIN="0.5"
-OFILE_ABC="$DATADIR/gtex_rnaseq_profiles_ABC.tsv"
-#ABC_MIN="0.0"
+OFILE_RUZICKA="$DATADIR/gtex_rnaseq_profiles_Ruzicka.tsv"
+RUZICKA_MIN="0.0"
 OFILE_PEARSON="$DATADIR/gtex_rnaseq_profiles_Pearson.tsv"
 PEARSON_MIN="0.5"
 OFILE_SPEARMAN="$DATADIR/gtex_rnaseq_profiles_Spearman.tsv"
@@ -25,5 +25,5 @@ python/exfiles_similarity.py --i $IFILE \
 	--tanimoto_min $TANIMOTO_MIN --o_tanimoto $OFILE_TANIMOTO
 #
 python/exfiles_similarity.py --i $IFILE \
-	--o_abc $OFILE_ABC
+	--ruzicka_min $RUZICKA_MIN --o_ruzicka $OFILE_RUZICKA
 #
