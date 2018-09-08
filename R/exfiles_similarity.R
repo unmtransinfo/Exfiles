@@ -76,7 +76,11 @@ for (gA in gnames) {
 }
 ggc <- ggc[!is.na(ggc$Ga),]
 ###
+# Conserve memory by writing results directly to file.
+###
 source(paste0(Sys.getenv("HOME"),"/lib/R/time_utils.R"))
+fout <- file("data/exfiles_ggc.csv", "w")
+writeLines(paste0(colnames(ggc),collapse=','), fout)
 n_chunk <- 1e2
 t0 <- proc.time()
 i <- 1
@@ -89,9 +93,13 @@ while (i<nrow(ggc)) {
   epAs <- eps_mx[gAs,]
   epBs <- eps_mx[gBs,]
 
-  ggc$wRho[i:(i_next-1)] <- wPearson_mx(epAs, epBs)
+  results_this <- wPearson_mx(epAs, epBs)
+  writeLines(sprintf("%s,%s,%.3f",ggc$Ga[i:(i_next-1)],ggc$Gb[i:(i_next-1)],results_this), fout)
+  #ggc$wRho[i:(i_next-1)] <- results_this
+  flush(fout)
+
   n_calc <- n_calc + (i_next-i)
-  n_na <- n_na + sum(is.na(ggc$wRho[i:(i_next-1)]))
+  n_na <- n_na + sum(is.na(results_this))
   
   if ((i %% n_chunk)==1) {
     writeLines(sprintf("Progress: %7d / %7d (%.1f%%) ; elapsed: %s", i-1, nrow(ggc),100*i/nrow(ggc), time_utils$NiceTime((proc.time()-t0)[3])))
@@ -101,12 +109,13 @@ while (i<nrow(ggc)) {
 writeLines(sprintf("Total: %7d / %7d (%.1f%%) ; elapsed: %s", i-1, nrow(ggc), 100*i/nrow(ggc), time_utils$NiceTime((proc.time()-t0)[3])))
 ###
 writeLines(sprintf("Values calculated: %d ; NAs: %d", n_calc, n_na))
-ggc <- ggc[!is.na(ggc$wRho),]
-ggc$wRho <- round(ggc$wRho, digits=3)
 ###
-gzout <- gzfile("data/exfiles_ggc.csv.gz","w")
-write.csv(ggc, gzout, row.names=F)
-close(gzout)
+close(fout)
 ###
-
-
+#ggc <- ggc[!is.na(ggc$wRho),]
+#ggc$wRho <- round(ggc$wRho, digits=3)
+###
+#gzout <- gzfile("data/exfiles_ggc.csv.gz","w")
+#write.csv(ggc, gzout, row.names=F)
+#close(gzout)
+###
