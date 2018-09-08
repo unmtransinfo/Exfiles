@@ -45,25 +45,44 @@ def ReadGenes(ifile, verbose):
   return genes
 
 #############################################################################
-def GroupCorrs(corrfile, genes, verbose):
-  corrfile = corrfile[['ENSGA', 'SEXA', 'ENSGB', 'SEXB', 'SpearmanRho']]
-  corrfile = pandas.merge(corrfile,
+def GroupCorrs(corrs, genes, verbose):
+  corrs = corrs[['ENSGA', 'SEXA', 'ENSGB', 'SEXB', 'SpearmanRho']]
+  corrs = pandas.merge(corrs,
 	genes.rename(columns={'ENSG':'ENSGA','HGNC':'Ga'}),
 	on=['ENSGA'], how='inner')
-  corrfile = pandas.merge(corrfile,
+  corrs = pandas.merge(corrs,
 	genes.rename(columns={'ENSG':'ENSGB','HGNC':'Gb'}),
 	on=['ENSGB'], how='inner')
-  corrfile = corrfile[['Ga', 'Gb', 'SEXA', 'SEXB', 'SpearmanRho']]
-  corrfile = corrfile.drop_duplicates()
+  corrs = corrs[['Ga', 'Gb', 'SEXA', 'SEXB', 'SpearmanRho']]
 
-  corrs_grouped_f = corrfile[(corrfile.SEXA=='female') & (corrfile.SEXB=='female')].drop(columns=['SEXA','SEXB'])
+  corrs = corrs.drop_duplicates()
+
+  corrs_grouped_f = corrs[
+	(corrs.SEXA=='female') & (corrs.SEXB=='female')
+	].drop(columns=['SEXA','SEXB'])
   corrs_grouped_f['Cluster'] = 'F'
-  corrs_grouped_m = corrfile[(corrfile.SEXA=='male') & (corrfile.SEXB=='male')].drop(columns=['SEXA','SEXB'])
+  corrs_grouped_m = corrs[
+	(corrs.SEXA=='male') & (corrs.SEXB=='male')
+	].drop(columns=['SEXA','SEXB'])
   corrs_grouped_m['Cluster'] = 'M'
 
-  corrs_grouped = pandas.concat(corrs_grouped_f,corrs_grouped_m)
+  corrs_grouped = pandas.concat([corrs_grouped_f,corrs_grouped_m])
 
-  ## Now handle MF..
+  ## Now handle MF; aggregate on Ga, Gb in alpha order.
+  corrs_grouped_mf = corrs[
+	((corrs.SEXA=='female') & (corrs.SEXB=='male'))
+	| ((corrs.SEXA=='male') & (corrs.SEXB=='female'))
+	].drop(columns=['SEXA','SEXB'])
+  corrs_grouped_mf['Gmin'] = corrs_grouped_mf[['Ga','Gb']].min(axis=1)
+  corrs_grouped_mf['Gmax'] = corrs_grouped_mf[['Ga','Gb']].max(axis=1)
+  corrs_grouped_mf['Ga'] = corrs_grouped_mf['Gmin']
+  corrs_grouped_mf['Gb'] = corrs_grouped_mf['Gmax']
+  corrs_grouped_mf = corrs_grouped_mf.drop(columns=['Gmin','Gmax'])
+  corrs_grouped_mf = corrs_grouped_mf.groupby(by=['Ga','Gb'], as_index=False).mean()
+  corrs_grouped_mf['Cluster'] = 'MF'
+  corrs_grouped = pandas.concat([corrs_grouped,corrs_grouped_mf])
+  corrs_grouped = corrs_grouped[['Ga','Gb','Cluster','SpearmanRho']]
+  return corrs_grouped
 
 
 #############################################################################
@@ -72,6 +91,7 @@ if __name__=='__main__':
   parser.add_argument("--i",dest="ifile",help="input gene-gene correlations (TSV)")
   parser.add_argument("--i_gene",dest="ifile_gene",help="input gene IDs (TSV)")
   parser.add_argument("--o",dest="ofile",help="output (TSV)")
+  parser.add_argument("--decimals",type=int,default=3,help="output decimal places")
   parser.add_argument("-v","--verbose",action="count")
   args = parser.parse_args()
 
@@ -89,11 +109,9 @@ if __name__=='__main__':
   genes = ReadGenes(args.ifile_gene, args.verbose)
 
 
-  corrfile = ReadCorrfile(args.ifile, args.verbose)
+  corrs = ReadCorrfile(args.ifile, args.verbose)
 
-  corrs_grouped = GroupCorrs(corrfile, genes, args.verbose)
-
-
+  corrs_grouped = GroupCorrs(corrs, genes, args.verbose)
 
   if args.ofile:
     print("=== Output file: %s"%args.ofile, file=sys.stdout)
