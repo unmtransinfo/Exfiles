@@ -17,7 +17,7 @@ wPearson <- function(A,B) { #Vector version (slow)
 wPearson_mx <- function(A,B) { #Matrix version
   mapply(weightedCorr, as.list(as.data.frame(t(A))), as.list(as.data.frame(t(B))), 
          weights=as.list(as.data.frame(t((A+B)/2))),
-         MoreArgs = list( method="Pearson"))
+         MoreArgs=list(method="Pearson"))
 }
 #
 ###
@@ -63,59 +63,38 @@ writeLines(sprintf("DEBUG: Expression profiles matrix ((F+M)/2): %d", nrow(eps_m
 ###
 # Gene-gene correlation
 gnames <- unique(eps$gene)
-
-ggc <- data.frame(Ga = rep(NA, length(gnames)*length(gnames)/2), Gb = NA, wRho = NA)
-i <- 0
-for (gA in gnames) {
-  for (gB in gnames) {
-    if (gA >= gB) { next }
-    i <- i + 1
-    ggc$Ga[i] <- gA
-    ggc$Gb[i] <- gB
-  }
-}
-ggc <- ggc[!is.na(ggc$Ga),]
+gnames <- gnames[order(gnames)]
 ###
 # Conserve memory by writing results directly to file.
 ###
 source(paste0(Sys.getenv("HOME"),"/lib/R/time_utils.R"))
 fout <- file("data/exfiles_ggc.csv", "w")
-writeLines(paste0(colnames(ggc),collapse=','), fout)
+writeLines(paste0(c('Ga','Gb','Cluster','wRho'),collapse=','), fout)
 n_chunk <- 1e2
 t0 <- proc.time()
 i <- 1
 n_calc <- 0
+n_calc_total <- length(gnames)*(length(gnames)-1)/2
 n_na <- 0
-while (i<nrow(ggc)) {
-  i_next <- min(i+n_chunk, nrow(ggc)+1)
-  gAs <- ggc$Ga[i:(i_next-1)]
-  gBs <- ggc$Gb[i:(i_next-1)]
-  epAs <- eps_mx[gAs,]
-  epBs <- eps_mx[gBs,]
+for (gA in gnames) {
+  i <- i + 1
+  gnames_this <- gnames[gnames>gA]
+  
+  epAs <- eps_mx[rep(gA,length(gnames_this)),]
+  epBs <- eps_mx[gnames_this,]
 
   results_this <- wPearson_mx(epAs, epBs)
-  writeLines(sprintf("%s,%s,%.3f",ggc$Ga[i:(i_next-1)],ggc$Gb[i:(i_next-1)],results_this), fout)
-  #ggc$wRho[i:(i_next-1)] <- results_this
+  writeLines(sprintf("%s,%s,%.3f",gA,gnames_this,results_this), fout)
   flush(fout)
 
-  n_calc <- n_calc + (i_next-i)
+  n_calc <- n_calc + length(gnames_this)
   n_na <- n_na + sum(is.na(results_this))
   
-  if ((i %% n_chunk)==1) {
-    writeLines(sprintf("Progress: %7d / %7d (%.1f%%) ; elapsed: %s", i-1, nrow(ggc),100*i/nrow(ggc), time_utils$NiceTime((proc.time()-t0)[3])))
-  }
-  i <- i_next
+  writeLines(sprintf("Progress: %7d / %7d (%.1f%%) ; elapsed: %s", n_calc, n_calc_total,100*n_calc/n_calc_total, time_utils$NiceTime((proc.time()-t0)[3])))
 }
-writeLines(sprintf("Total: %7d / %7d (%.1f%%) ; elapsed: %s", i-1, nrow(ggc), 100*i/nrow(ggc), time_utils$NiceTime((proc.time()-t0)[3])))
 ###
 writeLines(sprintf("Values calculated: %d ; NAs: %d", n_calc, n_na))
 ###
 close(fout)
 ###
-#ggc <- ggc[!is.na(ggc$wRho),]
-#ggc$wRho <- round(ggc$wRho, digits=3)
-###
-#gzout <- gzfile("data/exfiles_ggc.csv.gz","w")
-#write.csv(ggc, gzout, row.names=F)
-#close(gzout)
 ###
