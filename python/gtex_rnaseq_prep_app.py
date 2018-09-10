@@ -159,7 +159,7 @@ def CleanRnaseq(rnaseq, verbose):
 
   print("Removing data for gene-tissue pairs with all zero expression...", file=sys.stderr)
   maxtpm_0  = (rnaseq[['ENSG','SMTSD','TPM']].groupby(by=['ENSG','SMTSD'], as_index=True).max()==0).rename(columns={'TPM':'maxtpm_0'})
-  print("DEBUG: maxtpm_0 value_counts: %s"str(maxtpm_0.maxtpm_0.value_counts()), file=sys.stdout)
+  print("DEBUG: maxtpm_0 value_counts: %s"%str(maxtpm_0.maxtpm_0.value_counts()), file=sys.stdout)
   rnaseq = pandas.merge(rnaseq, maxtpm_0, left_on=['ENSG','SMTSD'], right_index=True)
   del(maxtpm_0)
   rnaseq = rnaseq[~rnaseq['maxtpm_0']]
@@ -168,7 +168,7 @@ def CleanRnaseq(rnaseq, verbose):
   print("Removing data for gene-tissue pairs not present in both sexes...", file=sys.stderr)
   sex_count = (rnaseq[['ENSG','SMTSD','SEX']].groupby(by=['ENSG','SMTSD'], as_index=True).nunique()).rename(columns={'SEX':'sex_count'})
   sex_count = sex_count[['sex_count']] #Why needed?
-  print("DEBUG: sex_count value_counts: %s"str(sex_count.sex_count.value_counts()), file=sys.stdout)
+  print("DEBUG: sex_count value_counts: %s"%str(sex_count.sex_count.value_counts()), file=sys.stdout)
   rnaseq = pandas.merge(rnaseq, sex_count, left_on=['ENSG','SMTSD'], right_index=True)
   del(sex_count)
   rnaseq = rnaseq[rnaseq['sex_count']==2]
