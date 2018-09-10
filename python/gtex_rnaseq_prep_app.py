@@ -131,6 +131,11 @@ def ReadRnaseq(ifile, verbose):
   print("RNAseq dataset nrows: %d ; ncols: %d:"%(rnaseq.shape[0],rnaseq.shape[1]), file=sys.stdout)
   rnaseq = rnaseq.drop(columns=['Description'])
   rnaseq = rnaseq.rename(columns={'Name':'ENSG'})
+  samples = rnaseq.columns[1:]
+  print("RNAseq samples count: %d:"%(samples.size), file=sys.stdout)
+  print("RNAseq unique samples count: %d:"%(samples.nunique()), file=sys.stdout)
+  print("RNAseq genes (ENSG) count: %d:"%(rnaseq.ENSG.size), file=sys.stdout)
+  print("RNAseq unique genes (ENSG) count: %d:"%(rnaseq.ENSG.nunique()), file=sys.stdout)
   return rnaseq
 
 #############################################################################
@@ -155,28 +160,30 @@ def CleanRnaseq(rnaseq, verbose):
   print("DEBUG: CleanRnaseq IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
   print("=== CleanRnaseq:", file=sys.stdout)
 
-  maxtpm_0  = (rnaseq[['ENSG', 'SMTSD','TPM']].groupby(by=['ENSG', 'SMTSD'], as_index=True).max()==0).rename(columns={'TPM':'maxtpm_0'})
+  maxtpm_0  = (rnaseq[['ENSG','SMTSD','TPM']].groupby(by=['ENSG','SMTSD'], as_index=True).max()==0).rename(columns={'TPM':'maxtpm_0'})
   #print(maxtpm_0.maxtpm_0.value_counts(), file=sys.stdout)
-  rnaseq = pandas.merge(rnaseq, maxtpm_0, left_on=['ENSG', 'SMTSD'], right_index=True)
+  rnaseq = pandas.merge(rnaseq, maxtpm_0, left_on=['ENSG','SMTSD'], right_index=True)
   rnaseq = rnaseq[~rnaseq['maxtpm_0']]
   rnaseq.drop(columns=['maxtpm_0'], inplace=True)
 
-  sex_count = (rnaseq[['ENSG', 'SMTSD','SEX']].groupby(by=['ENSG', 'SMTSD'], as_index=True).nunique()).rename(columns={'SEX':'sex_count'})
+  sex_count = (rnaseq[['ENSG','SMTSD','SEX']].groupby(by=['ENSG','SMTSD'], as_index=True).nunique()).rename(columns={'SEX':'sex_count'})
   sex_count = sex_count[['sex_count']] #Why needed?
   #print(sex_count.sex_count.value_counts(), file=sys.stdout)
-  rnaseq = pandas.merge(rnaseq, sex_count, left_on=['ENSG', 'SMTSD'], right_index=True)
+  rnaseq = pandas.merge(rnaseq, sex_count, left_on=['ENSG','SMTSD'], right_index=True)
 
-  rnaseq = rnaseq[rnaseq['sex_count'] == 2]
+  rnaseq = rnaseq[rnaseq['sex_count']==2]
   rnaseq.drop(columns=['sex_count'], inplace=True)
   rnaseq = rnaseq.reset_index(drop=True)
 
   rnaseq = rnaseq[~rnaseq.SMTSD.str.match('^Breast')]
+  rnaseq = rnaseq[['ENSG','SMTSD','SAMPID','SMATSSCR','SEX','AGE','DTHHRDY','TPM']]
+  rnaseq = rnaseq.sort_values(by=['ENSG','SMTSD','SAMPID'])
 
-  rnaseq = rnaseq[['ENSG', 'SMTSD', 'SAMPID', 'SMATSSCR', 'SEX', 'AGE', 'DTHHRDY', 'TPM']]
-
-  rnaseq = rnaseq.sort_values(by=['ENSG', 'SMTSD', 'SAMPID'])
-
+  print("RNAseq unique samples count: %d:"%(rnaseq.SAMPID.nunique()), file=sys.stdout)
+  print("RNAseq unique tissues count: %d:"%(rnaseq.SMTSD.nunique()), file=sys.stdout)
+  print("RNAseq unique gene count: %d"%(rnaseq.ENSG.nunique()), file=sys.stdout)
   print("DEBUG: CleanRnaseq OUT: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
+
   return rnaseq
 
 #############################################################################
@@ -237,7 +244,7 @@ if __name__=='__main__':
   parser.add_argument("--i_subject",dest="ifile_subject",help="input subjects file")
   parser.add_argument("--i_sample",dest="ifile_sample",help="input samples file")
   parser.add_argument("--i_rnaseq",dest="ifile_rnaseq",help="input rnaseq file")
-  parser.add_argument("--i_gene",dest="ifile_gene",help="input gene file")
+  #parser.add_argument("--i_gene",dest="ifile_gene",help="input gene file")
   parser.add_argument("--i_tissue",dest="ifile_tissue",help="input (ordered) tissue file")
   parser.add_argument("--o_median",dest="ofile_median",help="output median TPM, 1-row/gene+tissue+sex (TSV)")
   parser.add_argument("--o_sample",dest="ofile_sample",help="output sample TPM, 1-row/gene+sample (TSV)")
@@ -286,9 +293,9 @@ if __name__=='__main__':
 
   samples = CleanSamples(samples, args.verbose)
 
-  if not args.ifile_gene:
-    parser.error('Input gene file required.')
-  genes = ReadGenes(args.ifile_gene, args.verbose)
+#  if not args.ifile_gene:
+#    parser.error('Input gene file required.')
+#  genes = ReadGenes(args.ifile_gene, args.verbose)
 
   if not args.ifile_rnaseq:
     parser.error('Input RNAseq file required.')
@@ -300,16 +307,21 @@ if __name__=='__main__':
   ### Easier to handle but ~3x storage.
   rnaseq = rnaseq.melt(id_vars = "ENSG", var_name = "SAMPID", value_name = "TPM")
   DescribeDf(rnaseq,args.verbose)
+  print("RNAseq unique gene count (after melt): %d"%(rnaseq.ENSG.nunique()), file=sys.stdout)
 
-  rnaseq = pandas.merge(genes, rnaseq, on='ENSG', how='inner')
+  # Note could lose genes via inner join:
+#  rnaseq = pandas.merge(genes, rnaseq, on='ENSG', how='inner')
+#  print("RNAseq unique gene count (after merge with gene names): %d"%(rnaseq.ENSG.nunique()), file=sys.stdout)
 
   print('=== Remove genes in pseudoautosomal regions (PAR) of chromosome Y ("ENSGR"):', file=sys.stdout)
   n_ensgr = rnaseq.ENSG.str.startswith('ENSGR').sum()
   print('ENSGR gene TPMs: %d (%.2f%%)'%(n_ensgr,100*n_ensgr/rnaseq.shape[0]), file=sys.stdout)
   rnaseq = rnaseq[~rnaseq.ENSG.str.startswith('ENSGR')]
+  print("RNAseq unique gene count (after PAR removal): %d"%(rnaseq.ENSG.nunique()), file=sys.stdout)
 
   print('=== Merge with samples:', file=sys.stdout)
   rnaseq = pandas.merge(rnaseq, samples, how="inner", on="SAMPID")
+  print("RNAseq unique gene count (after merge with samples): %d"%(rnaseq.ENSG.nunique()), file=sys.stdout)
 
   rnaseq = CleanRnaseq(rnaseq, args.verbose)
 
