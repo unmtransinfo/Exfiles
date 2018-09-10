@@ -12,6 +12,7 @@ Command-line version; see also Jupyter notebook gtex_rnaseq_sabv.ipynb
 Workflow (analysis):
  - READ: median TPMs, 1-row/gene+tissue+sex (from gtex_rnaseq_prep_app.py).
  - READ: sample TPMs, 1-row/gene+sample (from gtex_rnaseq_prep_app.py).
+ - READ: gene IDs and names mapping file.
 
  - COMPUTE: TAU, TAU_F, TAU_M, tissue specificity index (Yanai et al., 2004)., by gene and gene+sex.
  - COMPUTE: Log fold-change, log of ratio (TPM_F/TPM_M).

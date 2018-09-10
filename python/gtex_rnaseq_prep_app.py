@@ -13,6 +13,7 @@ Workflow (prep):
  - READ: GTEx Subjects data, 1-row/subject.
  - READ: GTEx Samples data, 1-row/sample.
  - READ: GTEx RNAseq expression TPM data, 1-row/gene, 1-col/sample.
+ - READ: gene IDs file, from GTEx/Ensembl/HGNC, via gtex_gene_map.R. 
  - REMOVE: samples with Hardy score >2 (prefer healthier).
  - REMOVE: samples with high degree of autolysis (self-digestion).
  - MERGE: Samples and subjects, to 1-row/sample.
@@ -138,16 +139,16 @@ def ReadRnaseq(ifile, verbose):
   return rnaseq
 
 #############################################################################
-### Read gene symbols.
+### Read gene IDs, etc.: ENSG,NCBI,HGNCID,symbol,name
 #############################################################################
 def ReadGenes(ifile, verbose):
   print("=== ReadGenes:", file=sys.stdout)
   fin = open(ifile)
-  print('Biomart ENSG2NCBI genes datafile: %s'%fin.name, file=sys.stdout)
-  genes = pandas.read_csv(fin, sep='\t', usecols=[1,2,3], na_values=[''], dtype={2:str})
+  print('GTEx/Ensembl/HGNC genes datafile: %s'%fin.name, file=sys.stdout)
+  genes = pandas.read_csv(fin, sep='\t', na_values=[''], dtype={2:str})
   print("Genes dataset nrows: %d ; ncols: %d:"%(genes.shape[0],genes.shape[1]), file=sys.stdout)
-  genes.columns = ['ENSG','NCBI','HGNC']
-  genes.dropna(inplace=True)
+  #genes.columns = ['ENSG','NCBI','HGNC']
+  #genes.dropna(inplace=True)
   return genes
 
 #############################################################################
@@ -243,7 +244,7 @@ if __name__=='__main__':
   parser.add_argument("--i_subject",dest="ifile_subject",help="input subjects file")
   parser.add_argument("--i_sample",dest="ifile_sample",help="input samples file")
   parser.add_argument("--i_rnaseq",dest="ifile_rnaseq",help="input rnaseq file")
-  #parser.add_argument("--i_gene",dest="ifile_gene",help="input gene file")
+  parser.add_argument("--i_gene",dest="ifile_gene",help="input gene file")
   parser.add_argument("--i_tissue",dest="ifile_tissue",help="input (ordered) tissue file")
   parser.add_argument("--o_median",dest="ofile_median",help="output median TPM, 1-row/gene+tissue+sex (TSV)")
   parser.add_argument("--o_sample",dest="ofile_sample",help="output sample TPM, 1-row/gene+sample (TSV)")
@@ -292,9 +293,9 @@ if __name__=='__main__':
 
   samples = CleanSamples(samples, args.verbose)
 
-#  if not args.ifile_gene:
-#    parser.error('Input gene file required.')
-#  genes = ReadGenes(args.ifile_gene, args.verbose)
+  if not args.ifile_gene:
+    parser.error('Input gene file required.')
+  genes = ReadGenes(args.ifile_gene, args.verbose)
 
   if not args.ifile_rnaseq:
     parser.error('Input RNAseq file required.')
@@ -309,8 +310,8 @@ if __name__=='__main__':
   print("RNAseq unique gene count (after melt): %d"%(rnaseq.ENSG.nunique()), file=sys.stdout)
 
   # Note could lose genes via inner join:
-#  rnaseq = pandas.merge(genes, rnaseq, on='ENSG', how='inner')
-#  print("RNAseq unique gene count (after merge with gene names): %d"%(rnaseq.ENSG.nunique()), file=sys.stdout)
+  rnaseq = pandas.merge(rnaseq, genes, on='ENSG', how='left')
+  print("RNAseq unique gene count (after merge with gene IDs): %d"%(rnaseq.ENSG.nunique()), file=sys.stdout)
 
   print('=== Remove genes in pseudoautosomal regions (PAR) of chromosome Y ("ENSGR"):', file=sys.stdout)
   n_ensgr = rnaseq.ENSG.str.startswith('ENSGR').sum()
