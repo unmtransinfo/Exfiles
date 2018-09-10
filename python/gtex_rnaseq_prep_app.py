@@ -13,7 +13,6 @@ Workflow (prep):
  - READ: GTEx Subjects data, 1-row/subject.
  - READ: GTEx Samples data, 1-row/sample.
  - READ: GTEx RNAseq expression TPM data, 1-row/gene, 1-col/sample.
- - READ: Ensembl gene IDs file ENSG2NCBI, from Ensembl-Biomart (Gene stable ID version, NCBI gene ID, HGNC symbol).
  - REMOVE: samples with Hardy score >2 (prefer healthier).
  - REMOVE: samples with high degree of autolysis (self-digestion).
  - MERGE: Samples and subjects, to 1-row/sample.
@@ -152,38 +151,38 @@ def ReadGenes(ifile, verbose):
   return genes
 
 #############################################################################
-### Remove data for gene-tissue pairs with all zero expression.
-### Remove data for gene-tissue pairs not present in both sexes.
-### This removes most sex-specific tissues, but not breast.
+### Memory intensive; may need to divide task.
 #############################################################################
 def CleanRnaseq(rnaseq, verbose):
   print("DEBUG: CleanRnaseq IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
   print("=== CleanRnaseq:", file=sys.stdout)
 
+  print("Removing data for gene-tissue pairs with all zero expression...", file=sys.stderr)
   maxtpm_0  = (rnaseq[['ENSG','SMTSD','TPM']].groupby(by=['ENSG','SMTSD'], as_index=True).max()==0).rename(columns={'TPM':'maxtpm_0'})
-  #print(maxtpm_0.maxtpm_0.value_counts(), file=sys.stdout)
+  print("DEBUG: maxtpm_0 value_counts: %s"str(maxtpm_0.maxtpm_0.value_counts()), file=sys.stdout)
   rnaseq = pandas.merge(rnaseq, maxtpm_0, left_on=['ENSG','SMTSD'], right_index=True)
+  del(maxtpm_0)
   rnaseq = rnaseq[~rnaseq['maxtpm_0']]
   rnaseq.drop(columns=['maxtpm_0'], inplace=True)
 
+  print("Removing data for gene-tissue pairs not present in both sexes...", file=sys.stderr)
   sex_count = (rnaseq[['ENSG','SMTSD','SEX']].groupby(by=['ENSG','SMTSD'], as_index=True).nunique()).rename(columns={'SEX':'sex_count'})
   sex_count = sex_count[['sex_count']] #Why needed?
-  #print(sex_count.sex_count.value_counts(), file=sys.stdout)
+  print("DEBUG: sex_count value_counts: %s"str(sex_count.sex_count.value_counts()), file=sys.stdout)
   rnaseq = pandas.merge(rnaseq, sex_count, left_on=['ENSG','SMTSD'], right_index=True)
-
+  del(sex_count)
   rnaseq = rnaseq[rnaseq['sex_count']==2]
   rnaseq.drop(columns=['sex_count'], inplace=True)
   rnaseq = rnaseq.reset_index(drop=True)
-
+  ### This removes most sex-specific tissues, but not breast.
   rnaseq = rnaseq[~rnaseq.SMTSD.str.match('^Breast')]
+
   rnaseq = rnaseq[['ENSG','SMTSD','SAMPID','SMATSSCR','SEX','AGE','DTHHRDY','TPM']]
   rnaseq = rnaseq.sort_values(by=['ENSG','SMTSD','SAMPID'])
-
   print("RNAseq unique samples count: %d:"%(rnaseq.SAMPID.nunique()), file=sys.stdout)
   print("RNAseq unique tissues count: %d:"%(rnaseq.SMTSD.nunique()), file=sys.stdout)
   print("RNAseq unique gene count: %d"%(rnaseq.ENSG.nunique()), file=sys.stdout)
   print("DEBUG: CleanRnaseq OUT: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
-
   return rnaseq
 
 #############################################################################
