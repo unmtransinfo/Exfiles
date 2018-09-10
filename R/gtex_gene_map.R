@@ -35,7 +35,7 @@ writeLines(sprintf("GTEx ENSGs mapped to NCBI and HGNCID: %d / %d (%.1f%%)",
 # https://www.genenames.org/cgi-bin/statistics
 # ftp://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/locus_groups/protein-coding_gene.txt
 ###
-hugo <- read_delim("data/hugo_protein-coding_gene.txt", "\t")
+hugo <- read_delim("data/hugo_protein-coding_gene.tsv", "\t")
 hugo <- unique(hugo[,c("hgnc_id","symbol","name","gene_family","ensembl_gene_id")])
 #
 gtex_gene <- x
