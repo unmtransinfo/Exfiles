@@ -281,21 +281,21 @@ if __name__=='__main__':
   exfiles = CleanExfiles(exfiles, args.verbose)
 
   if args.ofile_pearson:
-    Pearson(exfiles, list(range(args.n_idcols), list(range(args.n_idcols,exfiles.shape[1])), args.pearson_min, args.ofile_pearson, args.verbose)
+    Pearson(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.pearson_min, args.ofile_pearson, args.verbose)
 
   if args.ofile_spearman:
-    Spearman(exfiles, list(range(args.n_idcols), list(range(args.n_idcols,exfiles.shape[1])), args.spearman_min, args.ofile_spearman, args.verbose)
+    Spearman(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.spearman_min, args.ofile_spearman, args.verbose)
 
   if args.ofile_cosine:
-    Cosine(exfiles, list(range(args.n_idcols), list(range(args.n_idcols,exfiles.shape[1])), args.cosine_min, args.ofile_cosine, args.verbose)
+    Cosine(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.cosine_min, args.ofile_cosine, args.verbose)
 
   if args.ofile_ruzicka:
-    Ruzicka(exfiles, list(range(args.n_idcols), list(range(args.n_idcols,exfiles.shape[1])), args.ruzicka_min, args.ofile_ruzicka, args.verbose)
+    Ruzicka(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.ruzicka_min, args.ofile_ruzicka, args.verbose)
 
   if args.ofile_tanimoto:
-    Tanimoto(exfiles, list(range(args.n_idcols), list(range(args.n_idcols,exfiles.shape[1])), args.tanimoto_min, args.ofile_tanimoto, args.verbose)
+    Tanimoto(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.tanimoto_min, args.ofile_tanimoto, args.verbose)
 
   if args.ofile_abc:
-    ABC(exfiles, list(range(args.n_idcols), list(range(args.n_idcols,exfiles.shape[1])), args.abc_min, args.ofile_abc, args.verbose)
+    ABC(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.abc_min, args.ofile_abc, args.verbose)
 
   print("%s Elapsed: %ds"%(PROG,(time.time()-t0)), file=sys.stderr)
