@@ -87,7 +87,7 @@ def ReadSamples(ifile, verbose):
   samples = samples[['SAMPID', 'SMATSSCR', 'SMTS', 'SMTSD']]
   LOG("Samples dataset nrows: %d ; ncols: %d:"%(samples.shape[0],samples.shape[1]))
   ### SUBJID is first two hyphen-delimted fields of SAMPID.
-  samples['SUBJID'] = samples.SAMPID.str.extract('^([^-]+-[^-]+)-', expand=True)
+  samples['SUBJID'] = samples.SAMPID.str.extract('^([^-]+-[^-]+)-', expand=False)
   DescribeDf(samples, verbose)
   return samples
 
@@ -122,6 +122,8 @@ def DescribeSamples(samples):
 ### *   GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm.gct.gz
 ### *   GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm_demo.gct.gz
 #############################################################################
+### Truncate ENSGV version, use un-versioned ENSG for mapping. Ok?
+#############################################################################
 def ReadRnaseq(ifile, verbose):
   LOG("=== ReadRnaseq:")
   fin = open(ifile, "rb")
@@ -130,6 +132,7 @@ def ReadRnaseq(ifile, verbose):
   LOG("RNAseq dataset nrows: %d ; ncols: %d:"%(rnaseq.shape[0],rnaseq.shape[1]))
   rnaseq = rnaseq.drop(columns=['Description'])
   rnaseq = rnaseq.rename(columns={'Name':'ENSG'})
+  rnaseq.ENSG = rnaseq.ENSG.str.extract('^([^\.]+)\..*$', expand=False)
   samples = rnaseq.columns[1:]
   LOG("RNAseq samples count: %d:"%(samples.size))
   LOG("RNAseq unique samples count: %d:"%(samples.nunique()))
@@ -322,6 +325,10 @@ if __name__=='__main__':
   rnaseq = ReadRnaseq(args.ifile_rnaseq, args.verbose)
   LOG("ReadRnaseq elapsed: %ds"%(time.time()-t1))
 
+  # Merge/inner with gene IDs file, to retain only protein-coding genes.
+  rnaseq = pandas.merge(rnaseq, genes[['ENSG']], on='ENSG', how='inner')
+  LOG("RNAseq unique gene count (inner join with protein-coding gene ENSGs): %d"%(rnaseq.ENSG.nunique()))
+
   LOG('=== Remove genes in pseudoautosomal regions (PAR) of chromosome Y ("ENSGR"):')
   n_ensgr = rnaseq.ENSG.str.startswith('ENSGR').sum()
   LOG('ENSGR gene TPMs: %d (%.2f%%)'%(n_ensgr,100*n_ensgr/rnaseq.shape[0]))
@@ -334,7 +341,7 @@ if __name__=='__main__':
   DescribeDf(rnaseq,args.verbose)
   LOG("RNAseq unique gene count (after melt): %d"%(rnaseq.ENSG.nunique()))
 
-  # Note could lose genes via inner join:
+  # Merge/inner with gene IDs file. This time to add IDs, names.
   rnaseq = pandas.merge(rnaseq, genes, on='ENSG', how='left')
   LOG("RNAseq unique gene count (after merge with gene IDs): %d"%(rnaseq.ENSG.nunique()))
 
