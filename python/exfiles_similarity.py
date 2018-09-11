@@ -12,16 +12,14 @@ Expression profiles similarity computation.
 """
 #############################################################################
 import sys,os,io,re,time,argparse
-import numpy,scipy,scipy.stats
-import pandas
-
+import pandas,numpy,scipy,scipy.stats
 
 #############################################################################
 ### Pearson correlation coefficient.
 #############################################################################
-def Pearson_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
+def Pearson(exfiles, idcols, datacols, minval, ofile, verbose):
   idcoltags = exfiles.columns[idcols]
-  print("DEBUG: Pearson_NxN IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())), file=sys.stderr)
+  print("DEBUG: Pearson IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())), file=sys.stderr)
   print("DEBUG: idcols = %s ; datacols = %s"%(str(idcols),str(datacols)), file=sys.stderr)
   print("DEBUG: idcoltags = %s"%(str(idcoltags)), file=sys.stderr)
   fout = open(ofile, 'w')
@@ -45,9 +43,9 @@ def Pearson_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
   print("n_submin: %d"%(n_submin), file=sys.stdout)
 
 #############################################################################
-def Spearman_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
+def Spearman(exfiles, idcols, datacols, minval, ofile, verbose):
   idcoltags = exfiles.columns[idcols]
-  print("DEBUG: Spearman_NxN IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())), file=sys.stderr)
+  print("DEBUG: Spearman IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())), file=sys.stderr)
   print("DEBUG: idcols = %s ; datacols = %s"%(str(idcols),str(datacols)), file=sys.stderr)
   print("DEBUG: idcoltags = %s"%(str(idcoltags)), file=sys.stderr)
   fout = open(ofile, 'w')
@@ -102,9 +100,9 @@ def AULS(y1, y2, w):
   return(a)
 
 #############################################################################
-def ABC_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
+def ABC(exfiles, idcols, datacols, minval, ofile, verbose):
   idcoltags = exfiles.columns[idcols]
-  print("DEBUG: ABC_NxN IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())), file=sys.stderr)
+  print("DEBUG: ABC IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())), file=sys.stderr)
   print("DEBUG: idcols = %s ; datacols = %s"%(str(idcols),str(datacols)), file=sys.stderr)
   print("DEBUG: idcoltags = %s"%(str(idcoltags)), file=sys.stderr)
   fout = open(ofile, 'w')
@@ -129,9 +127,9 @@ def ABC_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
   print("n_submin: %d"%(n_submin), file=sys.stdout)
 
 #############################################################################
-def Cosine_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
+def Cosine(exfiles, idcols, datacols, minval, ofile, verbose):
   idcoltags = exfiles.columns[idcols]
-  print("DEBUG: Cosine_NxN IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())), file=sys.stderr)
+  print("DEBUG: Cosine IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())), file=sys.stderr)
   print("DEBUG: idcols = %s ; datacols = %s"%(str(idcols),str(datacols)), file=sys.stderr)
   print("DEBUG: idcoltags = %s"%(str(idcoltags)), file=sys.stderr)
   fout = open(ofile, 'w')
@@ -169,9 +167,9 @@ def Cosine_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
 ### Vectorize: use matrix form of numpy.dot(), or maybe numpy.matmul()
 ### ~14min for ~1000 input profiles, ~500k calculations.
 #############################################################################
-def Tanimoto_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
+def Tanimoto(exfiles, idcols, datacols, minval, ofile, verbose):
   idcoltags = exfiles.columns[idcols]
-  print("DEBUG: Tanimoto_NxN IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())), file=sys.stderr)
+  print("DEBUG: Tanimoto IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())), file=sys.stderr)
   print("DEBUG: idcols = %s ; datacols = %s"%(str(idcols),str(datacols)), file=sys.stderr)
   print("DEBUG: idcoltags = %s"%(str(idcoltags)), file=sys.stderr)
   fout = open(ofile, 'w')
@@ -204,9 +202,9 @@ def Tanimoto_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
   print("n_submin: %d"%(n_submin), file=sys.stdout)
 
 #############################################################################
-def Ruzicka_NxN(exfiles, idcols, datacols, minval, ofile, verbose):
+def Ruzicka(exfiles, idcols, datacols, minval, ofile, verbose):
   idcoltags = exfiles.columns[idcols]
-  print("DEBUG: Ruzicka_NxN IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())), file=sys.stderr)
+  print("DEBUG: Ruzicka IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())), file=sys.stderr)
   print("DEBUG: idcols = %s ; datacols = %s"%(str(idcols),str(datacols)), file=sys.stderr)
   print("DEBUG: idcoltags = %s"%(str(idcoltags)), file=sys.stderr)
   fout = open(ofile, 'w')
@@ -264,6 +262,7 @@ if __name__=='__main__':
   parser.add_argument("--pearson_min",type=float,default=-1,help="minimum values output")
   parser.add_argument("--o_spearman",dest="ofile_spearman",help="output (TSV)")
   parser.add_argument("--spearman_min",type=float,default=-1,help="minimum values output")
+  parser.add_argument("--n_idcols",type=int,default=2,help="number of ID cols preceding TPMs")
   parser.add_argument("--o",dest="ofile",help="output (TSV)")
   parser.add_argument("-v","--verbose",action="count")
   args = parser.parse_args()
@@ -282,21 +281,21 @@ if __name__=='__main__':
   exfiles = CleanExfiles(exfiles, args.verbose)
 
   if args.ofile_pearson:
-    Pearson_NxN(exfiles, [0,1], list(range(2,exfiles.shape[1])), args.pearson_min, args.ofile_pearson, args.verbose)
+    Pearson(exfiles, list(range(args.n_idcols), list(range(args.n_idcols,exfiles.shape[1])), args.pearson_min, args.ofile_pearson, args.verbose)
 
   if args.ofile_spearman:
-    Spearman_NxN(exfiles, [0,1], list(range(2,exfiles.shape[1])), args.spearman_min, args.ofile_spearman, args.verbose)
+    Spearman(exfiles, list(range(args.n_idcols), list(range(args.n_idcols,exfiles.shape[1])), args.spearman_min, args.ofile_spearman, args.verbose)
 
   if args.ofile_cosine:
-    Cosine_NxN(exfiles, [0,1], list(range(2,exfiles.shape[1])), args.cosine_min, args.ofile_cosine, args.verbose)
+    Cosine(exfiles, list(range(args.n_idcols), list(range(args.n_idcols,exfiles.shape[1])), args.cosine_min, args.ofile_cosine, args.verbose)
 
   if args.ofile_ruzicka:
-    Ruzicka_NxN(exfiles, [0,1], list(range(2,exfiles.shape[1])), args.ruzicka_min, args.ofile_ruzicka, args.verbose)
+    Ruzicka(exfiles, list(range(args.n_idcols), list(range(args.n_idcols,exfiles.shape[1])), args.ruzicka_min, args.ofile_ruzicka, args.verbose)
 
   if args.ofile_tanimoto:
-    Tanimoto_NxN(exfiles, [0,1], list(range(2,exfiles.shape[1])), args.tanimoto_min, args.ofile_tanimoto, args.verbose)
+    Tanimoto(exfiles, list(range(args.n_idcols), list(range(args.n_idcols,exfiles.shape[1])), args.tanimoto_min, args.ofile_tanimoto, args.verbose)
 
   if args.ofile_abc:
-    ABC_NxN(exfiles, [0,1], list(range(2,exfiles.shape[1])), args.abc_min, args.ofile_abc, args.verbose)
+    ABC(exfiles, list(range(args.n_idcols), list(range(args.n_idcols,exfiles.shape[1])), args.abc_min, args.ofile_abc, args.verbose)
 
   print("%s Elapsed: %ds"%(PROG,(time.time()-t0)), file=sys.stderr)
