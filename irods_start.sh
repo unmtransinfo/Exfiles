@@ -28,8 +28,8 @@ docker cp /home/ubuntu/data/GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm_d
 
 docker exec -ti ${CONTAINER_NAME} git clone https://github.com/unmtransinfo/expression-profiles.git &&
        sh -c "cd '${HOME}/expression-profiles'" &&
-       echo "CURRENT DIRECTORY IS: $(pwd)" &&
-       git checkout containerize &&
+       sh -c "echo 'CURRENT DIRECTORY IS: $(pwd)'" &&
+       sh -c "git checkout containerize" &&
        sh -c "./Go_rnaseq_prep.sh"
 
 
