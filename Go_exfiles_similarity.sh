@@ -33,5 +33,7 @@ OFILE_SPEARMAN="$DATADIR/gtex_rnaseq_profiles_Spearman.tsv"
 python/exfiles_similarity.py --i $IFILE --n_idcols "$N_IDCOLS" \
 	--ruzicka_min $RUZICKA_MIN --o_ruzicka $OFILE_RUZICKA
 #
-$(cwd)/R/exfiles_similarity.R
+OFILE_WPEARSON="$DATADIR/gtex_rnaseq_profiles_WPearson.tsv"
+#
+$(cwd)/R/exfiles_similarity.R $IFILE $OFILE_WPEARSON
 #

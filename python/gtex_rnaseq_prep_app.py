@@ -97,7 +97,7 @@ def ReadSamples(ifile, verbose):
 def CleanSamples(samples, verbose):
   LOG("=== CleanSamples:")
   samples.dropna(how='any', inplace=True)
-  samples.SEX = samples.SEX.apply(lambda x: 'female' if x==2 else 'male' if x==1 else None)
+  samples.SEX = samples.SEX.apply(lambda x: 'F' if x==2 else 'M' if x==1 else None)
   samples = samples[samples.SMATSSCR < 2]
   samples.loc[(samples.SMTS.str.strip()=='') & samples.SMTSD.str.startswith("Skin -"), 'SMTS'] = 'Skin'
   LOG("Samples dataset nrows: %d ; ncols: %d:"%(samples.shape[0],samples.shape[1]))
@@ -234,8 +234,8 @@ def PivotToProfiles(rnaseq, tissues_ordered, verbose):
   # Assure only 1-row per unique (ensg,smtsd) tuple (or pivot will fail).
   #rnaseq = rnaseq.drop_duplicates(subset=['ENSG','SMTSD'], keep='first')
 
-  rnaseq_f = rnaseq[rnaseq.SEX=='female'].drop(columns=['SEX'])
-  rnaseq_m = rnaseq[rnaseq.SEX=='male'].drop(columns=['SEX'])
+  rnaseq_f = rnaseq[rnaseq.SEX=='F'].drop(columns=['SEX'])
+  rnaseq_m = rnaseq[rnaseq.SEX=='M'].drop(columns=['SEX'])
 
   rnaseq_f = rnaseq_f[['ENSG','SMTSD','TPM']]
   rnaseq_m = rnaseq_m[['ENSG','SMTSD','TPM']]
@@ -243,11 +243,11 @@ def PivotToProfiles(rnaseq, tissues_ordered, verbose):
   exfiles_f = rnaseq_f.pivot(index='ENSG', columns='SMTSD')
   exfiles_f.columns = exfiles_f.columns.get_level_values(1)
   exfiles_f = exfiles_f.reset_index(drop=False)
-  exfiles_f['SEX'] = 'female'
+  exfiles_f['SEX'] = 'F'
   exfiles_m = rnaseq_m.pivot(index='ENSG', columns='SMTSD')
   exfiles_m.columns = exfiles_m.columns.get_level_values(1)
   exfiles_m = exfiles_m.reset_index(drop=False)
-  exfiles_m['SEX'] = 'male'
+  exfiles_m['SEX'] = 'M'
   exfiles = pandas.concat([exfiles_f,exfiles_m])
   cols = ['ENSG','SEX']+tissues.tolist()
   exfiles = exfiles[cols]
