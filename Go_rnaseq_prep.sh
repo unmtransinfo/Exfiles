@@ -8,7 +8,7 @@ mkdir ${OUTPUT_DIR}
 	--i_subject $SRCDATADIR/Annotations/GTEx_v7_Annotations_SubjectPhenotypesDS.txt \
 	--i_sample $SRCDATADIR/Annotations/GTEx_v7_Annotations_SampleAttributesDS.txt \
 	--i_gene $SRCDATADIR/gtex_gene_xref.tsv \
-	--i_rnaseq ${SRCDATADIR}/RNA-seq/GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm_demo.gct.gz \
+	--i_rnaseq ${SRCDATADIR}/RNA-seq/GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm.gct.gz \
 	--o_sample $SRCDATADIR/output/gtex_rnaseq_prep_sample.tsv \
 	--o_median $SRCDATADIR/output/gtex_rnaseq_prep_median.tsv \
 	--o_profiles $SRCDATADIR/output/gtex_rnaseq_prep_profiles.tsv \
