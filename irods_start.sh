@@ -24,6 +24,7 @@ fi
 echo 'Creating directories and installing dependencies...'
 docker exec -ti ${CONTAINER_NAME} sudo /home/dockeruser/venv/bin/pip3 install --upgrade pip
 docker exec -ti ${CONTAINER_NAME} sudo  /home/dockeruser/venv/bin/pip3 install scipy matplotlib
+docker cp /home/ubuntu/data/GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm_demo.gct.gz ${CONTAINER_NAME}:"${GTEX_IRODS_DIR}/RNA-seq/gtex/"
 
 docker exec -ti ${CONTAINER_NAME} git clone https://github.com/unmtransinfo/expression-profiles.git &&
        sh -c "cd '${HOME}/expression-profiles'" &&
