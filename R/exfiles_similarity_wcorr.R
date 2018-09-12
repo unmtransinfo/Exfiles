@@ -1,11 +1,11 @@
 #!/usr/bin/env Rscript
 #############################################################################
 ### Process input expression profiles (exfiles) and calculate
-### one or more measures.
+### weighted correlation for all pairwise combos.
 #############################################################################
 library(readr)
 library(wCorr)
-library(dplyr)
+#library(dplyr)
 
 ###
 # Unweight smaller, noise-dominated expression values.
@@ -23,15 +23,7 @@ wPearson_mx <- function(A,B) { #Matrix version
 ###
 eps <- read_delim("data/gtex_rnaseq_prep_profiles.tsv", "\t")
 #
-genes <- read_delim("data/biomart_ENSG2NCBI.tsv", "\t")
-genes <- genes[,c(2,4)]
-colnames(genes) <- c('ENSG','HGNC')
-eps <- merge(eps, genes, by='ENSG', all.x=T, all.y=F)
-eps$ENSG <- eps$HGNC
-eps$HGNC <- NULL
-colnames(eps)[colnames(eps)=='ENSG'] <- 'gene'
-
-eps <- eps[!duplicated(eps[,c("gene","SEX")]),]
+eps <- eps[!duplicated(eps[,c("ENSG","SEX")]),]
 #
 #F and M gene sets should be same.
 eps_f <- eps[eps$SEX=="female",]
@@ -39,96 +31,67 @@ eps_m <- eps[eps$SEX=="male",]
 eps_f$SEX <- NULL
 eps_m$SEX <- NULL
 
-# Unfortunately must index by gene symbols for now.
-if (!setequal(eps_f$gene, eps_m$gene)) {
-  eps_f <- eps_f[eps_f$gene %in% intersect(eps_f$gene,eps_m$gene),]
-  eps_m <- eps_m[eps_m$gene %in% intersect(eps_m$gene,eps_m$gene),]
-  eps <- eps[eps$gene %in% intersect(eps_f$gene,eps_m$gene),]
+# Index by ENSG
+if (!setequal(eps_f$ENSG, eps_m$ENSG)) {
+  eps_f <- eps_f[eps_f$ENSG %in% intersect(eps_f$ENSG,eps_m$ENSG),]
+  eps_m <- eps_m[eps_m$ENSG %in% intersect(eps_m$ENSG,eps_m$ENSG),]
+  eps <- eps[eps$ENSG %in% intersect(eps_f$ENSG,eps_m$ENSG),]
 }
-#eps_f <- eps_f[!duplicated(eps_f$gene),]
-#eps_m <- eps_m[!duplicated(eps_m$gene),]
+# Must have profiles for each gene.
+writeLines(sprintf("Expression profiles (F): %d", length(unique(eps_f$ENSG))))
+writeLines(sprintf("Expression profiles (M): %d", length(unique(eps_m$ENSG))))
+###
 
+### Matrices efficient, faster.
 ###
 eps_mx_f <- as.matrix(eps_f[,2:ncol(eps_f)])
-rownames(eps_mx_f) <- eps_f$gene
+rownames(eps_mx_f) <- eps_f$ENSG
 eps_mx_m <- as.matrix(eps_m[,2:ncol(eps_m)])
-rownames(eps_mx_m) <- eps_m$gene
-# Populate FM matrix with each named row an expression profile.  F+M/2 mean.
-eps_mx_fm <- (as.matrix(eps_f[,2:ncol(eps_f)]) + as.matrix(eps_m[,2:ncol(eps_m)]))/2
-rownames(eps_mx_fm) <- eps_f$gene
-#
-# Must have profiles for each gene in ggc.
-writeLines(sprintf("DEBUG: Expression profiles (F): %d", length(unique(eps_f$gene))))
-writeLines(sprintf("DEBUG: Expression profiles (M): %d", length(unique(eps_m$gene))))
-###
-# Gene-gene correlation
-gnames <- unique(eps$gene)
-gnames <- gnames[order(gnames)]
+rownames(eps_mx_m) <- eps_m$ENSG
 ###
 # Conserve memory by writing results directly to file.
 ###
 source(paste0(Sys.getenv("HOME"),"/lib/R/time_utils.R"))
-fout <- file("data/exfiles_ggc.csv", "w")
-writeLines(paste0(c('Ga','Gb','Cluster','wRho'),collapse=','), fout)
+fout <- file("data/gtex_rnaseq_profiles_WPearson.tsv", "w")
+writeLines(paste0(c('ENSGA','SEXA','ENSGB','SEXB','wRho'),collapse='\t'), fout)
+#
+ensgs <- unique(eps$ENSG)
+ensgs <- ensgs[order(ensgs)]
 ###
 t0 <- proc.time()
-### F:
-i <- 1
-n_calc <- 0
-n_calc_total <- length(gnames)*(length(gnames)-1)/2
-n_na <- 0
-cluster <- "F"
-for (gA in gnames) {
-  i <- i + 1
-  gnames_this <- gnames[gnames>gA]
-  epAs <- eps_mx_f[rep(gA,length(gnames_this)),]
-  epBs <- eps_mx_f[gnames_this,]
-  results_this <- wPearson_mx(epAs, epBs)
-  writeLines(sprintf("%s,%s,%s,%.3f",gA,gnames_this,cluster,results_this), fout)
-  flush(fout)
-  n_calc <- n_calc + length(gnames_this)
-  n_na <- n_na + sum(is.na(results_this))
-  writeLines(sprintf("Progress (%s): %7d / %7d (%.1f%%) ; elapsed: %s", cluster, n_calc, n_calc_total,100*n_calc/n_calc_total, time_utils$NiceTime((proc.time()-t0)[3])))
-}
-writeLines(sprintf("Values calculated: %d ; NAs: %d", n_calc, n_na))
 ###
-### M:
 i <- 1
 n_calc <- 0
-n_calc_total <- length(gnames)*(length(gnames)-1)/2
+n_calc_total <- (2*length(ensgs))*(2*length(ensgs)-1)/2
 n_na <- 0
-cluster <- "M"
-for (gA in gnames) {
+for (ensgA in ensgs) {
   i <- i + 1
-  gnames_this <- gnames[gnames>gA]
-  epAs <- eps_mx_m[rep(gA,length(gnames_this)),]
-  epBs <- eps_mx_m[gnames_this,]
+  ensgs_this <- ensgs[ensgs>ensgA]
+  #FF:
+  sexes <- c("F","F")
+  epAs <- eps_mx_f[rep(ensgA,length(ensgs_this)),]
+  epBs <- eps_mx_f[ensgs_this,]
   results_this <- wPearson_mx(epAs, epBs)
-  writeLines(sprintf("%s,%s,%s,%.3f",gA,gnames_this,cluster,results_this), fout)
-  flush(fout)
-  n_calc <- n_calc + length(gnames_this)
+  writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexes[1],ensgs_this,sexes[2],results_this), fout)
+  n_calc <- n_calc + length(ensgs_this)
   n_na <- n_na + sum(is.na(results_this))
-  writeLines(sprintf("Progress (%s): %7d / %7d (%.1f%%) ; elapsed: %s", cluster, n_calc, n_calc_total,100*n_calc/n_calc_total, time_utils$NiceTime((proc.time()-t0)[3])))
-}
-writeLines(sprintf("Values calculated: %d ; NAs: %d", n_calc, n_na))
-###
-### FM:
-i <- 1
-n_calc <- 0
-n_calc_total <- length(gnames)*(length(gnames)-1)/2
-n_na <- 0
-cluster <- "FM"
-for (gA in gnames) {
-  i <- i + 1
-  gnames_this <- gnames[gnames>gA]
-  epAs <- eps_mx_fm[rep(gA,length(gnames_this)),]
-  epBs <- eps_mx_fm[gnames_this,]
+  #FM:
+  sexes <- c("F","M")
+  epBs <- eps_mx_m[ensgs_this,]
   results_this <- wPearson_mx(epAs, epBs)
-  writeLines(sprintf("%s,%s,%s,%.3f",gA,gnames_this,cluster,results_this), fout)
-  flush(fout)
-  n_calc <- n_calc + length(gnames_this)
+  writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexes[1],ensgs_this,sexes[2],results_this), fout)
+  n_calc <- n_calc + length(ensgs_this)
   n_na <- n_na + sum(is.na(results_this))
-  writeLines(sprintf("Progress (%s): %7d / %7d (%.1f%%) ; elapsed: %s", cluster, n_calc, n_calc_total,100*n_calc/n_calc_total, time_utils$NiceTime((proc.time()-t0)[3])))
+  #MM:
+  sexes <- c("M","M")
+  epAs <- eps_mx_m[rep(ensgA,length(ensgs_this)),]
+  results_this <- wPearson_mx(epAs, epBs)
+  writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexes[1],ensgs_this,sexes[2],results_this), fout)
+  n_calc <- n_calc + length(ensgs_this)
+  n_na <- n_na + sum(is.na(results_this))
+  #
+  flush(fout)
+  writeLines(sprintf("Progress: %7d / %7d (%.1f%%) ; elapsed: %s", n_calc, n_calc_total,100*n_calc/n_calc_total, time_utils$NiceTime((proc.time()-t0)[3])))
 }
 writeLines(sprintf("Values calculated: %d ; NAs: %d", n_calc, n_na))
 ###
