@@ -28,7 +28,9 @@ docker exec -ti ${CONTAINER_NAME} sudo  /home/dockeruser/venv/bin/pip3 install s
 docker exec -ti ${CONTAINER_NAME} git clone https://github.com/unmtransinfo/expression-profiles.git &&
        sh -c "cd '${HOME}/expression-profiles'" &&
        echo "CURRENT DIRECTORY IS: $(pwd)" &&
-       git checkout containerize 
+       git checkout containerize &&
+       sh -c "./Go_rnaseq_prep.sh"
+
 
 
 # Copy into container missing GTEx content and notebook
