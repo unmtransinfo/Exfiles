@@ -9,6 +9,8 @@ Expression profiles similarity computation.
  - Input expression profiles format expected: TSV, 2 columns of identifiers (ENSG, SEX) followed by multiple columns of expression values.
  - File may be produced by gtex_rnaseq_prep_app.py
 
+ - Parallelize? import multiprocessing?
+
 """
 #############################################################################
 import sys,os,io,re,time,argparse
