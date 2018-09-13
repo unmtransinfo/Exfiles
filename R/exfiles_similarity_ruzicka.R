@@ -28,7 +28,7 @@ fout <- file(OFILE, "w")
 writeLines(paste0(c('ENSGA','SEXA','ENSGB','SEXB','Ruzicka'),collapse='\t'), fout)
 ###
 #
-eps <- read_delim(IFILE, "\t")
+eps <- read_delim(IFILE, "\t", col_types=cols(SEX=col_character()))
 #
 eps <- eps[!duplicated(eps[,c("ENSG","SEX")]),]
 eps <- eps[complete.cases(eps),] #No NAs
