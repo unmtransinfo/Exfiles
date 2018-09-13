@@ -8,6 +8,7 @@
 #############################################################################
 library(readr)
 library(labdsv)
+library(reshape2)
 #
 source(paste0(Sys.getenv("HOME"),"/lib/R/time_utils.R"))
 #
@@ -23,9 +24,6 @@ if (length(args)>1) { OFILE <- args[2] } else {
 writeLines(sprintf("INPUT: %s",IFILE))
 writeLines(sprintf("OUTPUT: %s",OFILE))
 #
-###
-fout <- file(OFILE, "w")
-writeLines(paste0(c('ENSGA','SEXA','ENSGB','SEXB','Ruzicka'),collapse='\t'), fout)
 ###
 #
 eps <- read_delim(IFILE, "\t", col_types=cols(SEX=col_character()))
@@ -69,7 +67,16 @@ n_na <- 0
 ruzd <- labdsv::dsvdis(eps_mx_fm, "ruzicka", upper=T) #dist
 ruzs <- -as.matrix(ruzd) + 1 #sim = (1 - dist)
 #
+#
+ruzs_df <- reshape2:melt(ruzs)
+###
+fout <- file(OFILE, "w")
+writeLines(paste0(c('ENSGA','SEXA','ENSGB','SEXB','Ruzicka'),collapse='\t'), fout)
+###
+#Can be slow.
 for (ensgA_sexA in rownames(ruzs)) {
+  ensgA <- unlist(strsplit(ensgA_sexA,"_"))[1]
+  sexA <- unlist(strsplit(ensgA_sexA,"_"))[2]
   for (ensgB_sexB in colnames(ruzs)) {
     if (ensgA_sexA>=ensgB_sexB) { next }
     val <- ruzs[ensgA_sexA,ensgB_sexB]
@@ -77,10 +84,8 @@ for (ensgA_sexA in rownames(ruzs)) {
       n_na <- n_na + 1
       next
     }
-    ensgA <- sub("_.*$", "", ensgA_sexA)
-    ensgB <- sub("_.*$", "", ensgB_sexB)
-    sexA <- sub("^.*_", "", ensgA_sexA)
-    sexB <- sub("^.*_", "", ensgB_sexB)
+    ensgB <- unlist(strsplit(ensgB_sexB,"_"))[1]
+    sexB <- unlist(strsplit(ensgB_sexB,"_"))[2]
     writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexA,ensgB,sexB,val), fout)
     n_out <- n_out + 1
   }

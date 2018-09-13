@@ -38,6 +38,6 @@ done
 #
 OFILE_WPEARSON="$DATADIR/gtex_rnaseq_profiles_WPearson.tsv"
 #
-$(cwd)/R/exfiles_similarity.R $IFILE $OFILE_WPEARSON
+${cwd}/R/exfiles_similarity_wcorr.R $IFILE $OFILE_WPEARSON
 #
 ###

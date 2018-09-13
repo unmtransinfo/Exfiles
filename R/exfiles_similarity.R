@@ -34,8 +34,8 @@ colnames(eps)[colnames(eps)=='ENSG'] <- 'gene'
 eps <- eps[!duplicated(eps[,c("gene","SEX")]),]
 #
 #F and M gene sets should be same.
-eps_f <- eps[eps$SEX=="female",]
-eps_m <- eps[eps$SEX=="male",]
+eps_f <- eps[eps$SEX=="F",]
+eps_m <- eps[eps$SEX=="M",]
 eps_f$SEX <- NULL
 eps_m$SEX <- NULL
 
