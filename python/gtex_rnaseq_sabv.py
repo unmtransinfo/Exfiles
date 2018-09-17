@@ -90,78 +90,6 @@ def TAUs_SABV(tpms, verbose):
   return taus_sex
 
 #############################################################################
-#def SABV_TAU(rnaseq, verbose):
-#  print("=== SABV_TAU:", file=sys.stdout)
-#  print("DEBUG: SABV_TAU IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
-#
-#  ### Compute TAU by gene:
-#  rnaseq_nosex_tau = rnaseq.groupby(['ENSG']).TPM.agg(TAU)
-#  rnaseq_nosex_tau = pandas.DataFrame(rnaseq_nosex_tau).rename(columns={'TPM':'TAU'})
-#  rnaseq_nosex_tau['SEX'] = 'ALL'
-#
-#  ### Compute TAU by gene+sex:
-#  rnaseq_tau_f = rnaseq.loc[rnaseq['SEX']=='female'].groupby(['ENSG']).TPM.agg(TAU)
-#  rnaseq_tau_f = pandas.DataFrame(rnaseq_tau_f).rename(columns={'TPM':'TAU'})
-#  rnaseq_tau_f = rnaseq_tau_f.reset_index(drop=False)
-#  rnaseq_tau_f['SEX'] = 'female'
-#  print("DEBUG: rnaseq_tau_f.columns = %s"%(str(rnaseq_tau_f.columns)), file=sys.stderr)
-#
-#  rnaseq_tau_m = rnaseq.loc[rnaseq['SEX']=='male'].groupby(['ENSG']).TPM.agg(TAU)
-#  rnaseq_tau_m = pandas.DataFrame(rnaseq_tau_m).rename(columns={'TPM':'TAU'})
-#  rnaseq_tau_m = rnaseq_tau_m.reset_index(drop=False)
-#  rnaseq_tau_m['SEX'] = 'male'
-#  print("DEBUG: rnaseq_tau_m.columns = %s"%(str(rnaseq_tau_m.columns)), file=sys.stderr)
-#
-#  rnaseq_tau = pandas.concat([rnaseq_nosex_tau, rnaseq_tau_f, rnaseq_tau_m])
-#
-#  print("DEBUG: SABV_TAU OUT: nrows = %d, cols: %s"%(rnaseq_tau.shape[0],str(rnaseq_tau.columns.tolist())), file=sys.stderr)
-#  return rnaseq_tau
-
-
-#############################################################################
-#def SABV_GTRanks(rnaseq, verbose):
-#  print("=== SABV_GTRanks:", file=sys.stdout)
-#  print("DEBUG: SABV_GTRanks IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
-#  print("=== Assign gene-tissue rank (quantile) among tissues (F):", file=sys.stdout)
-#  t0 = time.time()
-#  rnaseq_ranks_f = GTRanks(rnaseq[['ENSG','SMTSD','TPM_F']].copy(), 'TPM_F')
-#  print("GTRanks (F) elapsed: %ds"%(time.time()-t0), file=sys.stderr)
-#  rnaseq_ranks_f['LEVEL_F'] = rnaseq_ranks_f.TPM_F_RANK.apply(lambda x: 'Not detected' if x==0 else 'Low' if x<.25 else 'Medium' if x<.75 else 'High')
-#  print("=== Assign gene-tissue rank (quantile) among tissues (M):", file=sys.stdout)
-#  t0 = time.time()
-#  rnaseq_ranks_m = GTRanks(rnaseq[['ENSG','SMTSD','TPM_M']].copy(), 'TPM_M')
-#  print("GTRanks (M) Elapsed: %ds"%(time.time()-t0), file=sys.stderr)
-#  rnaseq_ranks_m['LEVEL_M'] = rnaseq_ranks_m.TPM_M_RANK.apply(lambda x: 'Not detected' if x==0 else 'Low' if x<.25 else 'Medium' if x<.75 else 'High')
-#  rnaseq = pandas.merge(rnaseq_ranks_f, rnaseq_ranks_m, on=['ENSG','SMTSD'], how='inner')
-#  print("DEBUG: SABV_GTRanks OUT: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
-#  return rnaseq
-
-#############################################################################
-#def WilcoxonSignedRank(rnaseq, rnaseq_ranks, verbose):
-#  print("=== WilcoxonSignedRank:", file=sys.stdout)
-#  print("DEBUG: WilcoxonSignedRank IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
-#  ### For each gene, compute sex difference via Wilcoxon signed-rank test,
-#  ### with Wilcox treatment, discarding all zero-differences.
-#  results = pandas.DataFrame({'ENSG':rnaseq.ENSG.drop_duplicates().sort_values(), 'WilcoxonSignedRank_stat':None, 'WilcoxonSignedRank_pval':None}).reset_index(drop=True)
-#  for i in range(results.shape[0]):
-#    tpm_f_this = rnaseq_ranks.TPM_F_RANK[rnaseq_ranks.ENSG==results.ENSG[i]]
-#    tpm_m_this = rnaseq_ranks.TPM_M_RANK[rnaseq_ranks.ENSG==results.ENSG[i]]
-#    ### What is best minimum size??
-#    if tpm_f_this[tpm_f_this>0].size<8 or tpm_m_this[tpm_m_this>0].size<8:
-#      continue
-#    try:
-#      stat, pval = scipy.stats.wilcoxon(x=tpm_f_this, y=tpm_m_this, zero_method='wilcox')
-#    except Exception as e:
-#      print("Exception [i=%d; ensg=%s]: %s"%(i+1,results.ENSG[i],str(e)), file=sys.stderr)
-#      print("DEBUG: tpm_f_this=%s; tpm_m_this=%s"%(str(tpm_f_this),str(tpm_m_this)), file=sys.stderr)
-#      continue
-#    results.WilcoxonSignedRank_stat.iloc[i] = stat
-#    results.WilcoxonSignedRank_pval.iloc[i] = pval 
-#  rnaseq = pandas.merge(rnaseq, results, on=['ENSG'])
-#  print("DEBUG: WilcoxonSignedRank OUT: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())), file=sys.stderr)
-#  return rnaseq
-
-#############################################################################
 def WilcoxonRankSum(tpms, verbose):
   wrs = tpms[['SMTSD', 'ENSG']].copy().drop_duplicates().sort_values(by=['SMTSD', 'ENSG'])
   wrs.reset_index(drop=True, inplace=True)
@@ -171,8 +99,8 @@ def WilcoxonRankSum(tpms, verbose):
   for smtsd in wrs.SMTSD.unique():
     tpms_this = tpms[tpms.SMTSD==smtsd]
     for ensg in tpms_this.ENSG.unique():
-      vals_f = tpms_this.TPM[(tpms_this.ENSG==ensg) & (tpms_this.SEX=="female")]
-      vals_m = tpms_this.TPM[(tpms_this.ENSG==ensg) &(tpms_this.SEX=="male")]
+      vals_f = tpms_this.TPM[(tpms_this.ENSG==ensg) & (tpms_this.SEX=="F")]
+      vals_m = tpms_this.TPM[(tpms_this.ENSG==ensg) &(tpms_this.SEX=="M")]
       stat, pval = scipy.stats.ranksums(x=vals_f, y=vals_m)
       #stat, pval = scipy.stats.mannwhitneyu(x=vals_f.rank(), y=vals_m.rank(), use_continuity=True, alternative="two-sided")
       wrs.stat.loc[(wrs.SMTSD==smtsd) & (wrs.ENSG==ensg)] = stat
@@ -182,8 +110,8 @@ def WilcoxonRankSum(tpms, verbose):
 #############################################################################
 def SABV_LogFoldChange(tpms, verbose):
   lfc = pandas.merge(
-	tpms[tpms.SEX=='female'][['ENSG', 'SMTSD','TPM']].rename(columns={'TPM':'TPM_F'}),
-	tpms[tpms.SEX=='male'][['ENSG', 'SMTSD','TPM']].rename(columns={'TPM':'TPM_M'}),
+	tpms[tpms.SEX=='F'][['ENSG', 'SMTSD','TPM']].rename(columns={'TPM':'TPM_F'}),
+	tpms[tpms.SEX=='M'][['ENSG', 'SMTSD','TPM']].rename(columns={'TPM':'TPM_M'}),
 	on=['ENSG', 'SMTSD'], how='inner')
   lfc['log2foldchange'] = ((lfc.TPM_F+1) / (lfc.TPM_M+1)).apply(numpy.log2)
   #lfc['log2foldchange_abs'] = lfc.log2foldchange.apply(numpy.abs)
@@ -207,22 +135,6 @@ def TAU(X):
     tau += (1 - x/xmax)
   tau /= (N - 1)
   return(tau)
-
-#############################################################################
-### Assign gene-tissue rank (quantile) among tissues.
-### Ranks, for given gene, tissue expression from gene-tissue TPMs.
-#############################################################################
-#def GTRanks(rnaseq, tpm_col):
-#  tpm_rank = pandas.Series(dtype="float", index=range(rnaseq.shape[0]))
-#  for i in rnaseq.index:
-#    ensg = rnaseq.ENSG[i]
-#    val_this = rnaseq[tpm_col][i]
-#    vals_ensg = rnaseq[tpm_col][rnaseq.ENSG==ensg]
-#    vals_ensg = vals_ensg.sort_values().reset_index(drop=True)
-#    j = vals_ensg[vals_ensg == val_this].index[0]
-#    tpm_rank.iloc[i] = j/vals_ensg.size 
-#  rnaseq[tpm_col+'_RANK'] = tpm_rank
-#  return(rnaseq)
 
 #############################################################################
 if __name__=='__main__':

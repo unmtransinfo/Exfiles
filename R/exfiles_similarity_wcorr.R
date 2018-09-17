@@ -1,0 +1,112 @@
+#!/usr/bin/env Rscript
+#############################################################################
+### Rationale of weighted Pearson is to unweight smaller, noise-dominated
+### expression values.
+#############################################################################
+### Process input expression profiles (exfiles) and calculate
+### weighted correlation for all pairwise combos.
+### Input expression profiles expected format 2 ID cols (ENSG,SEX) followed
+### by TPM values, one column per tissue.
+#############################################################################
+library(readr)
+library(wCorr)
+#
+source(paste0(Sys.getenv("HOME"),"/lib/R/time_utils.R"))
+#
+t0 <- proc.time()
+#
+args <- commandArgs(trailingOnly=TRUE)
+if (length(args)>0) { IFILE <- args[1] } else { 
+  IFILE <- "data/gtex_rnaseq_prep_profiles.tsv"
+}
+if (length(args)>1) { OFILE <- args[2] } else { 
+  OFILE <- "data/gtex_rnaseq_profiles_WPearson.tsv"
+}
+writeLines(sprintf("INPUT: %s",IFILE))
+writeLines(sprintf("OUTPUT: %s",OFILE))
+#
+fout <- file(OFILE, "w")
+writeLines(paste0(c('ENSGA','SEXA','ENSGB','SEXB','wRho'),collapse='\t'), fout)
+###
+###
+#wPearson <- function(A,B) { #Vector version (slow)
+#  weightedCorr(A, B, method="Pearson", weights=(A+B)/2)
+#}
+###
+wPearson_mx <- function(A,B) { #Matrix version
+  mapply(weightedCorr, as.list(as.data.frame(t(A))), as.list(as.data.frame(t(B))), 
+         weights=as.list(as.data.frame(t((A+B)/2))),
+         MoreArgs=list(method="Pearson"))
+}
+###
+#
+eps <- read_delim(IFILE, "\t")
+#
+eps <- eps[!duplicated(eps[,c("ENSG","SEX")]),]
+#
+#F and M gene sets should be same.
+eps_f <- eps[eps$SEX=="F",]
+eps_m <- eps[eps$SEX=="M",]
+eps_f$SEX <- NULL
+eps_m$SEX <- NULL
+
+# Index by ENSG
+if (!setequal(eps_f$ENSG, eps_m$ENSG)) {
+  eps_f <- eps_f[eps_f$ENSG %in% intersect(eps_f$ENSG,eps_m$ENSG),]
+  eps_m <- eps_m[eps_m$ENSG %in% intersect(eps_m$ENSG,eps_m$ENSG),]
+  eps <- eps[eps$ENSG %in% intersect(eps_f$ENSG,eps_m$ENSG),]
+}
+# Must have profiles for each gene.
+writeLines(sprintf("Expression profiles (F): %d", length(unique(eps_f$ENSG))))
+writeLines(sprintf("Expression profiles (M): %d", length(unique(eps_m$ENSG))))
+###
+
+### Matrices efficient, faster.
+###
+eps_mx_f <- as.matrix(eps_f[,2:ncol(eps_f)])
+rownames(eps_mx_f) <- eps_f$ENSG
+eps_mx_m <- as.matrix(eps_m[,2:ncol(eps_m)])
+rownames(eps_mx_m) <- eps_m$ENSG
+###
+# Conserve memory by writing results directly to file.
+###
+#
+ensgs <- unique(eps$ENSG)
+ensgs <- ensgs[order(ensgs)]
+###
+n_calc <- 0
+n_calc_total <- (2*length(ensgs))*(2*length(ensgs)-1)/2
+n_na <- 0
+for (ensgA in ensgs) {
+  ensgs_this <- ensgs[ensgs>ensgA]
+  #FF:
+  sexes <- c("F","F")
+  epAs <- eps_mx_f[rep(ensgA,length(ensgs_this)),]
+  epBs <- eps_mx_f[ensgs_this,]
+  results_this <- wPearson_mx(epAs, epBs)
+  writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexes[1],ensgs_this,sexes[2],results_this), fout)
+  n_calc <- n_calc + length(ensgs_this)
+  n_na <- n_na + sum(is.na(results_this))
+  #FM:
+  sexes <- c("F","M")
+  epBs <- eps_mx_m[ensgs_this,]
+  results_this <- wPearson_mx(epAs, epBs)
+  writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexes[1],ensgs_this,sexes[2],results_this), fout)
+  n_calc <- n_calc + length(ensgs_this)
+  n_na <- n_na + sum(is.na(results_this))
+  #MM:
+  sexes <- c("M","M")
+  epAs <- eps_mx_m[rep(ensgA,length(ensgs_this)),]
+  results_this <- wPearson_mx(epAs, epBs)
+  writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexes[1],ensgs_this,sexes[2],results_this), fout)
+  n_calc <- n_calc + length(ensgs_this)
+  n_na <- n_na + sum(is.na(results_this))
+  #
+  flush(fout)
+  writeLines(sprintf("Progress: %7d / %7d (%.1f%%) ; elapsed: %s", n_calc, n_calc_total,100*n_calc/n_calc_total, time_utils$NiceTime((proc.time()-t0)[3])))
+}
+#
+close(fout)
+#
+writeLines(sprintf("Values calculated: %d ; NAs: %d", n_calc, n_na))
+#

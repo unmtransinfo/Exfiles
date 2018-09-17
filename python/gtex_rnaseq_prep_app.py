@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """gtex_rnaseq_prep_app.py
 
-GTEx RNAseq Preprocessing, with Sex As Biological Variable (SABV)
+GTEx RNAseq Preprocessing, for Sex As Biological Variable (SABV) analyses.
 
 Command-line version; see also Jupyter notebook gtex_rnaseq_prep.ipynb
 
@@ -48,7 +48,7 @@ def ReadTissues(ifile, verbose):
   tissues = pandas.read_csv(fin, sep=';', index_col=False, header=None, names=['name'])
   tissues = tissues.name.str.strip()
   if verbose: LOG("n_tissues: %d:"%(tissues.size))
-  if verbose: LOG("DEBUG: tissues:\n%s"%(str(tissues)))
+  if verbose: LOG("tissues:\n%s"%(str(tissues)))
   return tissues
 
 #############################################################################
@@ -87,7 +87,7 @@ def ReadSamples(ifile, verbose):
   samples = samples[['SAMPID', 'SMATSSCR', 'SMTS', 'SMTSD']]
   LOG("Samples dataset nrows: %d ; ncols: %d:"%(samples.shape[0],samples.shape[1]))
   ### SUBJID is first two hyphen-delimted fields of SAMPID.
-  samples['SUBJID'] = samples.SAMPID.str.extract('^([^-]+-[^-]+)-', expand=True)
+  samples['SUBJID'] = samples.SAMPID.str.extract('^([^-]+-[^-]+)-', expand=False)
   DescribeDf(samples, verbose)
   return samples
 
@@ -97,7 +97,7 @@ def ReadSamples(ifile, verbose):
 def CleanSamples(samples, verbose):
   LOG("=== CleanSamples:")
   samples.dropna(how='any', inplace=True)
-  samples.SEX = samples.SEX.apply(lambda x: 'female' if x==2 else 'male' if x==1 else None)
+  samples.SEX = samples.SEX.apply(lambda x: 'F' if x==2 else 'M' if x==1 else None)
   samples = samples[samples.SMATSSCR < 2]
   samples.loc[(samples.SMTS.str.strip()=='') & samples.SMTSD.str.startswith("Skin -"), 'SMTS'] = 'Skin'
   LOG("Samples dataset nrows: %d ; ncols: %d:"%(samples.shape[0],samples.shape[1]))
@@ -122,6 +122,8 @@ def DescribeSamples(samples):
 ### *   GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm.gct.gz
 ### *   GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm_demo.gct.gz
 #############################################################################
+### Truncate ENSGV version, use un-versioned ENSG for mapping. Ok?
+#############################################################################
 def ReadRnaseq(ifile, verbose):
   LOG("=== ReadRnaseq:")
   fin = open(ifile, "rb")
@@ -130,6 +132,7 @@ def ReadRnaseq(ifile, verbose):
   LOG("RNAseq dataset nrows: %d ; ncols: %d:"%(rnaseq.shape[0],rnaseq.shape[1]))
   rnaseq = rnaseq.drop(columns=['Description'])
   rnaseq = rnaseq.rename(columns={'Name':'ENSG'})
+  rnaseq.ENSG = rnaseq.ENSG.str.extract('^([^\.]+)\..*$', expand=False)
   samples = rnaseq.columns[1:]
   LOG("RNAseq samples count: %d:"%(samples.size))
   LOG("RNAseq unique samples count: %d:"%(samples.nunique()))
@@ -155,22 +158,8 @@ def ReadGenes(ifile, verbose):
 ### For each tissue, group and concatenate results.
 #############################################################################
 def CleanRnaseq(rnaseq, verbose):
-  LOG("DEBUG: CleanRnaseq IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())))
+  if verbose: LOG("NOTE: CleanRnaseq IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())))
   LOG("=== CleanRnaseq:")
-
-  LOG("For each tissue, remove genes with TPMs all zero...")
-  for i,smtsd in enumerate(rnaseq.SMTSD.sort_values().unique()):
-    rnaseq_this = rnaseq[rnaseq.SMTSD==smtsd]
-    tpm_all0  = (rnaseq_this[['ENSG','TPM']].groupby(by=['ENSG'], as_index=True).max()==0).rename(columns={'TPM':'tpm_all0'})
-    LOG("\t%d. \"%s\" tpm_all0 count: %d"%(i+1,smtsd,tpm_all0.tpm_all0.value_counts()[True] if True in tpm_all0.tpm_all0.value_counts() else 0))
-    rnaseq_this = pandas.merge(rnaseq_this, tpm_all0, left_on=['ENSG'], right_index=True)
-    rnaseq_this = rnaseq_this[~rnaseq_this['tpm_all0']]
-    rnaseq_this.drop(columns=['tpm_all0'], inplace=True)
-    if i==0:
-      rnaseq_out=rnaseq_this
-    else:
-      rnaseq_out=pandas.concat([rnaseq_out,rnaseq_this])
-  rnaseq = rnaseq_out
 
   LOG("For each tissue, remove genes not expressed in both sexes...")
   for i,smtsd in enumerate(rnaseq.SMTSD.sort_values().unique()):
@@ -192,24 +181,37 @@ def CleanRnaseq(rnaseq, verbose):
   ### Breast not 100% sex-specific, so manually remove.
   rnaseq = rnaseq[~rnaseq.SMTSD.str.match('^Breast')]
 
+  LOG("For each tissue, remove genes with TPMs all zero...")
+  for i,smtsd in enumerate(rnaseq.SMTSD.sort_values().unique()):
+    rnaseq_this = rnaseq[rnaseq.SMTSD==smtsd]
+    tpm_all0  = (rnaseq_this[['ENSG','TPM']].groupby(by=['ENSG'], as_index=True).max()==0).rename(columns={'TPM':'tpm_all0'})
+    LOG("\t%d. \"%s\" tpm_all0 count: %d"%(i+1,smtsd,tpm_all0.tpm_all0.value_counts()[True] if True in tpm_all0.tpm_all0.value_counts() else 0))
+    rnaseq_this = pandas.merge(rnaseq_this, tpm_all0, left_on=['ENSG'], right_index=True)
+    rnaseq_this = rnaseq_this[~rnaseq_this['tpm_all0']]
+    rnaseq_this.drop(columns=['tpm_all0'], inplace=True)
+    if i==0:
+      rnaseq_out=rnaseq_this
+    else:
+      rnaseq_out=pandas.concat([rnaseq_out,rnaseq_this])
+  rnaseq = rnaseq_out
+
   rnaseq = rnaseq[['ENSG','SMTSD','SAMPID','SMATSSCR','SEX','AGE','DTHHRDY','TPM']]
   rnaseq = rnaseq.sort_values(by=['ENSG','SMTSD','SAMPID'])
   rnaseq = rnaseq.reset_index(drop=True)
   LOG("RNAseq unique samples count: %d:"%(rnaseq.SAMPID.nunique()))
   LOG("RNAseq unique tissues count: %d:"%(rnaseq.SMTSD.nunique()))
   LOG("RNAseq unique gene count: %d"%(rnaseq.ENSG.nunique()))
-  LOG("DEBUG: CleanRnaseq OUT: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())))
+  if verbose: LOG("NOTE: CleanRnaseq OUT: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())))
   return rnaseq
 
 #############################################################################
+### Compute median TPM by gene+tissue+sex.
+#############################################################################
 def SABV_aggregate_median(rnaseq, verbose):
   LOG("=== SABV_aggregate_median:")
-  LOG("DEBUG: SABV_aggregate_median IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())))
-
-  ### Compute median TPM by gene+tissue+sex:
+  if verbose: LOG("NOTE: SABV_aggregate_median IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())))
   rnaseq = rnaseq[['ENSG', 'SMTSD', 'SEX', 'TPM']].groupby(by=['ENSG','SMTSD','SEX'], as_index=False).median()
-
-  LOG("DEBUG: SABV_aggregate_median OUT: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())))
+  if verbose: LOG("NOTE: SABV_aggregate_median OUT: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())))
   return rnaseq
 
 #############################################################################
@@ -219,7 +221,7 @@ def SABV_aggregate_median(rnaseq, verbose):
 ### Preserve tissue order.
 #############################################################################
 def PivotToProfiles(rnaseq, tissues_ordered, verbose):
-  LOG("DEBUG: PivotToProfiles IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())))
+  if verbose: LOG("NOTE: PivotToProfiles IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())))
   tissues = pandas.Series(pandas.unique(rnaseq.SMTSD.sort_values()))
   if type(tissues_ordered)==pandas.core.series.Series:
     if set(tissues) == set(tissues_ordered):
@@ -232,8 +234,8 @@ def PivotToProfiles(rnaseq, tissues_ordered, verbose):
   # Assure only 1-row per unique (ensg,smtsd) tuple (or pivot will fail).
   #rnaseq = rnaseq.drop_duplicates(subset=['ENSG','SMTSD'], keep='first')
 
-  rnaseq_f = rnaseq[rnaseq.SEX=='female'].drop(columns=['SEX'])
-  rnaseq_m = rnaseq[rnaseq.SEX=='male'].drop(columns=['SEX'])
+  rnaseq_f = rnaseq[rnaseq.SEX=='F'].drop(columns=['SEX'])
+  rnaseq_m = rnaseq[rnaseq.SEX=='M'].drop(columns=['SEX'])
 
   rnaseq_f = rnaseq_f[['ENSG','SMTSD','TPM']]
   rnaseq_m = rnaseq_m[['ENSG','SMTSD','TPM']]
@@ -241,16 +243,16 @@ def PivotToProfiles(rnaseq, tissues_ordered, verbose):
   exfiles_f = rnaseq_f.pivot(index='ENSG', columns='SMTSD')
   exfiles_f.columns = exfiles_f.columns.get_level_values(1)
   exfiles_f = exfiles_f.reset_index(drop=False)
-  exfiles_f['SEX'] = 'female'
+  exfiles_f['SEX'] = 'F'
   exfiles_m = rnaseq_m.pivot(index='ENSG', columns='SMTSD')
   exfiles_m.columns = exfiles_m.columns.get_level_values(1)
   exfiles_m = exfiles_m.reset_index(drop=False)
-  exfiles_m['SEX'] = 'male'
+  exfiles_m['SEX'] = 'M'
   exfiles = pandas.concat([exfiles_f,exfiles_m])
   cols = ['ENSG','SEX']+tissues.tolist()
   exfiles = exfiles[cols]
   DescribeDf(exfiles,verbose)
-  LOG("DEBUG: PivotToProfiles OUT: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())))
+  if verbose: LOG("NOTE: PivotToProfiles OUT: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())))
   return exfiles
 
 #############################################################################
@@ -322,6 +324,10 @@ if __name__=='__main__':
   rnaseq = ReadRnaseq(args.ifile_rnaseq, args.verbose)
   LOG("ReadRnaseq elapsed: %ds"%(time.time()-t1))
 
+  # Merge/inner with gene IDs file, to retain only protein-coding genes.
+  rnaseq = pandas.merge(rnaseq, genes[['ENSG']], on='ENSG', how='inner')
+  LOG("RNAseq unique gene count (inner join with protein-coding gene ENSGs): %d"%(rnaseq.ENSG.nunique()))
+
   LOG('=== Remove genes in pseudoautosomal regions (PAR) of chromosome Y ("ENSGR"):')
   n_ensgr = rnaseq.ENSG.str.startswith('ENSGR').sum()
   LOG('ENSGR gene TPMs: %d (%.2f%%)'%(n_ensgr,100*n_ensgr/rnaseq.shape[0]))
@@ -334,7 +340,7 @@ if __name__=='__main__':
   DescribeDf(rnaseq,args.verbose)
   LOG("RNAseq unique gene count (after melt): %d"%(rnaseq.ENSG.nunique()))
 
-  # Note could lose genes via inner join:
+  # Merge/inner with gene IDs file. This time to add IDs, names.
   rnaseq = pandas.merge(rnaseq, genes, on='ENSG', how='left')
   LOG("RNAseq unique gene count (after merge with gene IDs): %d"%(rnaseq.ENSG.nunique()))
 
