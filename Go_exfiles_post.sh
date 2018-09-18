@@ -13,7 +13,9 @@ OFILE_WPEARSON="$DATADIR/gtex_rnaseq_profiles_WPearson.tsv"
 ${cwd}/python/exfiles_similarity_post.py \
 	--i_cor $OFILE_WPEARSON \
 	--i_sim $OFILE_RUZICKA \
-	--i_gene $DATADIR/gtex_gene_xref.tsv \
+	--min_sim 0.7 \
+	--min_cor 0.7 \
+	--max_anticor "-.7" \
 	--o $DATADIR/exfiles_ggc.tsv
 #
 ###
