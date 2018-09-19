@@ -116,38 +116,37 @@ def FilterComparisons2File(cmps, min_keep, min_sim, min_cor, max_anticor, decima
   cmps = cmps.round(decimals)
 
   ### Compute combo score and mark for keeping top-10 for each gene:
-  cmps['combo'] = cmps.wRho * cmps.Ruzicka
+  cmps['combo'] = cmps.wRho * cmps.Ruzicka #abs()?
   cmps['out'] = False #flag: written
   n_out=0; n_genes_sub=0;
   ensgs = pandas.concat([cmps.ENSGA, cmps.ENSGB]).unique()
-  for ensg in ensgs:
+  for i_gene,ensg in enumerate(ensgs):
     combos_this = cmps.combo[(cmps.ENSGA==ensg)|(cmps.ENSGB==ensg)]
-    #LOG("DEBUG: combos_this.size = %d"%combos_this.size, file=sys.stderr)
-    if combos_this.size<=min_keep:
-      for row in cmps[(cmps.ENSGA==ensg)|(cmps.ENSGB==ensg)].itertuples():
+    if combos_this.size>min_keep:
+      combo_min = combos_this.sort_values(ascending=False).tolist()[min_keep-1]
+    else:
+      n_genes_sub+=1
+      combo_min = 0
+    for row in cmps[((cmps.ENSGA==ensg)|(cmps.ENSGB==ensg))&(cmps.combo>=combo_min)].itertuples():
+      if not row.out:
         fout.write('\t'.join([str(getattr(row,tag)) for tag in tags])+'\n')
         n_out+=1
-      n_genes_sub+=1
-      cmps.out[(cmps.ENSGA==ensg)|(cmps.ENSGB==ensg)] = True
-    else:
-      combo_min = combos_this.sort_values(ascending=False).tolist()[min_keep-1]
-      for row in cmps[((cmps.ENSGA==ensg)|(cmps.ENSGB==ensg))&(cmps.combo>=combo_min)].itertuples():
-        if not row.out:
-          fout.write('\t'.join([str(getattr(row,tag)) for tag in tags])+'\n')
-          n_out+=1
-      cmps.out[((cmps.ENSGA==ensg)|(cmps.ENSGB==ensg))&(cmps.combo>=combo_min)] = True
+        if n_out%1000==0:
+          LOG("Progress (top hits step): n_out: %d ; genes %d / %d (%.1f%%)"%(n_out,i_gene,ensgs.size,100*i_gene/ensgs.size), file=sys.stderr)
+    cmps.out[((cmps.ENSGA==ensg)|(cmps.ENSGB==ensg))&(cmps.combo>=combo_min)] = True
 
   LOG("FilterComparisons genes with <%d similars: %d / %d: (%.1f%%)"%(min_keep,n_genes_sub,ensgs.size,100*n_genes_sub/ensgs.size))
 
+  i_row=0
   for row in cmps.itertuples():
+    i_row+=1
     if row.out:
       continue
-    elif row.Ruzicka>min_sim: # Sim
+    elif row.Ruzicka>min_sim or row.wRho>=min_cor or row.wRho<=max_anticor:
       fout.write('\t'.join([str(getattr(row,tag)) for tag in tags])+'\n')
       n_out+=1
-    elif row.wRho>=min_cor or row.wRho<=max_anticor: # Cor/anticor
-      fout.write('\t'.join([str(getattr(row,tag)) for tag in tags])+'\n')
-      n_out+=1
+      if n_out%1000==0:
+        LOG("Progress (sim/cor filter step): n_out: %d ; rows %d / %d (%.1f%%)"%(n_out,i_row,cmps.shape[0],100*i_row/cmps.shape[0]), file=sys.stderr)
 
   LOG("FilterComparisons output: nrows: %d: (%.1f%%)"%(n_out,100*n_out/nrow_i))
 
