@@ -7,6 +7,11 @@ GTEX_IRODS_DIR="/renci/irods/gtex/"
 DOCKER_DIR="/home/dockeruser/venv"
 CONTAINER_NAME="dc_jupyter"
 
+if [$(docker rm -f dc_jupyter)]
+then
+    echo "Deleting existing iRODS container."
+fi
+      
 # The paths where the data files reside
 export GTEX_ANNOTATIONS="${GTEX_IRODS_DIR}/Annotations"
 export GTEX_RNASEQ="${GTEX_IRODS_DIR}/RNA-seq"
@@ -30,10 +35,5 @@ docker exec ${CONTAINER_NAME} git clone https://github.com/unmtransinfo/expressi
 docker exec ${CONTAINER_NAME} sh -c "cd /home/dockeruser/expression-profiles && git checkout containerize"
 docker exec -ti ${CONTAINER_NAME} sh -c "cd /home/dockeruser/expression-profiles && ./Go_rnaseq_prep.sh"
 
-
-
-# Copy into container missing GTEx content and notebook
-# echo 'Copying required analysis files and UNM Jupyter notebook'
-# docker cp /home/data/GTEx/data/biomart_ENSG2NCBI.tsv ${CONTAINER_NAME}:"$INDOCKER_DIR/gtex/"
-# docker cp /home/data/GTEx/data/GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm.gct.gz ${CONTAINER_NAME}:"$INDOCKER_DIR/gtex/"
-# docker cp gtex_rnaseq_prep.ipynb ${CONTAINER_NAME}:"$INDOCKER_DIR/notebooks/"
+# Put generated files outside of container for notebook usage
+docker cp ${CONTAINER_NAME}:"/home/dockeruser/expression-profiles/data/output/" ./data/
