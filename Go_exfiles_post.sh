@@ -1,17 +1,28 @@
 #!/bin/bash
 #############################################################################
+# exfiles_similarity_post.py may be too fat in memory (70GB+).
+# So first filter raw files serially.
 #############################################################################
 #
 cwd=$(pwd)
 #
 DATADIR="$cwd/data"
 #
+#3GB
 OFILE_RUZICKA="$DATADIR/gtex_rnaseq_profiles_Ruzicka.tsv"
 #
+#22GB
 OFILE_WPEARSON="$DATADIR/gtex_rnaseq_profiles_WPearson.tsv"
+OFILE_WPEARSON_SLIMMER="$DATADIR/gtex_rnaseq_profiles_WPearson_slimmer.tsv"
+#
+cat $OFILE_WPEARSON |head -1 >$OFILE_WPEARSON_SLIMMER
+cat $OFILE_WPEARSON \
+	|perl -ne 'while (<>) {$line=$_; $_=~s/^.*\t//; if ($_<-.5 || $_>.5) {print $line}}' \
+	>>$OFILE_WPEARSON_SLIMMER
+#
 #
 ${cwd}/python/exfiles_similarity_post.py \
-	--i_cor $OFILE_WPEARSON \
+	--i_cor $OFILE_WPEARSON_SLIMMER \
 	--i_sim $OFILE_RUZICKA \
 	--min_sim 0.7 \
 	--min_cor 0.7 \
