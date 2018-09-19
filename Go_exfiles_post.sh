@@ -16,10 +16,16 @@ OFILE_WPEARSON="$DATADIR/gtex_rnaseq_profiles_WPearson.tsv"
 OFILE_WPEARSON_SLIMMER="$DATADIR/gtex_rnaseq_profiles_WPearson_slimmer.tsv"
 #
 cat $OFILE_WPEARSON |head -1 >$OFILE_WPEARSON_SLIMMER
+#
+set -x
+#
 cat $OFILE_WPEARSON \
-	|perl -ne 'while (<>) {$line=$_; $_=~s/^.*\t//; if ($_<-.5 || $_>.5) {print $line}}' \
+	|perl -ne 'while (<>) {$line=$_; s/^.*\t//; if ($_<-.5||$_>.5) {print $line}}' \
 	>>$OFILE_WPEARSON_SLIMMER
 #
+printf "WPearson SLIMMER, FROM: %d TO: %d\n" \
+	$(cat $OFILE_WPEARSON |wc -l) \
+	$(cat $OFILE_WPEARSON_SLIMMER |wc -l)
 #
 ${cwd}/python/exfiles_similarity_post.py \
 	--i_cor $OFILE_WPEARSON_SLIMMER \

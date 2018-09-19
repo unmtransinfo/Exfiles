@@ -101,7 +101,10 @@ def GroupComparisons(cors, sims, verbose):
   return cmps
 
 #############################################################################
-def FilterComparisons(cmps, min_keep, min_sim, min_cor, max_anticor, verbose):
+def FilterComparisons2File(cmps, min_keep, min_sim, min_cor, max_anticor, decimals, ofile, verbose):
+  fout = open(ofile, "w")
+  tags = cmps.columns.tolist()
+  fout.write('\t'.join(tags)+'\n')
   nrow_i=cmps.shape[0]
   LOG("FilterComparisons input: nrows: %d:"%(cmps.shape[0]))
   LOG('Min keep: %d'%min_keep)
@@ -109,29 +112,46 @@ def FilterComparisons(cmps, min_keep, min_sim, min_cor, max_anticor, verbose):
   LOG('Min correlation: %f'%min_cor)
   LOG('Max anticorrelation: %f'%max_anticor)
 
+  cmps.dropna(how='any', inplace=True)
+  cmps = cmps.round(decimals)
+
   ### Compute combo score and mark for keeping top-10 for each gene:
   cmps['combo'] = cmps.wRho * cmps.Ruzicka
-  cmps['keep'] = False
+  cmps['out'] = False #flag: written
+  n_out=0; n_genes_sub=0;
   ensgs = pandas.concat([cmps.ENSGA, cmps.ENSGB]).unique()
   for ensg in ensgs:
     combos_this = cmps.combo[(cmps.ENSGA==ensg)|(cmps.ENSGB==ensg)]
+    #LOG("DEBUG: combos_this.size = %d"%combos_this.size, file=sys.stderr)
     if combos_this.size<=min_keep:
-      continue
+      for row in cmps[(cmps.ENSGA==ensg)|(cmps.ENSGB==ensg)].itertuples():
+        fout.write('\t'.join([str(getattr(row,tag)) for tag in tags])+'\n')
+        n_out+=1
+      n_genes_sub+=1
+      cmps.out[(cmps.ENSGA==ensg)|(cmps.ENSGB==ensg)] = True
     else:
       combo_min = combos_this.sort_values(ascending=False).tolist()[min_keep-1]
-      cmps.keep[((cmps.ENSGA==ensg)|(cmps.ENSGB==ensg))&(cmps.combo>=combo_min)] = True
+      for row in cmps[((cmps.ENSGA==ensg)|(cmps.ENSGB==ensg))&(cmps.combo>=combo_min)].itertuples():
+        if not row.out:
+          fout.write('\t'.join([str(getattr(row,tag)) for tag in tags])+'\n')
+          n_out+=1
+      cmps.out[((cmps.ENSGA==ensg)|(cmps.ENSGB==ensg))&(cmps.combo>=combo_min)] = True
 
-  ### Sim cutoff:
-  cmps.keep[(cmps.Ruzicka>=min_sim)] = True
-  ### Cor/anticor cutoffs:
-  cmps.keep[(cmps.wRho>=min_cor)|(cmps.wRho<=max_anticor)] = True
+  LOG("FilterComparisons genes with <%d similars: %d / %d: (%.1f%%)"%(min_keep,n_genes_sub,ensgs.size,100*n_genes_sub/ensgs.size))
 
-  cmps = cmps[cmps.keep]
-  cmps.drop(columns=['combo','keep'], inplace=True)
-  nrow_f=cmps.shape[0]
-  LOG("FilterComparisons output: nrows: %d: (%.1f%%)"%(cmps.shape[0],100*cmps.shape[0]/nrow_i))
+  for row in cmps.itertuples():
+    if row.out:
+      continue
+    elif row.Ruzicka>min_sim: # Sim
+      fout.write('\t'.join([str(getattr(row,tag)) for tag in tags])+'\n')
+      n_out+=1
+    elif row.wRho>=min_cor or row.wRho<=max_anticor: # Cor/anticor
+      fout.write('\t'.join([str(getattr(row,tag)) for tag in tags])+'\n')
+      n_out+=1
 
-  return cmps
+  LOG("FilterComparisons output: nrows: %d: (%.1f%%)"%(n_out,100*n_out/nrow_i))
+
+  fout.close()
 
 #############################################################################
 def LOG(msg, file=sys.stdout):
@@ -165,11 +185,8 @@ if __name__=='__main__':
 
   cmps = GroupComparisons(cors, sims, args.verbose)
 
-  cmps = FilterComparisons(cmps, args.min_keep, args.min_sim, args.min_cor, args.max_anticor, args.verbose)
+  ### Directly to file saves memory.
+  FilterComparisons2File(cmps, args.min_keep, args.min_sim, args.min_cor, args.max_anticor, args.decimals, args.ofile, args.verbose)
 
-  if args.ofile:
-    print("=== Output file: %s"%args.ofile, file=sys.stdout)
-    LOG("Output nrows: %d ; ncols: %d:"%(cmps.shape[0],cmps.shape[1]))
-    cmps.round(args.decimals).to_csv(args.ofile, sep='\t', index=False)
 
   print("%s Elapsed: %ds"%(PROG,(time.time()-t0)), file=sys.stderr)
