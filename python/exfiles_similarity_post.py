@@ -162,6 +162,7 @@ if __name__=='__main__':
   parser.add_argument("--i_cor",dest="ifile_cor",help="input gene-gene correlation (TSV)")
   parser.add_argument("--i_sim",dest="ifile_sim",help="input gene-gene similarity (TSV)")
   parser.add_argument("--o",dest="ofile",help="output (TSV)")
+  parser.add_argument("--o_unfiltered",dest="ofile_unfiltered",help="output (TSV)")
   parser.add_argument("--min_keep",type=int,default=10,help="min count, sim-genes to keep per gene")
   parser.add_argument("--min_sim",type=float,default=.7,help="min similarity")
   parser.add_argument("--min_cor",type=float,default=.7,help="min correlation")
@@ -184,8 +185,12 @@ if __name__=='__main__':
 
   cmps = GroupComparisons(cors, sims, args.verbose)
 
-  ### Directly to file saves memory.
-  FilterComparisons2File(cmps, args.min_keep, args.min_sim, args.min_cor, args.max_anticor, args.decimals, args.ofile, args.verbose)
+  if args.ofile_unfiltered:
+    LOG("=== Output unfiltered file: %s"%args.ofile_unfiltered)
+    cmps.round(args.decimals).to_csv(args.ofile_unfiltered, sep='\t', index=False)
 
+  elif args.ofile:
+    ### Directly to file saves memory.
+    FilterComparisons2File(cmps, args.min_keep, args.min_sim, args.min_cor, args.max_anticor, args.decimals, args.ofile, args.verbose)
 
   print("%s Elapsed: %ds"%(PROG,(time.time()-t0)), file=sys.stderr)
