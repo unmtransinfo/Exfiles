@@ -67,7 +67,8 @@ def GroupComparisons(cors, sims, verbose):
   cors_mf['Cluster'] = 'FM'
   cors_grouped = pandas.concat([cors_ff,cors_mm,cors_mf])
   cors_grouped = cors_grouped[['ENSGA','ENSGB','Cluster','wRho']]
-  #LOG("DEBUG: cors_grouped nrows: %d ; ncols: %d:"%(cors_grouped.shape[0],cors_grouped.shape[1]))
+  LOG("DEBUG: cors_grouped nrows: %d ; ncols: %d:"%(cors_grouped.shape[0],cors_grouped.shape[1]))
+  LOG("DEBUG: cors_grouped.Cluster.value_counts():\n%s"%(str(cors_grouped.Cluster.value_counts())))
 
   ###
   sims = sims[['ENSGA','SEXA','ENSGB','SEXB','Ruzicka']]
@@ -88,10 +89,11 @@ def GroupComparisons(cors, sims, verbose):
   sims_grouped = pandas.concat([sims_ff,sims_mm,sims_mf])
   sims_grouped = sims_grouped[['ENSGA','ENSGB','Cluster','Ruzicka']]
   LOG("DEBUG: sims_grouped nrows: %d ; ncols: %d:"%(sims_grouped.shape[0],sims_grouped.shape[1]))
+  LOG("DEBUG: sims_grouped.Cluster.value_counts():\n%s"%(str(sims_grouped.Cluster.value_counts())))
   #
   cmps = pandas.merge(cors_grouped, sims_grouped, on=['ENSGA','ENSGB','Cluster'])
   cmps = cmps[['ENSGA','ENSGB','Cluster','wRho','Ruzicka']]
-  LOG("DEBUG: cmps.Cluster.value_counts(): %s"%(str(cmps.Cluster.value_counts())))
+  LOG("DEBUG: cmps.Cluster.value_counts():\n%s"%(str(cmps.Cluster.value_counts())))
   #
   return cmps
 

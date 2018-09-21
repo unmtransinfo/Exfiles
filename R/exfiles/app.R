@@ -140,6 +140,7 @@ Notes on data preparation: This version is focused on SABV knowledge discovery, 
 breast tissues not considered. Also we restrict to protein-encoding genes mapped to HUGO gene symbols,
 for scientific comprehensibility, so only data associated with these genes is retained.
 Currently also genes are ignored with mapping ambiguity between Ensembl ENSG to HUGO symbols. 
+</P>
 <B>Algorithms:</B> Giovanni Bocci, Oleg Ursu, Cristian Bologa, Steve Mathias, Jeremy Yang &amp; Tudor Oprea<BR/>
 <B>Web app:</B> Jeremy Yang<BR/>
 Data from <A HREF=\"https://www.gtexportal.org/\" TARGET=\"_blank\">GTEx, The Genotype-Tissue Expression Project</A>.<BR/>
@@ -246,7 +247,7 @@ server <- function(input, output, session) {
     
     ggc_hits <- merge(ggc_hits, gene[,c("ENSG","symbol","name")], by.x="EnsemblID", by.y="ENSG", all.x=T, all.y=F)
 
-    ggc_hits <- ggc_hits[,c("EnsemblID","symbol","name","Cluster","Similarity")] #remove and reorder cols
+    ggc_hits <- ggc_hits[,c("EnsemblID","symbol","name","Cluster","Similarity")]
     
     if (input$dissim) {
       ggc_hits <- ggc_hits[order(ggc_hits$Similarity),]
@@ -302,17 +303,17 @@ server <- function(input, output, session) {
 	style = "bootstrap",
 	options = list(autoWidth=T),
 	colnames = c("Ensembl", "Symbol", "Name", "Group", "Similarity")) %>%
-        formatRound(digits=3, columns=4:ncol(dt))
+        formatRound(digits=3, columns=5:ncol(dt))
   }, server=T)
   
   hits_export <- reactive({
     ggc_hits <- hits()
     ggc_hits["Query"] <- qryA()
-    ggc_hits <- ggc_hits[,c(5,1,2,3,4)] #reorder cols
-    names(ggc_hits) <- c("Query", "GeneSymbol", "GeneName", "Group", paste0(input$metric, "_Similarity"))
+    ggc_hits <- ggc_hits[,c(6,1,2,3,4,5)] #reorder cols
+    names(ggc_hits) <- c("Query", "EnsemblID","GeneSymbol","GeneName","Group", paste0(input$metric, "_Similarity"))
     return(ggc_hits)
   })
-  
+
   output$hits_file <- downloadHandler(
     filename = function() { "exfiles_hits.csv" },
     content = function(file) { write.csv(hits_export(), file, row.names=F) }
