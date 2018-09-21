@@ -28,9 +28,8 @@ import pandas,numpy,scipy,scipy.stats
 
 #############################################################################
 def ReadCorrfile(ifile, verbose):
-  fin = open(ifile)
-  print('=== Correlation datafile: %s'%fin.name, file=sys.stdout)
-  cors = pandas.read_csv(fin, sep='\t', na_values=['','NA','NaN'], compression='infer')
+  print('=== Correlation datafile: %s'%ifile, file=sys.stdout)
+  cors = pandas.read_csv(ifile, sep='\t', na_values=['','NA','NaN'], compression='infer')
   cors.dropna(how='any', inplace=True)
   print("Correlation dataset nrows: %d ; ncols: %d:"%(cors.shape[0],cors.shape[1]), file=sys.stdout)
   print("Correlation cols: %s:"%(str(cors.columns.tolist())), file=sys.stdout)
@@ -38,9 +37,8 @@ def ReadCorrfile(ifile, verbose):
 
 #############################################################################
 def ReadSimfile(ifile, verbose):
-  fin = open(ifile)
-  print('=== Similarity datafile: %s'%fin.name, file=sys.stdout)
-  sims = pandas.read_csv(fin, sep='\t', na_values=['','NA','NaN'], compression='infer')
+  print('=== Similarity datafile: %s'%ifile, file=sys.stdout)
+  sims = pandas.read_csv(ifile, sep='\t', na_values=['','NA','NaN'], compression='infer')
   sims.dropna(how='any', inplace=True)
   print("Similarity dataset nrows: %d ; ncols: %d:"%(sims.shape[0],sims.shape[1]), file=sys.stdout)
   print("Similarity cols: %s:"%(str(sims.columns.tolist())), file=sys.stdout)
