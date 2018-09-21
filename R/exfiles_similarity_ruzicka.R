@@ -13,10 +13,10 @@ t0 <- proc.time()
 #
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args)>0) { IFILE <- args[1] } else { 
-  IFILE <- "data/gtex_rnaseq_prep_profiles.tsv"
+  IFILE <- "data/exfiles_eps.tsv"
 }
 if (length(args)>1) { OFILE <- args[2] } else { 
-  OFILE <- "data/gtex_rnaseq_profiles_Ruzicka.tsv"
+  OFILE <- "data/exfiles_eps_Ruzicka.tsv"
 }
 writeLines(sprintf("INPUT: %s",IFILE))
 writeLines(sprintf("OUTPUT: %s",OFILE))
@@ -58,35 +58,19 @@ eps_mx_fm <- rbind(eps_mx_f, eps_mx_m)
 ###
 #
 ruzd <- labdsv::dsvdis(eps_mx_fm, "ruzicka", upper=T) #dist
-ruzs <- -as.matrix(ruzd) + 1 #sim = (1 - dist)
+ruzm <- -as.matrix(ruzd) + 1 #matrix: sim=(1-dist)
 #
+ruz <- reshape2::melt(ruzm)
 #
-ruzs_df <- reshape2::melt(ruzs)
+names(ruz) <- c("ENSG_SEXA", "ENSG_SEXB", "Ruzicka")
+ruz <- ruz[ruz$ENSG_SEXA!=ruz$ENSG_SEXB,]
+ruz['ENSGA'] <- sub("_.*$", "", ruz$ENSG_SEXA)
+ruz['SEXA'] <- sub("^.*_", "", ruz$ENSG_SEXA)
+ruz['ENSGB'] <- sub("_.*$", "", ruz$ENSG_SEXB)
+ruz['SEXB'] <- sub("^.*_", "", ruz$ENSG_SEXB)
+ruz <- ruz[,c("ENSGA","SEXA","ENSGB","SEXB","Ruzicka")]
+ruz$Ruzicka <- round(ruz$Ruzicka, digits=3)
 #
-write_csv(ruzs_df, path=OFILE)
-###
-#############################################################################
-#Can be slow.
-#n_out <- 0
-#n_na <- 0
-#for (ensgA_sexA in rownames(ruzs)) {
-#  ensgA <- unlist(strsplit(ensgA_sexA,"_"))[1]
-#  sexA <- unlist(strsplit(ensgA_sexA,"_"))[2]
-#  for (ensgB_sexB in colnames(ruzs)) {
-#    if (ensgA_sexA>=ensgB_sexB) { next }
-#    val <- ruzs[ensgA_sexA,ensgB_sexB]
-#    if (is.na(val)) {
-#      n_na <- n_na + 1
-#      next
-#    }
-#    ensgB <- unlist(strsplit(ensgB_sexB,"_"))[1]
-#    sexB <- unlist(strsplit(ensgB_sexB,"_"))[2]
-#    writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexA,ensgB,sexB,val), fout)
-#    n_out <- n_out + 1
-#  }
-#}
-#close(fout)
-#writeLines(sprintf("Values out: %d ; NAs: %d", n_out, n_na))
-#############################################################################
+write_delim(ruz, path=OFILE, delim="\t")
 ###
 #
