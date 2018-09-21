@@ -61,7 +61,7 @@ ruzd <- labdsv::dsvdis(eps_mx_fm, "ruzicka", upper=T) #dist
 ruzs <- -as.matrix(ruzd) + 1 #sim = (1 - dist)
 #
 #
-ruzs_df <- reshape2:melt(ruzs)
+ruzs_df <- reshape2::melt(ruzs)
 #
 write_csv(ruzs_df, path=OFILE)
 ###
