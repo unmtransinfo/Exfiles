@@ -47,22 +47,15 @@ def ReadSimfile(ifile, verbose):
   return sims
 
 #############################################################################
-#def ReadGenes(ifile, verbose):
-#  LOG("=== ReadGenes:")
-#  fin = open(ifile)
-#  LOG('GTEx/Ensembl/HGNC genes datafile: %s'%fin.name)
-#  genes = pandas.read_csv(fin, sep='\t', na_values=[''], dtype={2:str})
-#  LOG("Genes dataset nrows: %d ; ncols: %d:"%(genes.shape[0],genes.shape[1]))
-#  return genes
-
-#############################################################################
 def GroupComparisons(cors, sims, verbose):
   cors = cors[['ENSGA','SEXA','ENSGB','SEXB','wRho']]
   #LOG("DEBUG: cors nrows: %d ; ncols: %d:"%(cors.shape[0],cors.shape[1]))
+
   cors_ff = cors[(cors.SEXA=='F')&(cors.SEXB=='F')].drop(columns=['SEXA','SEXB'])
   cors_ff['Cluster']='F'
   cors_mm = cors[(cors.SEXA=='M')&(cors.SEXB=='M')].drop(columns=['SEXA','SEXB'])
   cors_mm['Cluster']='M'
+
   ## MF: aggregate on ENSGA, ENSGB in alpha order.
   cors_mf = cors[((cors.SEXA=='F')&(cors.SEXB=='M'))|((cors.SEXA=='M')&(cors.SEXB=='F'))].drop(columns=['SEXA','SEXB'])
   cors_mf['ENSGmin'] = cors_mf[['ENSGA','ENSGB']].min(axis=1)
@@ -75,7 +68,8 @@ def GroupComparisons(cors, sims, verbose):
   cors_grouped = pandas.concat([cors_ff,cors_mm,cors_mf])
   cors_grouped = cors_grouped[['ENSGA','ENSGB','Cluster','wRho']]
   #LOG("DEBUG: cors_grouped nrows: %d ; ncols: %d:"%(cors_grouped.shape[0],cors_grouped.shape[1]))
-  #
+
+  ###
   sims = sims[['ENSGA','SEXA','ENSGB','SEXB','Ruzicka']]
   #LOG("DEBUG: sims nrows: %d ; ncols: %d:"%(sims.shape[0],sims.shape[1]))
   sims_ff = sims[(sims.SEXA=='F')&(sims.SEXB=='F')].drop(columns=['SEXA','SEXB'])
@@ -97,6 +91,7 @@ def GroupComparisons(cors, sims, verbose):
   #
   cmps = pandas.merge(cors_grouped, sims_grouped, on=['ENSGA','ENSGB','Cluster'])
   cmps = cmps[['ENSGA','ENSGB','Cluster','wRho','Ruzicka']]
+  LOG("DEBUG: cmps.Cluster.value_counts(): %s"%(str(cmps.Cluster.value_counts())))
   #
   return cmps
 
@@ -189,7 +184,7 @@ if __name__=='__main__':
     LOG("=== Output unfiltered file: %s"%args.ofile_unfiltered)
     cmps.round(args.decimals).to_csv(args.ofile_unfiltered, sep='\t', index=False)
 
-  elif args.ofile:
+  if args.ofile:
     ### Directly to file saves memory.
     FilterComparisons2File(cmps, args.min_keep, args.min_sim, args.min_cor, args.max_anticor, args.decimals, args.ofile, args.verbose)
 

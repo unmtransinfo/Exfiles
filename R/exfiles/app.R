@@ -9,9 +9,6 @@
 ### GGC = gene-gene associations
 ### EPS = Expression Profiles
 ##########################################################################################
-### PROBLEM: Memory limit 1G on shinyapps.io for Starter subscriber.  This app exceeding
-### limit with additional metrics.
-##########################################################################################
 ### Jeremy Yang
 ##########################################################################################
 library(readr)
@@ -26,6 +23,7 @@ library(plotly, quietly = T)
 ###
 APPNAME <- "Ex-files"
 ###
+t0 <- proc.time()
 if (file.exists("exfiles.Rdata")) { # Read Rdata if present
   load("exfiles.Rdata")
 } else { # else read files and write Rdata.
@@ -40,7 +38,7 @@ if (file.exists("exfiles.Rdata")) { # Read Rdata if present
   ###
   # ENSG, SEX, tissue.1, tissue.2, etc.
   ###
-  eps <- read_delim("exfiles_eps.tsv", "\t") # expression profiles
+  eps <- read_delim("exfiles_eps.tsv", "\t", col_types=cols(SEX=col_character())) # expression profiles
   ###
   # ENSGA, ENSGB, Cluster, wRho, Ruzicka
   ###
@@ -76,6 +74,7 @@ message(sprintf("Gene unique SYMB count: %d", length(unique(gene$symbol))))
 eps <- merge(eps, gene[,c("ENSG","symbol")], by="ENSG", all=T)
 ggc$Combo <- round(ggc$wRho*ggc$Ruzicka, digits=3)
 #
+t_elapsed <- (proc.time()-t0)[3]
 ###
 #
 qryArand <- sample(gene$symbol, 1) # initial random query
@@ -136,6 +135,11 @@ correlated or anti-correlated profiles.</B>
 <LI>Expression units are <B>LOG<SUB>10</SUB>(1 + TPM)</B>, where <B>TPM</B> = RNA-seq median Transcripts Per Million-kilobase.
 <LI>Groups denote correlations among F-only, M-only or F+M.
 </UL></P>
+<P>
+Notes on data preparation: This version is focused on SABV knowledge discovery, thus reproductive and 
+breast tissues not considered. Also we restrict to protein-encoding genes mapped to HUGO gene symbols,
+for scientific comprehensibility, so only data associated with these genes is retained.
+Currently also genes are ignored with mapping ambiguity between Ensembl ENSG to HUGO symbols. 
 <B>Algorithms:</B> Giovanni Bocci, Oleg Ursu, Cristian Bologa, Steve Mathias, Jeremy Yang &amp; Tudor Oprea<BR/>
 <B>Web app:</B> Jeremy Yang<BR/>
 Data from <A HREF=\"https://www.gtexportal.org/\" TARGET=\"_blank\">GTEx, The Genotype-Tissue Expression Project</A>.<BR/>
@@ -269,15 +273,13 @@ server <- function(input, output, session) {
   })
   
   output$result_htm <- reactive({
-    if (input$mode == "View") {
-      htm <- sprintf("<B>Results (%s):</B> Gene query: %s \"%s\"", input$mode, qryA(), gene$name[gene$ENSG==ensgA()])
-    } else if (input$mode == "Compare") {
+    if (input$mode == "Compare" & qryB()!="NONE") {
       htm <- sprintf("<B>Results (%s):</B> Gene queryA: %s \"%s\" ; queryB: %s \"%s\"", input$mode, qryA(), gene$name[gene$ENSG==ensgA()], qryB(), gene$name[gene$ENSG==ensgB()])
     } else if (input$mode == "Search") {
       htm <- sprintf("<B>Results (%s):</B> Gene query: %s \"%s\" ; metric: %s ; profiles found: %d ; top hit: %s \"%s\"", input$mode, qryA(), gene$name[gene$ENSG==ensgA()], input$metric, nrow(hits()), hit_symbol(), gene$name[gene$ENSG==hit()])
       sim <- hits()$Similarity[1]
-    } else {
-      htm <- sprintf("<B>Results:</B> ERROR: invalid mode: %s", input$mode)
+    } else { #View
+      htm <- sprintf("<B>Results (%s):</B> Gene query: %s \"%s\"", input$mode, qryA(), gene$name[gene$ENSG==ensgA()])
     }
     if (input$sabv) {
       htm <- paste(htm, "; SABV analysis ON.")
@@ -287,6 +289,7 @@ server <- function(input, output, session) {
 
   output$status_htm <- reactive({
     htm <- sprintf("Genes loaded: %d ; tissues: %d ; profile comparisons: %d", nrow(gene), nrow(tissue), nrow(ggc))
+    htm <- paste(htm, sprintf("; t_load: %.1fs", t_elapsed))
   })
 
   ### Creates input$datarows_rows_selected
@@ -328,7 +331,7 @@ server <- function(input, output, session) {
     #message(sprintf("DEBUG: qryA_profile_m = %s\n", paste0(as.character(qryA_profile_m), collapse=", ")))
     #message(sprintf("DEBUG: qryA_profile = %s\n", paste0(as.character(qryA_profile), collapse=", ")))
 
-    if (input$mode == "Compare") {
+    if (input$mode == "Compare" & qryB()!="NONE") {
       qryB_profile_f <- log10(as.numeric(eps[eps$ENSG==ensgB() & eps$SEX=="F",][1,tissue$name])+1)
       qryB_profile_m <- log10(as.numeric(eps[eps$ENSG==ensgB() & eps$SEX=="M",][1,tissue$name])+1)
       qryB_profile <- (qryB_profile_m + qryB_profile_f)/2
@@ -358,19 +361,18 @@ server <- function(input, output, session) {
       ruzBfm <- Ruzicka(hit_profile_f, hit_profile_m)
       ruzFab <- Ruzicka(qryA_profile_f, hit_profile_f)
       ruzMab <- Ruzicka(qryA_profile_m, hit_profile_m)
-    } #Else: View mode
-      
+    } #Else: View 
 
     ### PLOT:
     xaxis = list(tickangle=45, tickfont=list(family="Arial", size=10), categoryorder = "array", categoryarray = tissue$name)
     yaxis = list(title="Expression: LOG<SUB>10</SUB>(1 + TPM)")
 
-    if (input$mode == "View") {
-      titletxt = sprintf("Ex-files, GTEx-Profiles: %s<BR>\"%s\"", qryA(), gene$name[gene$ENSG==ensgA()])
+    if (input$mode=="Compare" & qryB()!="NONE") {
+      titletxt = sprintf("GTEx Gene-Tissue Profiles: %s vs %s<BR>\"%s\" vs \"%s\"", qryA(), qryB(), gene$name[gene$ENSG==ensgA()], gene$name[gene$ENSG==ensgB()])
     } else if (input$mode == "Search") {
       titletxt = sprintf("Ex-files, GTEx-Profiles: %s vs %s<BR>\"%s\" vs \"%s\"", qryA(), hit_symbol(), gene$name[gene$ENSG==ensgA()], gene$name[gene$ENSG==hit()])
-    } else if (input$mode == "Compare") {
-      titletxt = sprintf("GTEx Gene-Tissue Profiles: %s vs %s<BR>\"%s\" vs \"%s\"", qryA(), qryB(), gene$name[gene$ENSG==ensgA()], gene$name[gene$ENSG==ensgB()])
+    } else { #View
+      titletxt = sprintf("Ex-files, GTEx-Profiles: %s<BR>\"%s\"", qryA(), gene$name[gene$ENSG==ensgA()])
     }
 
     p <- plot_ly() %>%
@@ -391,10 +393,25 @@ server <- function(input, output, session) {
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
             text = paste0(qryA(), ": ", tissue$name))
-      if (input$mode == "View") {
+      if (input$mode == "Compare" & qryB()!="NONE") {
         annotxt <- paste(sep="<BR>",
-        	sprintf("Afm: rho = %.2f", wrhoAfm),
-        	sprintf("Afm: ruz = %.2f", ruzAfm))
+            sprintf("Fab: rho = %.2f", wrhoFab),
+            sprintf("Fab: ruz = %.2f", ruzFab),
+            sprintf("Mab: rho = %.2f", wrhoMab),
+            sprintf("Mab: ruz = %.2f", ruzMab),
+            sprintf("Afm: rho = %.2f", wrhoAfm),
+            sprintf("Afm: ruz = %.2f", ruzAfm),
+            sprintf("Bfm: rho = %.2f", wrhoBfm),
+            sprintf("Bfm: ruz = %.2f", ruzBfm))
+        p <- add_trace(p, name = paste("(F)", qryB()), x = tissue$name, y = qryB_profile_f,
+            type = 'scatter', mode = 'lines+markers',
+            marker = list(symbol="circle", size=10),
+            text = paste0(qryB(), ": ", tissue$name))
+        #
+        p <- add_trace(p, name = paste("(M)", qryB()), x = tissue$name, y = qryB_profile_m,
+            type = 'scatter', mode = 'lines+markers',
+            marker = list(symbol="circle", size=10),
+            text = paste0(qryB(), ": ", tissue$name))
       } else if (input$mode == "Search") {
         annotxt <- paste(sep="<BR>",
             sprintf("Fab: rho = %.2f", wrhoFab),
@@ -431,34 +448,17 @@ server <- function(input, output, session) {
                 text = paste0(hits()$symbol[i], ": ", tissue$name))
           }
         }
-      } else if (input$mode == "Compare") {
+      } else { #View
         annotxt <- paste(sep="<BR>",
-            sprintf("Fab: rho = %.2f", wrhoFab),
-            sprintf("Fab: ruz = %.2f", ruzFab),
-            sprintf("Mab: rho = %.2f", wrhoMab),
-            sprintf("Mab: ruz = %.2f", ruzMab),
-            sprintf("Afm: rho = %.2f", wrhoAfm),
-            sprintf("Afm: ruz = %.2f", ruzAfm),
-            sprintf("Bfm: rho = %.2f", wrhoBfm),
-            sprintf("Bfm: ruz = %.2f", ruzBfm))
-        p <- add_trace(p, name = paste("(F)", qryB()), x = tissue$name, y = qryB_profile_f,
-            type = 'scatter', mode = 'lines+markers',
-            marker = list(symbol="circle", size=10),
-            text = paste0(qryB(), ": ", tissue$name))
-        #
-        p <- add_trace(p, name = paste("(M)", qryB()), x = tissue$name, y = qryB_profile_m,
-            type = 'scatter', mode = 'lines+markers',
-            marker = list(symbol="circle", size=10),
-            text = paste0(qryB(), ": ", tissue$name))
+        	sprintf("Afm: rho = %.2f", wrhoAfm),
+        	sprintf("Afm: ruz = %.2f", ruzAfm))
       }
     } else { #NOT_SABV
       p <-  add_trace(p, name = qryA(), x = tissue$name, y = qryA_profile,
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
             text = paste0(qryA(), ": ", tissue$name))
-      if (input$mode == "View") {
-        annotxt <- ""
-      } else if (input$mode == "Compare") {
+      if (input$mode == "Compare" & qryB()!="NONE") {
         annotxt <- paste(sep="<BR>",
             sprintf("Fab: rho = %.2f", wrho),
             sprintf("Fab: ruz = %.2f", ruz))
@@ -489,6 +489,8 @@ server <- function(input, output, session) {
                 text = paste0(hits()$symbol[i], ": ", tissue$name))
           }
         }
+      } else { #View
+        annotxt <- ""
       }
     }
     #

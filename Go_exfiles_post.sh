@@ -33,6 +33,7 @@ ${cwd}/python/exfiles_similarity_post.py \
 	--min_sim 0.7 \
 	--min_cor 0.7 \
 	--max_anticor "-.7" \
+	--o_unfiltered $DATADIR/exfiles_ggc_unfiltered.tsv \
 	--o $DATADIR/exfiles_ggc.tsv
 #
 ###
