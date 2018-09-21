@@ -40,7 +40,7 @@ eps_m$SEX <- NULL
 # Index by ENSG
 if (!setequal(eps_f$ENSG, eps_m$ENSG)) {
   eps_f <- eps_f[eps_f$ENSG %in% intersect(eps_f$ENSG,eps_m$ENSG),]
-  eps_m <- eps_m[eps_m$ENSG %in% intersect(eps_m$ENSG,eps_m$ENSG),]
+  eps_m <- eps_m[eps_m$ENSG %in% intersect(eps_f$ENSG,eps_m$ENSG),]
   eps <- eps[eps$ENSG %in% intersect(eps_f$ENSG,eps_m$ENSG),]
 }
 eps <- eps[order(eps$ENSG),]
@@ -59,73 +59,37 @@ eps_mx_m <- as.matrix(eps_m[,2:ncol(eps_m)])
 rownames(eps_mx_m) <- paste0(eps_m$ENSG, "_M")
 eps_mx_fm <- rbind(eps_mx_f, eps_mx_m)
 ###
-#n_calc_max <- (2*length(ensgs))*(2*length(ensgs)-1)/2
-#
-n_out <- 0
-n_na <- 0
 #
 ruzd <- labdsv::dsvdis(eps_mx_fm, "ruzicka", upper=T) #dist
 ruzs <- -as.matrix(ruzd) + 1 #sim = (1 - dist)
 #
 #
 ruzs_df <- reshape2:melt(ruzs)
-###
-fout <- file(OFILE, "w")
-writeLines(paste0(c('ENSGA','SEXA','ENSGB','SEXB','Ruzicka'),collapse='\t'), fout)
-###
-#Can be slow.
-for (ensgA_sexA in rownames(ruzs)) {
-  ensgA <- unlist(strsplit(ensgA_sexA,"_"))[1]
-  sexA <- unlist(strsplit(ensgA_sexA,"_"))[2]
-  for (ensgB_sexB in colnames(ruzs)) {
-    if (ensgA_sexA>=ensgB_sexB) { next }
-    val <- ruzs[ensgA_sexA,ensgB_sexB]
-    if (is.na(val)) {
-      n_na <- n_na + 1
-      next
-    }
-    ensgB <- unlist(strsplit(ensgB_sexB,"_"))[1]
-    sexB <- unlist(strsplit(ensgB_sexB,"_"))[2]
-    writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexA,ensgB,sexB,val), fout)
-    n_out <- n_out + 1
-  }
-}
-#############################################################################
-#sexes <- c("F","F")
-#ruzd <- labdsv::dsvdis(eps_mx_f, "ruzicka") #dist
-#ruzs <- -as.matrix(ruzd) + 1 #sim = (1 - dist)
-##
-#for (ensgA in rownames(ruzs)) {
-#  for (ensgB in colnames(ruzs)) {
-#    if (ensgA>=ensgB) { next }
-#    val <- ruzs[ensgA,ensgB]
-#    if (is.na(val)) {
-#      n_na <- n_na + 1
-#      next
-#    }
-#    writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexes[1],ensgB,sexes[2],val), fout)
-#    n_out <- n_out + 1
-#  }
-#}
-##
-#sexes <- c("M","M")
-#ruzd <- labdsv::dsvdis(eps_mx_m, "ruzicka") #dist
-#ruzs <- -as.matrix(ruzd) + 1 #sim = (1 - dist)
-##
-#for (ensgA in rownames(ruzs)) {
-#  for (ensgB in colnames(ruzs)) {
-#    if (ensgA>=ensgB) { next }
-#    val <- ruzs[ensgA,ensgB]
-#    if (is.na(val)) {
-#      n_na <- n_na + 1
-#      next
-#    }
-#    writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexes[1],ensgB,sexes[2],val), fout)
-#    n_out <- n_out + 1
-#  }
-#}
-#############################################################################
-###
-close(fout)
 #
-writeLines(sprintf("Values out: %d ; NAs: %d", n_out, n_na))
+write_csv(ruzs_df, path=OFILE)
+###
+#############################################################################
+#Can be slow.
+#n_out <- 0
+#n_na <- 0
+#for (ensgA_sexA in rownames(ruzs)) {
+#  ensgA <- unlist(strsplit(ensgA_sexA,"_"))[1]
+#  sexA <- unlist(strsplit(ensgA_sexA,"_"))[2]
+#  for (ensgB_sexB in colnames(ruzs)) {
+#    if (ensgA_sexA>=ensgB_sexB) { next }
+#    val <- ruzs[ensgA_sexA,ensgB_sexB]
+#    if (is.na(val)) {
+#      n_na <- n_na + 1
+#      next
+#    }
+#    ensgB <- unlist(strsplit(ensgB_sexB,"_"))[1]
+#    sexB <- unlist(strsplit(ensgB_sexB,"_"))[2]
+#    writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexA,ensgB,sexB,val), fout)
+#    n_out <- n_out + 1
+#  }
+#}
+#close(fout)
+#writeLines(sprintf("Values out: %d ; NAs: %d", n_out, n_na))
+#############################################################################
+###
+#
