@@ -17,13 +17,21 @@ t0 <- proc.time()
 #
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args)>0) { IFILE <- args[1] } else { 
-  IFILE <- "data/gtex_rnaseq_prep_profiles.tsv"
+  IFILE <- "data/exfiles_eps.tsv"
 }
 if (length(args)>1) { OFILE <- args[2] } else { 
-  OFILE <- "data/gtex_rnaseq_profiles_WPearson.tsv"
+  OFILE <- "data/exfiles_eps_WPearson.tsv"
+}
+if (length(args)>2) { MIN_COR <- as.numeric(args[3]) } else { 
+  MIN_COR <- 0.5
+}
+if (length(args)>3) { MAX_ANTICOR <- as.numeric(args[4]) } else { 
+  MAX_ANTICOR <- -0.5
 }
 writeLines(sprintf("INPUT: %s",IFILE))
 writeLines(sprintf("OUTPUT: %s",OFILE))
+writeLines(sprintf("MIN_COR: %f",MIN_COR))
+writeLines(sprintf("MAX_ANTICOR: %f",MAX_ANTICOR))
 #
 fout <- file(OFILE, "w")
 writeLines(paste0(c('ENSGA','SEXA','ENSGB','SEXB','wRho'),collapse='\t'), fout)
@@ -77,6 +85,7 @@ ensgs <- ensgs[order(ensgs)]
 n_calc <- 0
 n_calc_total <- (2*length(ensgs))*(2*length(ensgs)-1)/2
 n_na <- 0
+n_ok <- 0
 for (ensgA in ensgs) {
   ensgs_this <- ensgs[ensgs>ensgA]
   #FF:
@@ -84,23 +93,38 @@ for (ensgA in ensgs) {
   epAs <- eps_mx_f[rep(ensgA,length(ensgs_this)),]
   epBs <- eps_mx_f[ensgs_this,]
   results_this <- wPearson_mx(epAs, epBs)
-  writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexes[1],ensgs_this,sexes[2],results_this), fout)
-  n_calc <- n_calc + length(ensgs_this)
   n_na <- n_na + sum(is.na(results_this))
+  n_calc <- n_calc + length(results_this)
+  results_ok <- (!is.na(results_this))&((results_this>=MIN_COR)|(results_this<=MAX_ANTICOR))
+  if (sum(results_ok)>0) {
+    results_this <- results_this[results_ok]
+    writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexes[1],ensgs_this[results_ok],sexes[2],results_this), fout)
+    n_ok <- n_ok + sum(results_ok)
+  }
   #FM:
   sexes <- c("F","M")
   epBs <- eps_mx_m[ensgs_this,]
   results_this <- wPearson_mx(epAs, epBs)
-  writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexes[1],ensgs_this,sexes[2],results_this), fout)
-  n_calc <- n_calc + length(ensgs_this)
   n_na <- n_na + sum(is.na(results_this))
+  n_calc <- n_calc + length(results_this)
+  results_ok <- (!is.na(results_this))&((results_this>=MIN_COR)|(results_this<=MAX_ANTICOR))
+  if (sum(results_ok)>0) {
+    results_this <- results_this[results_ok]
+    writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexes[1],ensgs_this[results_ok],sexes[2],results_this), fout)
+    n_ok <- n_ok + sum(results_ok)
+  }
   #MM:
   sexes <- c("M","M")
   epAs <- eps_mx_m[rep(ensgA,length(ensgs_this)),]
   results_this <- wPearson_mx(epAs, epBs)
-  writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexes[1],ensgs_this,sexes[2],results_this), fout)
-  n_calc <- n_calc + length(ensgs_this)
   n_na <- n_na + sum(is.na(results_this))
+  n_calc <- n_calc + length(results_this)
+  results_ok <- (!is.na(results_this))&((results_this>=MIN_COR)|(results_this<=MAX_ANTICOR))
+  if (sum(results_ok)>0) {
+    results_this <- results_this[results_ok]
+    writeLines(sprintf("%s\t%s\t%s\t%s\t%.3f",ensgA,sexes[1],ensgs_this[results_ok],sexes[2],results_this), fout)
+    n_ok <- n_ok + sum(results_ok)
+  }
   #
   flush(fout)
   writeLines(sprintf("Progress: %7d / %7d (%.1f%%) ; elapsed: %s", n_calc, n_calc_total,100*n_calc/n_calc_total, time_utils$NiceTime((proc.time()-t0)[3])))
@@ -108,5 +132,5 @@ for (ensgA in ensgs) {
 #
 close(fout)
 #
-writeLines(sprintf("Values calculated: %d ; NAs: %d", n_calc, n_na))
+writeLines(sprintf("Values calculated: %d ; NAs: %d ; after filtering: %d", n_calc, n_na, n_ok))
 #
