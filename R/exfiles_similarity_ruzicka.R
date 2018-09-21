@@ -11,6 +11,8 @@ library(reshape2)
 #
 t0 <- proc.time()
 #
+NiceTime <- function(sec) { sprintf("%d:%02d:%02d",as.integer((as.integer(sec)%%3600)/60),as.integer(sec/3600),as.integer(sec)%%60) }
+#
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args)>0) { IFILE <- args[1] } else { 
   IFILE <- "data/exfiles_eps.tsv"
@@ -60,6 +62,8 @@ eps_mx_m <- as.matrix(eps_m[,2:ncol(eps_m)])
 rownames(eps_mx_m) <- paste0(eps_m$ENSG, "_M")
 eps_mx_fm <- rbind(eps_mx_f, eps_mx_m)
 ###
+N <- nrow(eps_mx_fm)
+writeLines(sprintf("N = %d ; theoretical N_results = %d (N(N-1)/2)", N, N*(N-1)/2))
 #
 ruzd <- labdsv::dsvdis(eps_mx_fm, "ruzicka", upper=T) #dist
 ruzm <- -as.matrix(ruzd) + 1 #matrix: sim=(1-dist)
@@ -69,9 +73,9 @@ ruz <- reshape2::melt(ruzm)
 names(ruz) <- c("ENSG_SEXA", "ENSG_SEXB", "Ruzicka")
 ruz <- ruz[ruz$ENSG_SEXA!=ruz$ENSG_SEXB,]
 n_total <- nrow(ruz)
-writeLines(sprintf("Computations: %d", nrow(ruz)))
+writeLines(sprintf("Results: %d", nrow(ruz)))
 ruz <- ruz[ruz$Ruzicka>=MIN_RUZ,]
-writeLines(sprintf("Computations, post-filtered: %d (%.1f%%)", nrow(ruz),100*nrow(ruz)/n_total))
+writeLines(sprintf("Results, post-filtered: %d (%.1f%%)", nrow(ruz),100*nrow(ruz)/n_total))
 #
 ruz['ENSGA'] <- sub("_.*$", "", ruz$ENSG_SEXA)
 ruz['SEXA'] <- sub("^.*_", "", ruz$ENSG_SEXA)
@@ -83,4 +87,5 @@ ruz$Ruzicka <- round(ruz$Ruzicka, digits=3)
 #
 write_delim(ruz, path=OFILE, delim="\t")
 ###
+writeLines(sprintf("Total elapsed: %s", NiceTime((proc.time()-t0)[3])))
 #

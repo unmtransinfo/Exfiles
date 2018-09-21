@@ -11,7 +11,7 @@
 library(readr)
 library(wCorr)
 #
-source(paste0(Sys.getenv("HOME"),"/lib/R/time_utils.R"))
+NiceTime <- function(sec) { sprintf("%d:%02d:%02d",as.integer((as.integer(sec)%%3600)/60),as.integer(sec/3600),as.integer(sec)%%60) }
 #
 t0 <- proc.time()
 #
@@ -82,8 +82,11 @@ rownames(eps_mx_m) <- eps_m$ENSG
 ensgs <- unique(eps$ENSG)
 ensgs <- ensgs[order(ensgs)]
 ###
+N=2*length(ensgs)
+writeLines(sprintf("N = %d ; theoretical N_results = %d (N(N-1)/2)", N, N*(N-1)/2))
+###
 n_calc <- 0
-n_calc_total <- (2*length(ensgs))*(2*length(ensgs)-1)/2
+n_calc_total <- N*(N-1)/2
 n_na <- 0
 n_ok <- 0
 for (ensgA in ensgs) {
@@ -127,10 +130,10 @@ for (ensgA in ensgs) {
   }
   #
   flush(fout)
-  writeLines(sprintf("Progress: %7d / %7d (%.1f%%) ; elapsed: %s", n_calc, n_calc_total,100*n_calc/n_calc_total, time_utils$NiceTime((proc.time()-t0)[3])))
+  writeLines(sprintf("Progress: %7d / %7d (%.1f%%) ; elapsed: %s", n_calc, n_calc_total,100*n_calc/n_calc_total, NiceTime((proc.time()-t0)[3])))
 }
 #
 close(fout)
 #
-writeLines(sprintf("Values calculated: %d ; NAs: %d ; after filtering: %d", n_calc, n_na, n_ok))
+writeLines(sprintf("Results calculated: %d ; NAs: %d ; after filtering: %d", n_calc, n_na, n_ok))
 #
