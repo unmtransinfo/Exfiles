@@ -1,6 +1,5 @@
 #!/usr/bin/env Rscript
 #############################################################################
-#############################################################################
 ### Process input expression profiles (exfiles) and calculate
 ### similarity for all pairwise combos.
 ### Input expression profiles expected format 2 ID cols (ENSG,SEX) followed
@@ -9,8 +8,6 @@
 library(readr)
 library(labdsv)
 library(reshape2)
-#
-source(paste0(Sys.getenv("HOME"),"/lib/R/time_utils.R"))
 #
 t0 <- proc.time()
 #
