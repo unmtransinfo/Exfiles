@@ -18,8 +18,12 @@ if (length(args)>0) { IFILE <- args[1] } else {
 if (length(args)>1) { OFILE <- args[2] } else { 
   OFILE <- "data/exfiles_eps_Ruzicka.tsv"
 }
+if (length(args)>2) { MIN_RUZ <- as.numeric(args[3]) } else { 
+  MIN_RUZ <- 0.5
+}
 writeLines(sprintf("INPUT: %s",IFILE))
 writeLines(sprintf("OUTPUT: %s",OFILE))
+writeLines(sprintf("MIN_RUZ: %f", MIN_RUZ))
 #
 ###
 #
@@ -64,11 +68,17 @@ ruz <- reshape2::melt(ruzm)
 #
 names(ruz) <- c("ENSG_SEXA", "ENSG_SEXB", "Ruzicka")
 ruz <- ruz[ruz$ENSG_SEXA!=ruz$ENSG_SEXB,]
+n_total <- nrow(ruz)
+writeLines(sprintf("Computations: %d", nrow(ruz)))
+ruz <- ruz[ruz$Ruzicka>=MIN_RUZ,]
+writeLines(sprintf("Computations, post-filtered: %d (%.1f%%)", nrow(ruz),100*nrow(ruz)/n_total))
+#
 ruz['ENSGA'] <- sub("_.*$", "", ruz$ENSG_SEXA)
 ruz['SEXA'] <- sub("^.*_", "", ruz$ENSG_SEXA)
 ruz['ENSGB'] <- sub("_.*$", "", ruz$ENSG_SEXB)
 ruz['SEXB'] <- sub("^.*_", "", ruz$ENSG_SEXB)
 ruz <- ruz[,c("ENSGA","SEXA","ENSGB","SEXB","Ruzicka")]
+#
 ruz$Ruzicka <- round(ruz$Ruzicka, digits=3)
 #
 write_delim(ruz, path=OFILE, delim="\t")
