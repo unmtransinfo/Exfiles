@@ -8,9 +8,9 @@ cwd=$(pwd)
 #
 DATADIR="$cwd/data"
 #
-OFILE_RUZICKA="$DATADIR/exfiles_eps_Ruzicka.tsv"
+OFILE_RUZICKA="$DATADIR/exfiles_eps_Ruzicka.tsv.gz"
 #
-OFILE_WPEARSON="$DATADIR/exfiles_eps_WPearson.tsv"
+OFILE_WPEARSON="$DATADIR/exfiles_eps_WPearson.tsv.gz"
 #
 ###
 # This filtering should be done already in the Ruzicka & WPearson code.

@@ -48,7 +48,7 @@ wPearson_mx <- function(A,B) { #Matrix version
 }
 ###
 #
-eps <- read_delim(IFILE, "\t")
+eps <- read_delim(IFILE, "\t", col_types=cols(SEX=col_character()))
 #
 eps <- eps[!duplicated(eps[,c("ENSG","SEX")]),]
 #

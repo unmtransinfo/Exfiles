@@ -65,13 +65,15 @@ eps_mx_fm <- rbind(eps_mx_f, eps_mx_m)
 N <- nrow(eps_mx_fm)
 writeLines(sprintf("N = %d ; theoretical N_results = %d (N(N-1)/2)", N, N*(N-1)/2))
 #
+# Generates full matrix, but only want upper.
 ruzd <- labdsv::dsvdis(eps_mx_fm, "ruzicka", upper=T) #dist
 ruzm <- -as.matrix(ruzd) + 1 #matrix: sim=(1-dist)
-#
 ruz <- reshape2::melt(ruzm)
 #
 names(ruz) <- c("ENSG_SEXA", "ENSG_SEXB", "Ruzicka")
-ruz <- ruz[ruz$ENSG_SEXA!=ruz$ENSG_SEXB,]
+ruz$ENSG_SEXA <- as.character(ruz$ENSG_SEXA)
+ruz$ENSG_SEXB <- as.character(ruz$ENSG_SEXB)
+ruz <- ruz[ruz$ENSG_SEXA<ruz$ENSG_SEXB,] #Effect: select upper matrix.
 n_total <- nrow(ruz)
 writeLines(sprintf("Results: %d", nrow(ruz)))
 ruz <- ruz[ruz$Ruzicka>=MIN_RUZ,]
