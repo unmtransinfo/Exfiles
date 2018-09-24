@@ -109,20 +109,23 @@ def FilterComparisons2File(cmps, min_keep, min_sim, min_cor, max_anticor, decima
 
   cmps.dropna(how='any', inplace=True)
   cmps = cmps.round(decimals)
+  cmps = cmps.set_index(['ENSGA'])
 
   ### Compute combo score and mark for keeping top-10 for each gene:
-  cmps['combo'] = cmps.wRho * cmps.Ruzicka #abs()?
+# Maybe first pivot into matrix?
+  ### 
+  cmps['Combo'] = cmps.wRho.abs() * cmps.Ruzicka
   cmps['out'] = False #flag: written
   n_out=0; n_genes_sub=0;
-  ensgs = pandas.concat([cmps.ENSGA, cmps.ENSGB]).unique()
-  for i_gene,ensg in enumerate(ensgs):
-    combos_this = cmps.combo[(cmps.ENSGA==ensg)|(cmps.ENSGB==ensg)]
-    if combos_this.size>min_keep:
-      combo_min = combos_this.sort_values(ascending=False).tolist()[min_keep-1]
+  for ensgA in cmps.index.get_level_values(0):
+    cmps_this = cmps.loc[ensgA]
+    if cmps_this.shape[0]>min_keep:
+      combo_min = cmps_this.Combo.sort_values(ascending=False).tolist()[min_keep-1]
     else:
       n_genes_sub+=1
       combo_min = 0
-    for row in cmps[((cmps.ENSGA==ensg)|(cmps.ENSGB==ensg))&(cmps.combo>=combo_min)].itertuples():
+    cmps.reset_index(drop=False)
+    for row in cmps_this[cmps.Combo>=combo_min].itertuples():
       if not row.out:
         fout.write('\t'.join([str(getattr(row,tag)) for tag in tags])+'\n')
         n_out+=1

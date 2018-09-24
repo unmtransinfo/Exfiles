@@ -15,7 +15,6 @@ fi
 # "exfiles_eps.tsv" named for and read by Exfiles app.R.
 #
 $cwd/python/gtex_rnaseq_prep_app.py \
-	--i_tissue $DATADIR/exfiles_tissue_order.csv \
 	--i_subject $SRCDATADIR/GTEx_v7_Annotations_SubjectPhenotypesDS.txt \
 	--i_sample $SRCDATADIR/GTEx_v7_Annotations_SampleAttributesDS.txt \
 	--i_gene $DATADIR/gtex_gene_xref.tsv \
@@ -26,6 +25,8 @@ $cwd/python/gtex_rnaseq_prep_app.py \
 	--o_profiles $DATADIR/exfiles_eps.tsv \
 	-v
 #
+###
+#Manually ordered tissues:
 cat $DATADIR/exfiles_tissue_order.csv \
 	|perl -pe 's/([^;]*);(.*)$/$2\t$1/' \
 	>$DATADIR/exfiles_tissue_order.tsv

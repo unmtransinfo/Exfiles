@@ -92,26 +92,42 @@ def ReadSamples(ifile, verbose):
   return samples
 
 #############################################################################
-### Clean & tidy cols. Remove samples with high degree of autolysis (self-digestion).
+### Clean & tidy cols.
 #############################################################################
 def CleanSamples(samples, verbose):
   LOG("=== CleanSamples:")
-  samples.dropna(how='any', inplace=True)
+  samples_pre = samples.SMTSD.unique()
+  LOG("\tSamples: %d; tissues: %d"%(samples.shape[0],samples.SMTSD.nunique()))
+  LOG("\tDEBUG: samples.SEX.apply()...")
   samples.SEX = samples.SEX.apply(lambda x: 'F' if x==2 else 'M' if x==1 else None)
-  samples = samples[samples.SMATSSCR < 2]
+  LOG("\tDEBUG: samples.dropna(subset=['SEX'])...")
+  samples.dropna(subset=['SEX'], inplace=True)
+  LOG("\tSamples: %d; tissues: %d"%(samples.shape[0],samples.SMTSD.nunique()))
+  ### Remove samples with high degree of autolysis (self-digestion).
+  #LOG("\tDEBUG: samples.SMATSSCR<2...") #Removes many tissues, not ok.
+  #samples = samples[samples.SMATSSCR<2]
+  #LOG("\tSamples: %d; tissues: %d"%(samples.shape[0],samples.SMTSD.nunique()))
+  #LOG("\tDEBUG: samples.SMATSSCR<4...")
+  #samples = samples[samples.SMATSSCR<4]
+  #LOG("\tSamples: %d; tissues: %d"%(samples.shape[0],samples.SMTSD.nunique()))
   samples.loc[(samples.SMTS.str.strip()=='') & samples.SMTSD.str.startswith("Skin -"), 'SMTS'] = 'Skin'
-  LOG("Samples dataset nrows: %d ; ncols: %d:"%(samples.shape[0],samples.shape[1]))
+  LOG("\tSamples: %d; tissues: %d"%(samples.shape[0],samples.SMTSD.nunique()))
+  samples_post = samples.SMTSD.unique()
+  samples_removed = set(samples_pre) - set(samples_post)
+  LOG("\tSamples removed: %s"%('\n\t'+'\n\t'.join(sorted(list(samples_removed)))))
   return samples
 
 #############################################################################
 def DescribeSamples(samples):
   LOG("=== DescribeSamples:")
+  LOG("Samples dataset nrows: %d ; ncols: %d:"%(samples.shape[0],samples.shape[1]))
   for name,val in samples.SEX.value_counts().sort_index().iteritems():
     LOG('\tSEX %s: %4d'%(name,val))
-  i=0
-  for name,val in samples.SMTSD.value_counts().sort_index().iteritems():
-    i+=1
-    LOG('\t%d. "%s": %4d'%(i,name,val))
+  LOG("\tSamples: %d; tissues: %d"%(samples.shape[0],samples.SMTSD.nunique()))
+  #i=0
+  #for name,val in samples.SMTSD.value_counts().sort_index().iteritems():
+  #  i+=1
+  #  LOG('\t%d. "%s": %4d'%(i,name,val))
 
 #############################################################################
 ### READ GENE TPMs (full or demo subset)
@@ -220,16 +236,10 @@ def SABV_aggregate_median(rnaseq, verbose):
 ### To:	    ENSG,SEX,TPM_1,TPM_2,...TPM_N (N tissues)
 ### Preserve tissue order.
 #############################################################################
-def PivotToProfiles(rnaseq, tissues_ordered, verbose):
-  if verbose: LOG("NOTE: PivotToProfiles IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())))
+def PivotToProfiles(rnaseq, verbose):
+  LOG("NOTE: PivotToProfiles IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())))
+  LOG("NOTE: PivotToProfiles tissue count: %d"%(rnaseq.SMTSD.nunique()))
   tissues = pandas.Series(pandas.unique(rnaseq.SMTSD.sort_values()))
-  if type(tissues_ordered)==pandas.core.series.Series:
-    if set(tissues) == set(tissues_ordered):
-      tissues = tissues_ordered
-      LOG("Note: input tissues (ordered): %s"%(str(set(tissues))))
-    else:
-      LOG("Warning: input tissues missing in samples: %s"%(str(set(tissues_ordered) - set(tissues))))
-      LOG("Warning: sample tissues missing in input: %s"%(str(set(tissues) - set(tissues_ordered))))
 
   # Assure only 1-row per unique (ensg,smtsd) tuple (or pivot will fail).
   #rnaseq = rnaseq.drop_duplicates(subset=['ENSG','SMTSD'], keep='first')
@@ -252,7 +262,7 @@ def PivotToProfiles(rnaseq, tissues_ordered, verbose):
   cols = ['ENSG','SEX']+tissues.tolist()
   exfiles = exfiles[cols]
   DescribeDf(exfiles,verbose)
-  if verbose: LOG("NOTE: PivotToProfiles OUT: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())))
+  LOG("NOTE: PivotToProfiles OUT: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())))
   return exfiles
 
 #############################################################################
@@ -266,7 +276,6 @@ if __name__=='__main__':
   parser.add_argument("--i_sample",dest="ifile_sample",help="input samples file")
   parser.add_argument("--i_rnaseq",dest="ifile_rnaseq",help="input rnaseq file")
   parser.add_argument("--i_gene",dest="ifile_gene",help="input gene file")
-  parser.add_argument("--i_tissue",dest="ifile_tissue",help="input (ordered) tissue file")
   parser.add_argument("--o_median",dest="ofile_median",help="output median TPM, 1-row/gene+tissue+sex (TSV)")
   parser.add_argument("--o_sample",dest="ofile_sample",help="output sample TPM, 1-row/gene+sample (TSV)")
   parser.add_argument("--o_profiles",dest="ofile_profiles",help="output profiles, 1-row/gene+sex (TSV)")
@@ -280,11 +289,6 @@ if __name__=='__main__':
 
   if args.verbose:
     LOG('Python: %s; Pandas: %s; Scipy: %s ; Numpy: %s'%(sys.version.split()[0],pandas.__version__,scipy.__version__,numpy.__version__))
-
-  if args.ifile_tissue:
-    tissues = ReadTissues(args.ifile_tissue, args.verbose)
-  else:
-    tissues = None
 
   if not args.ifile_subject:
     parser.error('Input subject file required.')
@@ -347,6 +351,7 @@ if __name__=='__main__':
   LOG('=== Merge with samples:')
   rnaseq = pandas.merge(rnaseq, samples, how="inner", on="SAMPID")
   LOG("RNAseq unique gene count (after merge with samples): %d"%(rnaseq.ENSG.nunique()))
+  LOG("RNAseq unique tissue count (after merge with samples): %d"%(rnaseq.SMTSD.nunique()))
 
   rnaseq = CleanRnaseq(rnaseq, args.verbose)
 
@@ -364,7 +369,7 @@ if __name__=='__main__':
     rnaseq.round(args.decimals).to_csv(args.ofile_median, sep='\t', index=False)
 
   LOG("=== Pivot to one-row-per-gene format (profiles).")
-  rnaseq_profiles = PivotToProfiles(rnaseq, tissues, args.verbose)
+  rnaseq_profiles = PivotToProfiles(rnaseq, args.verbose)
   if args.ofile_profiles:
     LOG("=== Output profiles file: %s"%args.ofile_profiles)
     rnaseq_profiles.round(args.decimals).to_csv(args.ofile_profiles, sep='\t', index=False)
