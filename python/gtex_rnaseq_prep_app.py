@@ -177,34 +177,47 @@ def CleanRnaseq(rnaseq, verbose):
   if verbose: LOG("NOTE: CleanRnaseq IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())))
   LOG("=== CleanRnaseq:")
 
+  LOG("Remove sex-specific tissues...")
+  tissues=list(rnaseq.SMTSD.sort_values().unique())
+  sex_specific_tissues=[]
+  for smtsd in tissues:
+    if rnaseq[rnaseq.SMTSD==smtsd].SEX.nunique()<2:
+      sex_specific_tissues.append(smtsd)
+      LOG("\tRemoving sex-specific tissue: \"%s\""%(smtsd))
+      rnaseq = rnaseq[rnaseq.SMTSD!=smtsd]
+
+  LOG("Remove Breast manually, not 100% sex-specific...")
+  rnaseq = rnaseq[~rnaseq.SMTSD.str.match('^Breast')]
+
   LOG("For each tissue, remove genes not expressed in both sexes...")
-  for i,smtsd in enumerate(rnaseq.SMTSD.sort_values().unique()):
+  ### Are there any such genes?
+  tissues=list(rnaseq.SMTSD.sort_values().unique())
+  for i,smtsd in enumerate(tissues):
     rnaseq_this = rnaseq[rnaseq.SMTSD==smtsd]
-    if rnaseq_this.SEX.nunique()<2: #Removes sex-specific tissues.
-      LOG("\t%d. \"%s\" nsex_lt2 count (all): %d"%(i+1,smtsd,rnaseq_this.ENSG.nunique()))
-      continue
     nsex_lt2 = (rnaseq_this[['ENSG','SEX']].groupby(by=['ENSG'], as_index=True).nunique()<2).rename(columns={'SEX':'nsex_lt2'})
-    LOG("\t%d. \"%s\" nsex_lt2 count: %d"%(i+1,smtsd,nsex_lt2.nsex_lt2.value_counts()[True] if True in nsex_lt2.nsex_lt2.value_counts() else 0))
-    rnaseq_this = pandas.merge(rnaseq_this, nsex_lt2, left_on=['ENSG'], right_index=True)
-    rnaseq_this = rnaseq_this[~rnaseq_this['nsex_lt2']]
-    rnaseq_this.drop(columns=['nsex_lt2'], inplace=True)
+    n_lt2 = (nsex_lt2.nsex_lt2.value_counts()[True] if True in nsex_lt2.nsex_lt2.value_counts() else 0)
+    if n_lt2>0:
+      LOG("\t%s: removing genes not expressed in both sexes: %d"%(smtsd,n_lt2))
+      rnaseq_this = pandas.merge(rnaseq_this, nsex_lt2, left_on=['ENSG'], right_index=True)
+      rnaseq_this = rnaseq_this[~rnaseq_this['nsex_lt2']]
+      rnaseq_this.drop(columns=['nsex_lt2'], inplace=True)
     if i==0:
       rnaseq_out=rnaseq_this
     else:
       rnaseq_out=pandas.concat([rnaseq_out,rnaseq_this])
   rnaseq = rnaseq_out
 
-  ### Breast not 100% sex-specific, so manually remove.
-  rnaseq = rnaseq[~rnaseq.SMTSD.str.match('^Breast')]
-
   LOG("For each tissue, remove genes with TPMs all zero...")
-  for i,smtsd in enumerate(rnaseq.SMTSD.sort_values().unique()):
+  tissues=list(rnaseq.SMTSD.sort_values().unique())
+  for i,smtsd in enumerate(tissues):
     rnaseq_this = rnaseq[rnaseq.SMTSD==smtsd]
     tpm_all0  = (rnaseq_this[['ENSG','TPM']].groupby(by=['ENSG'], as_index=True).max()==0).rename(columns={'TPM':'tpm_all0'})
-    LOG("\t%d. \"%s\" tpm_all0 count: %d"%(i+1,smtsd,tpm_all0.tpm_all0.value_counts()[True] if True in tpm_all0.tpm_all0.value_counts() else 0))
-    rnaseq_this = pandas.merge(rnaseq_this, tpm_all0, left_on=['ENSG'], right_index=True)
-    rnaseq_this = rnaseq_this[~rnaseq_this['tpm_all0']]
-    rnaseq_this.drop(columns=['tpm_all0'], inplace=True)
+    n_all0 = (tpm_all0.tpm_all0.value_counts()[True] if True in tpm_all0.tpm_all0.value_counts() else 0)
+    if n_all0>0:
+      LOG("\t%s: removing TPMs-all-zero genes: %d"%(smtsd,n_all0))
+      rnaseq_this = pandas.merge(rnaseq_this, tpm_all0, left_on=['ENSG'], right_index=True)
+      rnaseq_this = rnaseq_this[~rnaseq_this['tpm_all0']]
+      rnaseq_this.drop(columns=['tpm_all0'], inplace=True)
     if i==0:
       rnaseq_out=rnaseq_this
     else:
