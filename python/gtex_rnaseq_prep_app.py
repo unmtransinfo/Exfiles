@@ -301,6 +301,8 @@ if __name__=='__main__':
   PROG=os.path.basename(sys.argv[0])
   t0 = time.time()
 
+  LOG(time.strftime('%Y-%m-%d %H:%M:%S',time.localtime()))
+
   if args.verbose:
     LOG('Python: %s; Pandas: %s; Scipy: %s ; Numpy: %s'%(sys.version.split()[0],pandas.__version__,scipy.__version__,numpy.__version__))
 
@@ -389,3 +391,4 @@ if __name__=='__main__':
     rnaseq_profiles.round(args.decimals).to_csv(args.ofile_profiles, sep='\t', index=False)
 
   LOG("%s Elapsed: %ds"%(PROG,(time.time()-t0)))
+  LOG(time.strftime('%Y-%m-%d %H:%M:%S',time.localtime()))

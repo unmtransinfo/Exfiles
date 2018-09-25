@@ -13,6 +13,7 @@ library(wCorr)
 #
 NiceTime <- function(sec) { sprintf("%d:%02d:%02d",as.integer((as.integer(sec)%%3600)/60),as.integer(sec/3600),as.integer(sec)%%60) }
 #
+Sys.time()
 t0 <- proc.time()
 #
 args <- commandArgs(trailingOnly=TRUE)
@@ -28,10 +29,14 @@ if (length(args)>2) { MIN_COR <- as.numeric(args[3]) } else {
 if (length(args)>3) { MAX_ANTICOR <- as.numeric(args[4]) } else { 
   MAX_ANTICOR <- -0.5
 }
+#
+N_IDCOLS <- 2
+#
 writeLines(sprintf("INPUT: %s",IFILE))
 writeLines(sprintf("OUTPUT: %s",OFILE))
 writeLines(sprintf("MIN_COR: %f",MIN_COR))
 writeLines(sprintf("MAX_ANTICOR: %f",MAX_ANTICOR))
+writeLines(sprintf("N_IDCOLS: %d",N_IDCOLS))
 #
 fout <- file(OFILE, "w")
 writeLines(paste0(c('ENSGA','SEXA','ENSGB','SEXB','wRho'),collapse='\t'), fout)
@@ -49,6 +54,8 @@ wPearson_mx <- function(A,B) { #Matrix version
 ###
 #
 eps <- read_delim(IFILE, "\t", col_types=cols(SEX=col_character()))
+#
+writeLines(sprintf("Tissue columns: %d",ncol(eps)-N_IDCOLS))
 #
 eps <- eps[!duplicated(eps[,c("ENSG","SEX")]),]
 #
@@ -71,9 +78,9 @@ writeLines(sprintf("Expression profiles (M): %d", length(unique(eps_m$ENSG))))
 
 ### Matrices efficient, faster.
 ###
-eps_mx_f <- as.matrix(eps_f[,2:ncol(eps_f)])
+eps_mx_f <- as.matrix(eps_f[,N_IDCOLS:ncol(eps_f)])
 rownames(eps_mx_f) <- eps_f$ENSG
-eps_mx_m <- as.matrix(eps_m[,2:ncol(eps_m)])
+eps_mx_m <- as.matrix(eps_m[,N_IDCOLS:ncol(eps_m)])
 rownames(eps_mx_m) <- eps_m$ENSG
 ###
 # Conserve memory by writing results directly to file.
@@ -136,4 +143,6 @@ for (ensgA in ensgs) {
 close(fout)
 #
 writeLines(sprintf("Results calculated: %d ; NAs: %d ; after filtering: %d", n_calc, n_na, n_ok))
+#
+Sys.time()
 #
