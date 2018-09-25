@@ -106,6 +106,8 @@ def CleanSamples(samples, verbose):
   ### Remove samples with severe degree of autolysis (self-digestion).
   LOG("\tDEBUG: samples.SMATSSCR!=3...")
   samples = samples.loc[samples.SMATSSCR!=3]
+  LOG("\tDEBUG: samples.SMATSSCR!=2...")
+  samples = samples.loc[samples.SMATSSCR!=2]
   LOG("\tSamples: %d; tissues: %d"%(samples.shape[0],samples.SMTSD.nunique()))
   samples.loc[(samples.SMTS.str.strip()=='') & samples.SMTSD.str.startswith("Skin -"), 'SMTS'] = 'Skin'
   LOG("\tSamples: %d; tissues: %d"%(samples.shape[0],samples.SMTSD.nunique()))
@@ -186,23 +188,25 @@ def CleanRnaseq(rnaseq, verbose):
   LOG("Remove Breast manually, not 100% sex-specific...")
   rnaseq = rnaseq[~rnaseq.SMTSD.str.match('^Breast')]
 
-  LOG("For each tissue, remove genes not expressed in both sexes...")
-  ### Are there any such genes?
-  tissues=list(rnaseq.SMTSD.sort_values().unique())
-  for i,smtsd in enumerate(tissues):
-    rnaseq_this = rnaseq[rnaseq.SMTSD==smtsd]
-    nsex_lt2 = (rnaseq_this[['ENSG','SEX']].groupby(by=['ENSG'], as_index=True).nunique()<2).rename(columns={'SEX':'nsex_lt2'})
-    n_lt2 = (nsex_lt2.nsex_lt2.value_counts()[True] if True in nsex_lt2.nsex_lt2.value_counts() else 0)
-    if n_lt2>0:
-      LOG("\t%s: removing genes not expressed in both sexes: %d"%(smtsd,n_lt2))
-      rnaseq_this = pandas.merge(rnaseq_this, nsex_lt2, left_on=['ENSG'], right_index=True)
-      rnaseq_this = rnaseq_this[~rnaseq_this['nsex_lt2']]
-      rnaseq_this.drop(columns=['nsex_lt2'], inplace=True)
-    if i==0:
-      rnaseq_out=rnaseq_this
-    else:
-      rnaseq_out=pandas.concat([rnaseq_out,rnaseq_this])
-  rnaseq = rnaseq_out
+  ######
+  ### Maybe no such genes? This requires too much memory anyway (80GB+).
+#  LOG("For each tissue, remove genes not expressed in both sexes...")
+#  tissues=list(rnaseq.SMTSD.sort_values().unique())
+#  for i,smtsd in enumerate(tissues):
+#    rnaseq_this = rnaseq[rnaseq.SMTSD==smtsd]
+#    nsex_lt2 = (rnaseq_this[['ENSG','SEX']].groupby(by=['ENSG'], as_index=True).nunique()<2).rename(columns={'SEX':'nsex_lt2'})
+#    n_lt2 = (nsex_lt2.nsex_lt2.value_counts()[True] if True in nsex_lt2.nsex_lt2.value_counts() else 0)
+#    if n_lt2>0:
+#      LOG("\t%s: removing genes not expressed in both sexes: %d"%(smtsd,n_lt2))
+#      rnaseq_this = pandas.merge(rnaseq_this, nsex_lt2, left_on=['ENSG'], right_index=True)
+#      rnaseq_this = rnaseq_this[~rnaseq_this['nsex_lt2']]
+#      rnaseq_this.drop(columns=['nsex_lt2'], inplace=True)
+#    if i==0:
+#      rnaseq_out=rnaseq_this
+#    else:
+#      rnaseq_out=pandas.concat([rnaseq_out,rnaseq_this])
+#  rnaseq = rnaseq_out
+  ######
 
   LOG("For each tissue, remove genes with TPMs all zero...")
   tissues=list(rnaseq.SMTSD.sort_values().unique())

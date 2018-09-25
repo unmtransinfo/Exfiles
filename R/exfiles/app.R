@@ -4,7 +4,6 @@
 ###    SEARCH: geneA similarity search
 ###   COMPARE: geneA vs. geneB
 ### SABV: include sex-as-biological-variable analysis
-### Dissim: dissimilarity search instead
 ##########################################################################################
 ### GGC = gene-gene associations
 ### EPS = Expression Profiles
@@ -119,14 +118,12 @@ Ex-files modes of operation:
 </UL>
 <B>SABV:</B> This checkbox invokes <B><I>Sex As a Biological Variable</I></B> analysis.</P>
 <P>
-<B>Metrics:</B>
+<B>Score:</B>
 <UL>
 <LI><B>Ruzicka</B> - Similarity measure, size-normalizing, hence advantageous over Euclidean.
 <LI><B>wRho</B> - Weighted Pearson correlation coefficient, weighted by average values for each tissue, to mitigate noise.
-<LI><B>Combo</B> - Product wRho*Ruzicka, balancing correlation and similarity.
+<LI><B>Combo</B> - Product wRho*Ruzicka, scoring function balancing correlation and similarity.
 </UL>
-<B>Dissimilarity:</B> This checkbox affects Search results, reversing the chosen metric.</P>
-<P>
 <B>Results:</B>
 <UL>
 <LI>Search results include the top hit, displayed against the query in the
@@ -136,13 +133,13 @@ correlated or anti-correlated profiles.</B>
 <LI>SABV results include both sexes for both genes, thus four profiles.
 <LI>Expression units are <B>LOG<SUB>10</SUB>(1 + TPM)</B>, where <B>TPM</B> = RNA-seq median Transcripts Per Million-kilobase.
 <LI>Groups denote correlations among F-only, M-only or F+M.
+<LI>To find anti-correlated genes, search by wRho and reverse-sort results table.
 </UL></P>
 <P>
 Notes on data preparation: This version is focused on SABV knowledge discovery, thus reproductive and 
 breast tissues not considered. Also we restrict to protein-encoding genes mapped to HUGO gene symbols,
 for scientific comprehensibility, so only data associated with these genes is retained.
 Currently also genes are ignored with mapping ambiguity between Ensembl ENSG to HUGO symbols. 
-Note that the term metric is used here in the common and not mathematically rigorous sense.
 </P>
 <B>Algorithms:</B> Giovanni Bocci, Oleg Ursu, Cristian Bologa, Steve Mathias, Jeremy Yang &amp; Tudor Oprea<BR/>
 <B>Web app:</B> Jeremy Yang<BR/>
@@ -162,7 +159,7 @@ ui <- fluidPage(
           #selectizeInput("qryB", label="GeneB (optional)", choices = NULL), #server-side not working
           radioButtons("mode", "Mode", choices=c("View", "Search", "Compare"), selected="View", inline=T),
           checkboxInput("sabv", span("SABV", icon("venus",lib="font-awesome"),icon("mars", lib="font-awesome")), value=T),
-          radioButtons("metric", "Metric", choices=c("Ruzicka", "wRho", "Combo"), selected="Combo", inline=T),
+          radioButtons("score", "Score", choices=c("Ruzicka", "wRho", "Combo"), selected="Combo", inline=T),
           checkboxGroupInput("plot_opts", "Plot", choices=c("Annotate"), selected=NULL, inline=F),
           br(),
           actionButton("showhelp", "Help", style='padding:4px; background-color:#DDDDDD; font-weight:bold')
@@ -206,7 +203,7 @@ server <- function(input, output, session) {
 
   message(sprintf("NOTE: genes: %d ; correlations = %d", nrow(gene), nrow(ggc)))
   observe({
-    message(sprintf("NOTE: mode: %s ; sabv: %s ; metric: %s", input$mode, input$sabv, input$metric))
+    message(sprintf("NOTE: mode: %s ; sabv: %s ; score: %s", input$mode, input$sabv, input$score))
     message(sprintf("NOTE: qryA = %s \"%s\"", qryA(), gene$name[gene$symbol==qryA()]))
     message(sprintf("NOTE: qryB = %s \"%s\"", qryB(), ifelse(is.null(qryB()), "(None)", gene$name[gene$symbol==qryB()])))
   })
@@ -237,19 +234,19 @@ server <- function(input, output, session) {
   hits <- reactive({
     if (input$mode!="Search" | is.null(qryA())) { return(NULL) }
     ggc_hits <- ggc[ggc$ENSGA==ensgA()|ggc$ENSGB==ensgA(),]
-    if (input$metric=="wRho") {
-      ggc_hits["Similarity"] <- round(ggc_hits$wRho, digits=3)
-    } else if (input$metric=="Ruzicka") {
-      ggc_hits["Similarity"] <- round(ggc_hits$Ruzicka, digits=3)
+    if (input$score=="wRho") {
+      ggc_hits["Score"] <- round(ggc_hits$wRho, digits=3)
+    } else if (input$score=="Ruzicka") {
+      ggc_hits["Score"] <- round(ggc_hits$Ruzicka, digits=3)
     } else {
-      ggc_hits["Similarity"] <- round(ggc_hits$Combo, digits=3)
+      ggc_hits["Score"] <- round(ggc_hits$Combo, digits=3)
     }
     ggc_hits["EnsemblID"] <- NA #Populate with non-query gene.
     ggc_hits$EnsemblID[ggc_hits$ENSGA==ensgA()] <- ggc_hits$ENSGB[ggc_hits$ENSGA==ensgA()]
     ggc_hits$EnsemblID[ggc_hits$ENSGB==ensgA()] <- ggc_hits$ENSGA[ggc_hits$ENSGB==ensgA()]
     ggc_hits <- merge(ggc_hits, gene[,c("ENSG","symbol","name")], by.x="EnsemblID", by.y="ENSG", all.x=T, all.y=F)
-    ggc_hits <- ggc_hits[,c("EnsemblID","symbol","name","Cluster","Similarity")]
-    ggc_hits <- ggc_hits[order(-ggc_hits$Similarity),]
+    ggc_hits <- ggc_hits[,c("EnsemblID","symbol","name","Cluster","Score")]
+    ggc_hits <- ggc_hits[order(-ggc_hits$Score),]
     return(ggc_hits)
   })
   
@@ -258,7 +255,7 @@ server <- function(input, output, session) {
     if (is.null(hits())) { return(NULL) }
     hit_best <- hits()$EnsemblID[1]
     if (!is.na(hit_best)) {
-      sim <- hits()$Similarity[1]
+      sim <- hits()$Score[1]
       message(sprintf("NOTE: best hit [sim=%.2f]: %s:%s (%s)", sim, hit_best, gene$symbol[gene$ENSG==hit_best], gene$name[gene$ENSG==hit_best]))
     } else {
       message(sprintf("ERROR: search failed."))
@@ -274,8 +271,8 @@ server <- function(input, output, session) {
     if (input$mode == "Compare" & !is.null(qryB())) {
       htm <- sprintf("<B>Results (%s):</B> Gene queryA: %s \"%s\" ; queryB: %s \"%s\"", input$mode, qryA(), gene$name[gene$ENSG==ensgA()], qryB(), gene$name[gene$ENSG==ensgB()])
     } else if (input$mode=="Search" & !is.null(hit())) {
-      htm <- sprintf("<B>Results (%s):</B> Gene query: %s \"%s\" ; metric: %s ; profiles found: %d ; top hit: %s \"%s\"", input$mode, qryA(), gene$name[gene$ENSG==ensgA()], input$metric, nrow(hits()), hit_symbol(), gene$name[gene$ENSG==hit()])
-      sim <- hits()$Similarity[1]
+      htm <- sprintf("<B>Results (%s):</B> Gene query: %s \"%s\" ; score: %s ; profiles found: %d ; top hit: %s \"%s\"", input$mode, qryA(), gene$name[gene$ENSG==ensgA()], input$score, nrow(hits()), hit_symbol(), gene$name[gene$ENSG==hit()])
+      sim <- hits()$Score[1]
     } else if (input$mode=="View" & !is.null(qryA())) {
       htm <- sprintf("<B>Results (%s):</B> Gene query: %s \"%s\"", input$mode, qryA(), gene$name[gene$ENSG==ensgA()])
     } else {
@@ -293,7 +290,7 @@ server <- function(input, output, session) {
   output$datarows <- renderDataTable({
     if (is.null(hits())) { return(NULL) }
     DT::datatable(data=hits(), rownames=F, selection="multiple", class="cell-border stripe", style="bootstrap",
-	options=list(autoWidth=T), colnames=c("Ensembl", "Symbol", "Name", "Group", input$metric)) %>%
+	options=list(autoWidth=T), colnames=c("Ensembl", "Symbol", "Name", "Group", input$score)) %>%
         formatRound(digits=3, columns=5:ncol(hits()))
   }, server=T)
   
@@ -303,7 +300,7 @@ server <- function(input, output, session) {
     ggc_hits <- hits()
     ggc_hits["Query"] <- qryA()
     ggc_hits <- ggc_hits[,c(6,1,2,3,4,5)] #reorder cols
-    names(ggc_hits) <- c("Query", "EnsemblID","GeneSymbol","GeneName","Group", input$metric)
+    names(ggc_hits) <- c("Query", "EnsemblID","GeneSymbol","GeneName","Group", input$score)
     return(ggc_hits)
   })
 
