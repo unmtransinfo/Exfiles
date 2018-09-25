@@ -103,13 +103,10 @@ def CleanSamples(samples, verbose):
   LOG("\tDEBUG: samples.dropna(subset=['SEX'])...")
   samples.dropna(subset=['SEX'], inplace=True)
   LOG("\tSamples: %d; tissues: %d"%(samples.shape[0],samples.SMTSD.nunique()))
-  ### Remove samples with high degree of autolysis (self-digestion).
-  #LOG("\tDEBUG: samples.SMATSSCR<2...") #Removes many tissues, not ok.
-  #samples = samples[samples.SMATSSCR<2]
-  #LOG("\tSamples: %d; tissues: %d"%(samples.shape[0],samples.SMTSD.nunique()))
-  #LOG("\tDEBUG: samples.SMATSSCR<4...")
-  #samples = samples[samples.SMATSSCR<4]
-  #LOG("\tSamples: %d; tissues: %d"%(samples.shape[0],samples.SMTSD.nunique()))
+  ### Remove samples with severe degree of autolysis (self-digestion).
+  LOG("\tDEBUG: samples.SMATSSCR!=3...")
+  samples = samples.loc[samples.SMATSSCR!=3]
+  LOG("\tSamples: %d; tissues: %d"%(samples.shape[0],samples.SMTSD.nunique()))
   samples.loc[(samples.SMTS.str.strip()=='') & samples.SMTSD.str.startswith("Skin -"), 'SMTS'] = 'Skin'
   LOG("\tSamples: %d; tissues: %d"%(samples.shape[0],samples.SMTSD.nunique()))
   samples_post = samples.SMTSD.unique()

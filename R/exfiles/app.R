@@ -160,11 +160,10 @@ ui <- fluidPage(
           selectizeInput("qryA", label=NULL, choices = gene_choices, selected=qryArand),
           selectizeInput("qryB", label="GeneB (optional)", choices = c(list('None'='none'), gene_choices)),
           #selectizeInput("qryB", label="GeneB (optional)", choices = NULL), #server-side not working
-          radioButtons("mode", "Mode", choices=c("View", "Search", "Compare"), selected="Search", inline=T),
+          radioButtons("mode", "Mode", choices=c("View", "Search", "Compare"), selected="View", inline=T),
           checkboxInput("sabv", span("SABV", icon("venus",lib="font-awesome"),icon("mars", lib="font-awesome")), value=T),
           radioButtons("metric", "Metric", choices=c("Ruzicka", "wRho", "Combo"), selected="Combo", inline=T),
-          checkboxInput("dissim", "Dissimilarity", value=F),
-          checkboxInput("annotate", "AnnotatePlot", value=T),
+          checkboxGroupInput("plot_opts", "Plot", choices=c("Annotate"), selected=NULL, inline=F),
           br(),
           actionButton("showhelp", "Help", style='padding:4px; background-color:#DDDDDD; font-weight:bold')
           )),
@@ -174,7 +173,7 @@ ui <- fluidPage(
       wellPanel(htmlOutput(outputId = "result_htm", height = "60px")))
   ),
   
-  # How to test for R NULL?
+  # How to test in JS for R NULL?
   conditionalPanel(condition="(input.mode=='Search' && typeof output.datarows !== 'undefined')",
     wellPanel(
       fluidRow(column(12, DT::dataTableOutput("datarows"))),
@@ -207,7 +206,7 @@ server <- function(input, output, session) {
 
   message(sprintf("NOTE: genes: %d ; correlations = %d", nrow(gene), nrow(ggc)))
   observe({
-    message(sprintf("NOTE: mode: %s ; sabv: %s ; metric: %s ; dissim: %s", input$mode, input$sabv, input$metric, input$dissim))
+    message(sprintf("NOTE: mode: %s ; sabv: %s ; metric: %s", input$mode, input$sabv, input$metric))
     message(sprintf("NOTE: qryA = %s \"%s\"", qryA(), gene$name[gene$symbol==qryA()]))
     message(sprintf("NOTE: qryB = %s \"%s\"", qryB(), ifelse(is.null(qryB()), "(None)", gene$name[gene$symbol==qryB()])))
   })
@@ -219,7 +218,6 @@ server <- function(input, output, session) {
       updateTextInput(session, "qryA", value=qryArand) #Works better than updateSelectizeInput ??
     }
     if (input$qryA=="") { return(NULL) }
-    message(sprintf("DEBUG: qryA=\"%s\"", toupper(input$qryA)))
     toupper(input$qryA)
   })
   ensgA <- reactive({
@@ -251,11 +249,7 @@ server <- function(input, output, session) {
     ggc_hits$EnsemblID[ggc_hits$ENSGB==ensgA()] <- ggc_hits$ENSGA[ggc_hits$ENSGB==ensgA()]
     ggc_hits <- merge(ggc_hits, gene[,c("ENSG","symbol","name")], by.x="EnsemblID", by.y="ENSG", all.x=T, all.y=F)
     ggc_hits <- ggc_hits[,c("EnsemblID","symbol","name","Cluster","Similarity")]
-    if (input$dissim) {
-      ggc_hits <- ggc_hits[order(ggc_hits$Similarity),]
-    } else {
-      ggc_hits <- ggc_hits[order(-ggc_hits$Similarity),]
-    }
+    ggc_hits <- ggc_hits[order(-ggc_hits$Similarity),]
     return(ggc_hits)
   })
   
@@ -479,7 +473,7 @@ server <- function(input, output, session) {
       }
     }
     #
-    if (input$annotate) {
+    if ("Annotate" %in% input$plot_opts) {
       p <- add_annotations(p, text=annotxt, showarrow=F, x=.1, y=1, xref="paper", yref="paper")
     }
     p$elementId <- NULL #Hack to suppress spurious warnings.
