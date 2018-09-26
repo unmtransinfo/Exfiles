@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """exfiles_similarity_post.py
 
-Post-process output from exfiles_similarity*.py|R.
+Post-process output from comparison calculations.
 
 Input cols:
 	ENSGA,SEXA,ENSGB,SEXB,Ruzicka
@@ -11,15 +11,11 @@ Output cols:
 	ENSGA,ENSGB,Cluster,wRho,Ruzicka
 
 where
-	Cluster = F (F-F)
-	Cluster = M (M-M)
-	Cluster = FM (mean)
+	Cluster = F|M|FM
 
-and FILTER:
-
-	For all genes keep top 10 by combo score (sim*cor).
-	Among rest, delete sim data below min cutoff.
-	Among rest, delete cor data: (< min cutoff) & (> max anti-cor cutoff)
+(No longer filtering in this code. MIN_KEEP flawed idea since it helps 
+with Search mode but loses many comparisons for Compare mode. Cutoffs
+now in similarity and correlation calculation code.)
 
 """
 #############################################################################
@@ -160,8 +156,8 @@ if __name__=='__main__':
   parser.add_argument("--i_cor",dest="ifile_cor",help="input gene-gene correlation (TSV)")
   parser.add_argument("--i_sim",dest="ifile_sim",help="input gene-gene similarity (TSV)")
   parser.add_argument("--o",dest="ofile",help="output (TSV)")
-  parser.add_argument("--o_unfiltered",dest="ofile_unfiltered",help="output (TSV)")
-  parser.add_argument("--min_keep",type=int,default=10,help="min count, sim-genes to keep per gene")
+  #parser.add_argument("--o_unfiltered",dest="ofile_unfiltered",help="output (TSV)")
+  #parser.add_argument("--min_keep",type=int,default=10,help="min count, sim-genes to keep per gene")
   parser.add_argument("--min_sim",type=float,default=.7,help="min similarity")
   parser.add_argument("--min_cor",type=float,default=.7,help="min correlation")
   parser.add_argument("--max_anticor",type=float,default=-.7,help="max anti-correlation")
@@ -183,12 +179,12 @@ if __name__=='__main__':
 
   cmps = GroupComparisons(cors, sims, args.verbose)
 
-  if args.ofile_unfiltered:
-    LOG("=== Output unfiltered file: %s"%args.ofile_unfiltered)
-    cmps.round(args.decimals).to_csv(args.ofile_unfiltered, sep='\t', index=False)
-
   if args.ofile:
-    ### Directly to file saves memory.
-    FilterComparisons2File(cmps, args.min_keep, args.min_sim, args.min_cor, args.max_anticor, args.decimals, args.ofile, args.verbose)
+    LOG("=== Output file: %s"%args.ofile)
+    cmps.round(args.decimals).to_csv(args.ofile, sep='\t', index=False)
+
+#  if args.ofile:
+#    ### Directly to file saves memory.
+#    FilterComparisons2File(cmps, args.min_keep, args.min_sim, args.min_cor, args.max_anticor, args.decimals, args.ofile, args.verbose)
 
   print("%s Elapsed: %ds"%(PROG,(time.time()-t0)), file=sys.stderr)

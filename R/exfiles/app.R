@@ -24,8 +24,10 @@ APPNAME <- "Ex-files"
 ###
 t0 <- proc.time()
 if (file.exists("exfiles.Rdata")) { # Read Rdata if present
+  message(sprintf("Loading dataset from Rdata..."))
   load("exfiles.Rdata")
 } else { # else read files and write Rdata.
+  message(sprintf("Loading dataset from files, writing Rdata..."))
   ###
   # tissue_id, tissue_name
   ###
@@ -45,24 +47,36 @@ if (file.exists("exfiles.Rdata")) { # Read Rdata if present
   ###
   save(tissue, gene, eps, ggc, file="exfiles.Rdata")
 }
+#
 tissue_missing <- setdiff(tissue$name, colnames(eps))
-message(sprintf("NOTE: TISSUE_MISSING: %d. %s\n", 1:length(tissue_missing), tissue_missing))
+if (length(tissue_missing)>0) {
+  message(sprintf("NOTE: TISSUE_MISSING: %d. %s\n", 1:length(tissue_missing), tissue_missing))
+} else {
+  message(sprintf("All tissues found."))
+}
 tissue <- tissue[tissue$name %in% colnames(eps),]
 eps <- eps[,c("ENSG","SEX",tissue$name)]
 #
+message(sprintf("Tissue count: %d",nrow(tissue)))
 message(sprintf("%d. %s\n", tissue$id, tissue$name))
 #
 ensgs <- intersect(eps$ENSG, c(ggc$ENSGA,ggc$ENSGB))
 ensgs <- intersect(ensgs, gene$ENSG)
+message(sprintf("Gene count: %d",length(ensgs)))
 #
 ensg_dups <- gene$ENSG[duplicated(gene$ENSG)]
-message(sprintf("Duplicated/ambiguous gene ID: %s\n", ensg_dups))
+message(sprintf("Duplicated/ambiguous gene IDs: %d", length(ensg_dups)))
+#message(sprintf("Duplicated/ambiguous gene ID: %s\n", ensg_dups))
 #
-gene <- gene[!is.na(gene$symbol),]
 gene <- gene[gene$ENSG %in% ensgs,]
 #
+message(sprintf("Unknown/unmapped gene SYMBs: %d", sum(is.na(gene$symbol))))
+#
+gene <- gene[!is.na(gene$symbol),]
+#
 symb_dups <- gene$symbol[duplicated(gene$symbol)]
-message(sprintf("Duplicated/ambiguous gene SYMBs: %s\n", symb_dups))
+message(sprintf("Duplicated/ambiguous gene SYMBs: %d", length(symb_dups)))
+#message(sprintf("Duplicated/ambiguous gene SYMBs: %s\n", symb_dups))
 #
 gene <- gene[!duplicated(gene$ENSG),]
 gene <- gene[!duplicated(gene$symbol),]
@@ -160,7 +174,7 @@ ui <- fluidPage(
           radioButtons("mode", "Mode", choices=c("View", "Search", "Compare"), selected="View", inline=T),
           checkboxInput("sabv", span("SABV", icon("venus",lib="font-awesome"),icon("mars", lib="font-awesome")), value=T),
           radioButtons("score", "Score", choices=c("Ruzicka", "wRho", "Combo"), selected="Combo", inline=T),
-          checkboxGroupInput("plot_opts", "Plot", choices=c("Annotate"), selected=NULL, inline=F),
+          checkboxGroupInput("plot_opts", "Plot", choices=c("LogY", "Annotate"), selected=c("LogY"), inline=T),
           br(),
           actionButton("showhelp", "Help", style='padding:4px; background-color:#DDDDDD; font-weight:bold')
           )),
@@ -314,16 +328,24 @@ server <- function(input, output, session) {
   output$plot <- renderPlotly({
     if (is.null(ensgA())) { return(NULL) }
     
-    qryA_profile_f <- log10(as.numeric(eps[eps$ENSG==ensgA() & eps$SEX=="F",][1,tissue$name])+1)
-    qryA_profile_m <- log10(as.numeric(eps[eps$ENSG==ensgA() & eps$SEX=="M",][1,tissue$name])+1)
+    qryA_profile_f <- as.numeric(eps[eps$ENSG==ensgA() & eps$SEX=="F",][1,tissue$name])
+    qryA_profile_m <- as.numeric(eps[eps$ENSG==ensgA() & eps$SEX=="M",][1,tissue$name])
+    if ("LogY" %in% input$plot_opts) {
+      qryA_profile_f <- log10(qryA_profile_f+1)
+      qryA_profile_m <- log10(qryA_profile_m+1)
+    }
     qryA_profile <- (qryA_profile_m + qryA_profile_f)/2
 
     wrhoAfm <- wPearson(qryA_profile_f, qryA_profile_m )
     ruzAfm <- Ruzicka(qryA_profile_f, qryA_profile_m )
     
     if (input$mode=="Compare" & !is.null(qryB())) {
-      qryB_profile_f <- log10(as.numeric(eps[eps$ENSG==ensgB() & eps$SEX=="F",][1,tissue$name])+1)
-      qryB_profile_m <- log10(as.numeric(eps[eps$ENSG==ensgB() & eps$SEX=="M",][1,tissue$name])+1)
+      qryB_profile_f <- as.numeric(eps[eps$ENSG==ensgB() & eps$SEX=="F",][1,tissue$name])
+      qryB_profile_m <- as.numeric(eps[eps$ENSG==ensgB() & eps$SEX=="M",][1,tissue$name])
+      if ("LogY" %in% input$plot_opts) {
+        qryB_profile_f <- log10(qryB_profile_f+1)
+        qryB_profile_m <- log10(qryB_profile_m+1)
+      }
       qryB_profile <- (qryB_profile_m + qryB_profile_f)/2
       #
       wrho <- wPearson(qryA_profile, qryB_profile)
@@ -337,8 +359,12 @@ server <- function(input, output, session) {
       ruzMab <- Ruzicka(qryA_profile_m, qryB_profile_m)
       #
     } else if (input$mode=="Search" & !is.null(hit())) { ## Hit only if Search
-      hit_profile_f <- log10(as.numeric(eps[eps$ENSG==hit() & eps$SEX=="F",][1,tissue$name])+1)
-      hit_profile_m <- log10(as.numeric(eps[eps$ENSG==hit() & eps$SEX=="M",][1,tissue$name])+1)
+      hit_profile_f <- as.numeric(eps[eps$ENSG==hit() & eps$SEX=="F",][1,tissue$name])
+      hit_profile_m <- as.numeric(eps[eps$ENSG==hit() & eps$SEX=="M",][1,tissue$name])
+      if ("LogY" %in% input$plot_opts) {
+        hit_profile_f <- log10(hit_profile_f+1)
+        hit_profile_m <- log10(hit_profile_m+1)
+      }
       hit_profile <- (hit_profile_m + hit_profile_f)/2
       #
       # "B" = hit
@@ -364,7 +390,7 @@ server <- function(input, output, session) {
     }
     
     xaxis = list(tickangle=45, tickfont=list(family="Arial", size=10), categoryorder = "array", categoryarray = tissue$name)
-    yaxis = list(title="Expression: LOG<SUB>10</SUB>(1+TPM)")
+    yaxis = list(title=ifelse("LogY" %in% input$plot_opts, "Expression: LOG<SUB>10</SUB>(1+TPM)", "Expression: TPM"))
     
     p <- plot_ly() %>%
       layout(xaxis = xaxis, yaxis = yaxis, 
@@ -418,8 +444,12 @@ server <- function(input, output, session) {
         if (!is.null(rows_selected)) {
           for (i in rows_selected) {
             if (hits()$EnsemblID[i]==hit()) { next; }
-            profile_f <- log10(as.numeric(eps[eps$ENSG==hits()$EnsemblID[i] & eps$SEX=="F",][1,tissue$name])+1)
-            profile_m <- log10(as.numeric(eps[eps$ENSG==hits()$EnsemblID[i] & eps$SEX=="M",][1,tissue$name])+1)
+            profile_f <- as.numeric(eps[eps$ENSG==hits()$EnsemblID[i] & eps$SEX=="F",][1,tissue$name])
+            profile_m <- as.numeric(eps[eps$ENSG==hits()$EnsemblID[i] & eps$SEX=="M",][1,tissue$name])
+            if ("LogY" %in% input$plot_opts) {
+              profile_f <- log10(profile_f+1)
+              profile_m <- log10(profile_m+1)
+            }
             p <- add_trace(p, name = paste("(M)", hits()$symbol[i]), x = tissue$name, y = profile_m,
                 type = 'scatter', mode = 'lines+markers',
                 marker = list(symbol="circle", size=10),
@@ -456,8 +486,12 @@ server <- function(input, output, session) {
         if (!is.null(rows_selected)) {
           for (i in rows_selected) {
             if (hits()$EnsemblID[i]==hit()) { next; }
-            profile_f <- log10(as.numeric(eps[eps$ENSG==hits()$EnsemblID[i] & eps$SEX=="F",][1,tissue$name])+1)
-            profile_m <- log10(as.numeric(eps[eps$ENSG==hits()$EnsemblID[i] & eps$SEX=="M",][1,tissue$name])+1)
+            profile_f <- as.numeric(eps[eps$ENSG==hits()$EnsemblID[i] & eps$SEX=="F",][1,tissue$name])
+            profile_m <- as.numeric(eps[eps$ENSG==hits()$EnsemblID[i] & eps$SEX=="M",][1,tissue$name])
+            if ("LogY" %in% input$plot_opts) {
+              profile_f <- log10(profile_f+1)
+              profile_m <- log10(profile_m+1)
+            }
             profile <- (profile_f + profile_m)/2
             p <- add_trace(p, name = hits()$symbol[i], x = tissue$name, y = profile,
                 type = 'scatter', mode = 'lines+markers',
