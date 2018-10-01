@@ -12,10 +12,11 @@
 ##########################################################################################
 library(readr)
 library(wCorr)
-library(shiny, quietly = T)
-library(DT, quietly = T) #datatable
-library(dplyr, quietly = T)
-library(plotly, quietly = T)
+library(shiny, quietly=T)
+library(shinyBS, quietly=T)
+library(DT, quietly=T) #datatable
+library(dplyr, quietly=T)
+library(plotly, quietly=T)
 
 ###
 # This code runs once for all sessions.
@@ -166,18 +167,23 @@ Built with R-Shiny &amp; Plotly.<BR/>
 #
 #############################################################################
 ui <- fluidPage(
-  titlePanel(h2(sprintf("%s, GTEx expression-profile exploration", APPNAME), em("(BETA)")), windowTitle=APPNAME),
+  titlePanel(h2(sprintf("%s, GTEx expression-profile exploration", APPNAME), 
+                span("+SABV", icon("venus",lib="font-awesome"),icon("mars", lib="font-awesome")),
+                em("(BETA)")), 
+             windowTitle=APPNAME),
   fluidRow(
     column(4, 
         wellPanel(
           actionButton("randGene", "GeneA (click for random)", style='padding:4px; background-color:#DDDDDD; font-size:100%; font-weight:bold'),
           selectizeInput("qryA", label=NULL, choices = gene_choices, selected=qryArand),
           selectizeInput("qryB", label="GeneB (optional)", choices = c(list('None'='none'), gene_choices)),
-          #selectizeInput("qryB", label="GeneB (optional)", choices = NULL), #server-side not working
           radioButtons("mode", "Mode", choices=c("View", "Search", "Compare"), selected="View", inline=T),
-          checkboxInput("sabv", span("SABV", icon("venus",lib="font-awesome"),icon("mars", lib="font-awesome")), value=T),
+          #checkboxInput("SABV", span("SABV", icon("venus",lib="font-awesome"),icon("mars", lib="font-awesome")), value=T),
           radioButtons("score", "Score", choices=c("Ruzicka", "wRho", "Combo"), selected="Combo", inline=T),
-          checkboxGroupInput("plot_opts", "Plot", choices=c("LogY", "Annotate"), selected=c("LogY"), inline=T),
+          checkboxGroupInput("searchgroups", "Searchgroups", choices=c("F","M","FM"), selected=c("F","M","FM"), inline=T),
+          checkboxGroupInput("plot_opts", "Plot",
+		choices=c("LogY"="LogY", "+Stats"="Showstats", "+SABV"="SABV"),
+		selected=c("LogY","SABV"), inline=T),
           br(),
           actionButton("goRefresh", "Refresh", style='padding:4px; background-color:#DDDDDD; font-weight:bold'),
           actionButton("showhelp", "Help", style='padding:4px; background-color:#DDDDDD; font-weight:bold')
@@ -195,8 +201,13 @@ ui <- fluidPage(
   fluidRow(column(12, wellPanel(
       htmlOutput(outputId = "log_htm", height = "60px")))),
   fluidRow(
-    column(12, em(strong(sprintf("%s", APPNAME)), " web app built with R-Shiny and Plotly, from ", tags$a(href="http://datascience.unm.edu", "UNM Translational Informatics Division")))
-  )
+    column(12, em(strong(sprintf("%s", APPNAME)), " web app from ", 
+	tags$a(href="http://datascience.unm.edu", span("UNM", tags$img(id="unm_logo", height="60", valign="bottom", src="unm_new.png")),
+	" and ",
+	tags$a(href="https://nihdatacommons.us/", span("DCPPC", tags$img(id="dcppc_logo", height="60", valign="bottom", src="dcppc_logo_only.png"))
+	))))),
+  bsTooltip("unm_logo", "UNM Translational Informatics Division", "right"),
+  bsTooltip("dcppc_logo", "NIH Data Commons Pilot Phase Consortium", "right")
 )
 
 #############################################################################
@@ -210,16 +221,12 @@ server <- function(input, output, session) {
     ))
   })
   
-# observe({ 
-#   updateSelectizeInput(session, 'qryB', choices = c(list('None'='none'), gene_choices), server=T) #NOT WORKING
-# })
-  
   Sys.sleep(1)
   randGeneA_previous <- 0 # initialize once per session
 
   message(sprintf("NOTE: genes: %d ; correlations = %d", nrow(gene), nrow(ggc)))
   observe({
-    message(sprintf("NOTE: mode: %s ; sabv: %s ; score: %s", input$mode, input$sabv, input$score))
+    message(sprintf("NOTE: mode: %s ; score: %s", input$mode, input$score))
     message(sprintf("NOTE: qryA = %s \"%s\"", qryA(), gene$name[gene$symbol==qryA()]))
     message(sprintf("NOTE: qryB = %s \"%s\"", qryB(), ifelse(is.null(qryB()), "(None)", gene$name[gene$symbol==qryB()])))
   })
@@ -259,6 +266,7 @@ server <- function(input, output, session) {
   hits <- reactive({
     if (input$mode!="Search" | is.null(qryA())) { return(NULL) }
     ggc_hits <- ggc[ggc$ENSGA==ensgA()|ggc$ENSGB==ensgA(),]
+    ggc_hits <- ggc_hits[ggc_hits$Cluster %in% input$searchgroups,]
     if (input$score=="wRho") {
       ggc_hits["Score"] <- round(ggc_hits$wRho, digits=2)
     } else if (input$score=="Ruzicka") {
@@ -318,12 +326,14 @@ server <- function(input, output, session) {
     htm
   })
 
-  ### Creates input$datarows_rows_selected
+  ### Assigns input$datarows_rows_selected
   output$datarows <- renderDataTable({
     if (is.null(hits())) { return(NULL) }
-    DT::datatable(data=hits(), rownames=F, selection=list(target="row", mode="multiple", selected=c(1)),
-	class="cell-border stripe", style="bootstrap",
-	options=list(autoWidth=T), colnames=c("Ensembl", "Symbol", "Name", "Chr", "Group", input$score)) %>%
+    DT::datatable(data=hits(), rownames=F, 
+        selection=list(target="row", mode="multiple", selected=c(1)),
+	      class="cell-border stripe", style="bootstrap",
+	      options=list(autoWidth=T, columnDefs = list(list(className='dt-center', targets=c(1,3,4,5)))), 
+	      colnames=c("Ensembl", "Symbol", "Name", "Chr", "Group", input$score)) %>%
         formatRound(digits=2, columns=6:ncol(hits()))
   }, server=T)
   
@@ -407,7 +417,7 @@ server <- function(input, output, session) {
          font = list(family="Arial", size=14)
       )
 
-    if (input$sabv) {
+    if ("SABV" %in% input$plot_opts) {
       p <-  add_trace(p, name = paste("(F)", qryA()), x = tissue$SMTSD, y = EpLogIf(qryA_profile_f, ("LogY" %in% input$plot_opts)),
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
@@ -489,7 +499,7 @@ server <- function(input, output, session) {
       }
     }
     #
-    if ("Annotate" %in% input$plot_opts) {
+    if ("Showstats" %in% input$plot_opts) {
       p <- add_annotations(p, text=annotxt, showarrow=F, x=.1, y=1, xref="paper", yref="paper")
     }
     p$elementId <- NULL #Hack to suppress spurious warnings.
