@@ -26,11 +26,7 @@ $cwd/python/gtex_rnaseq_prep_app.py \
 	-v
 #
 ###
-#Manually ordered tissues:
-cat $DATADIR/exfiles_tissue_order.csv \
-	|perl -pe 's/([^;]*);(.*)$/$2\t$1/' \
-	>$DATADIR/exfiles_tissue_order.tsv
-#
+# exfiles_tissue_order.tsv exported from Google sheet.
 ###
-# Note that comprehensive gtex_gene_xref.tsv written by gtex_gene_map.R.
+# gtex_gene_xref.tsv written by gtex_gene_map.R, from Ensembl/Biomart and HUGO # files.
 ###

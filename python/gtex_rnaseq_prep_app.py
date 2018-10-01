@@ -113,7 +113,10 @@ def CleanSamples(samples, verbose):
   LOG("\tSamples: %d; tissues: %d"%(samples.shape[0],samples.SMTSD.nunique()))
   samples_post = samples.SMTSD.unique()
   samples_removed = set(samples_pre) - set(samples_post)
-  LOG("\tSamples removed: %s"%('\n\t'+'\n\t'.join(sorted(list(samples_removed)))))
+  if len(samples_removed)>0:
+    LOG("\tSamples removed: %s"%('\n\t'+'\n\t'.join(sorted(list(samples_removed)))))
+  else:
+    LOG("\tSamples removed: (none)")
   return samples
 
 #############################################################################
@@ -185,11 +188,12 @@ def CleanRnaseq(rnaseq, verbose):
       LOG("\tRemoving sex-specific tissue: \"%s\""%(smtsd))
       rnaseq = rnaseq[rnaseq.SMTSD!=smtsd]
 
-  LOG("Remove Breast manually, not 100% sex-specific...")
-  rnaseq = rnaseq[~rnaseq.SMTSD.str.match('^Breast')]
+  smtsd_breast = "Breast - Mammary Tissue"
+  LOG("Remove manually, not 100%% sex-specific: \"%s\"..."%smtsd_breast)
+  rnaseq = rnaseq[rnaseq.SMTSD!=smtsd_breast] 
 
-  ######
-  ### Maybe no such genes? This requires too much memory anyway (80GB+).
+########
+### Maybe no such genes? This requires too much memory anyway (80GB+).
 #  LOG("For each tissue, remove genes not expressed in both sexes...")
 #  tissues=list(rnaseq.SMTSD.sort_values().unique())
 #  for i,smtsd in enumerate(tissues):
@@ -206,7 +210,7 @@ def CleanRnaseq(rnaseq, verbose):
 #    else:
 #      rnaseq_out=pandas.concat([rnaseq_out,rnaseq_this])
 #  rnaseq = rnaseq_out
-  ######
+########
 
   LOG("For each tissue, remove genes with TPMs all zero...")
   tissues=list(rnaseq.SMTSD.sort_values().unique())
@@ -249,6 +253,7 @@ def SABV_aggregate_median(rnaseq, verbose):
 ### From:   ENSG,SMTSD,SEX,TPM,LOG_TPM
 ### To:	    ENSG,SEX,TPM_1,TPM_2,...TPM_N (N tissues)
 ### Preserve tissue order.
+### Some missing TPM values, written as "" to TSV output.
 #############################################################################
 def PivotToProfiles(rnaseq, verbose):
   LOG("NOTE: PivotToProfiles IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())))

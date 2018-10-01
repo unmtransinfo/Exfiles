@@ -42,9 +42,12 @@ fout <- file(OFILE, "w")
 writeLines(paste0(c('ENSGA','SEXA','ENSGB','SEXB','wRho'),collapse='\t'), fout)
 ###
 ###
-#wPearson <- function(A,B) { #Vector version (slow)
-#  weightedCorr(A, B, method="Pearson", weights=(A+B)/2)
-#}
+wPearson <- function(A,B) { #Vector version (slow)
+  ok <- !is.na(A) & !is.na(B)
+  A <- A[ok]
+  B <- B[ok]
+  weightedCorr(A, B, method="Pearson", weights=(A+B)/2)
+}
 ###
 wPearson_mx <- function(A,B) { #Matrix version
   mapply(weightedCorr, as.list(as.data.frame(t(A))), as.list(as.data.frame(t(B))), 

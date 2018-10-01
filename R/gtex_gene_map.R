@@ -1,6 +1,7 @@
 #!/usr/bin/env Rscript
 #
 library(readr)
+library(dplyr)
 ###
 # Ensembl.org/biomart reports 64561 total genes in the Homo sapiens (GRCh38.p12)
 # dataset. Selecting only those with Ensembl Protein Family IDs, the number is 22710,
@@ -36,7 +37,9 @@ writeLines(sprintf("GTEx ENSGs mapped to NCBI and HGNCID: %d / %d (%.1f%%)",
 # ftp://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/locus_groups/protein-coding_gene.txt
 ###
 hugo <- read_delim("data/hugo_protein-coding_gene.tsv", "\t")
-hugo <- unique(hugo[,c("hgnc_id","symbol","name","gene_family","ensembl_gene_id")])
+hugo <- unique(hugo[,c("hgnc_id","symbol","name","gene_family","ensembl_gene_id","uniprot_ids","location")])
+hugo <- rename(hugo, uniprot=uniprot_ids)
+hugo <- rename(hugo, chr=location)
 #
 gtex_gene <- x
 ###
@@ -44,6 +47,10 @@ x <- merge(gtex_gene[!is.na(x$HGNCID),], hugo, by.x='HGNCID', by.y='hgnc_id', al
 writeLines(sprintf("GTEx ENSGs mapped to HGNC symbols: %d / %d (%.1f%%)",
 	sum(!is.na(x$symbol)), n_gtex_ensg,
 	100*sum(!is.na(x$symbol))/n_gtex_ensg))
+#
+writeLines(sprintf("GTEx ENSGs mapped to UniProt IDs: %d / %d (%.1f%%)",
+                   sum(!is.na(x$uniprot)), n_gtex_ensg,
+                   100*sum(!is.na(x$uniprot))/n_gtex_ensg))
 #
 # ENSG check:
 ensg2ensg <- x[!is.na(x$ensembl_gene_id),c("ENSG","ensembl_gene_id")]
@@ -54,13 +61,15 @@ writeLines(sprintf("Ensembl/HGNC ENSG mismatch: %s != %s", ensg2ensg_mismatch$EN
 #
 gtex_gene <- x
 #
-gtex_gene <- gtex_gene[!(is.na(x$HGNCID)&is.na(x$NCBI)),]
-gtex_gene <- gtex_gene[,c("ENSG","NCBI","HGNCID","symbol","name")]
+gtex_gene <- gtex_gene[!(is.na(x$HGNCID)|is.na(x$NCBI)|is.na(x$uniprot)),]
+gtex_gene <- gtex_gene[,c("ENSG","NCBI","HGNCID","chr","uniprot","symbol","name")]
 ofile <- "data/gtex_gene_xref.tsv"
 writeLines(sprintf("Output file, GTEx/Ensembl/HGNC: %s ; nrow: %d", ofile, nrow(gtex_gene)))
 writeLines(sprintf("Output file, GTEx/Ensembl/HGNC, ENSG: %d", length(unique(gtex_gene$ENSG))))
 writeLines(sprintf("Output file, GTEx/Ensembl/HGNC, NCBI: %d", length(unique(gtex_gene$NCBI))))
 writeLines(sprintf("Output file, GTEx/Ensembl/HGNC, HGNCID: %d", length(unique(gtex_gene$HGNCID))))
+writeLines(sprintf("Output file, GTEx/Ensembl/HGNC, chromosomal location: %d", length(unique(gtex_gene$chr))))
+writeLines(sprintf("Output file, GTEx/Ensembl/HGNC, UniProt: %d", length(unique(gtex_gene$uniprot))))
 writeLines(sprintf("Output file, GTEx/Ensembl/HGNC, symbol: %d", length(unique(gtex_gene$symbol))))
 writeLines(sprintf("Output file, GTEx/Ensembl/HGNC, name: %d", length(unique(gtex_gene$name))))
 write_tsv(gtex_gene, ofile)
