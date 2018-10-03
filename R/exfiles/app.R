@@ -49,6 +49,7 @@ if (file.exists("exfiles.Rdata")) {
   # ENSGA, ENSGB, Cluster, wRho, Ruzicka
   ###
   ggc <- read_delim("exfiles_ggc.tsv.gz", "\t", col_types="cccdd")
+  colnames(ggc) <- c("ENSGA", "ENSGB", "Group", "wRho", "Ruzicka")
   ###
   save(tissue, gene, idg, eps, ggc, file="exfiles.Rdata")
 }
@@ -285,7 +286,7 @@ server <- function(input, output, session) {
   hits <- reactive({
     if (input$mode!="Search" | is.null(qryA())) { return(NULL) }
     ggc_hits <- ggc[ggc$ENSGA==ensgA()|ggc$ENSGB==ensgA(),]
-    ggc_hits <- ggc_hits[ggc_hits$Cluster %in% input$searchgroups,]
+    ggc_hits <- ggc_hits[ggc_hits$Group %in% input$searchgroups,]
     if (input$score=="wRho") {
       ggc_hits["Score"] <- round(ggc_hits$wRho, digits=2)
     } else if (input$score=="Ruzicka") {
@@ -298,7 +299,7 @@ server <- function(input, output, session) {
     ggc_hits$EnsemblID[ggc_hits$ENSGB==ensgA()] <- ggc_hits$ENSGA[ggc_hits$ENSGB==ensgA()]
     gene_cols <- c("ENSG", "uniprot", "symbol","name","chr","idgTDL")
     ggc_hits <- merge(ggc_hits, gene[,gene_cols], by.x="EnsemblID", by.y="ENSG", all.x=T, all.y=F)
-    hits_cols <- c("EnsemblID","uniprot","symbol","name","chr","idgTDL","Cluster","Score") #datatable() ref by # (0+)
+    hits_cols <- c("EnsemblID","uniprot","symbol","name","chr","idgTDL","Group","Score") #datatable() ref by # (0+)
     ggc_hits <- ggc_hits[,hits_cols]
     ggc_hits <- ggc_hits[order(-ggc_hits$Score),]
     return(ggc_hits)
@@ -399,19 +400,19 @@ server <- function(input, output, session) {
     wrhoAfm <- wPearson(qryA_profile_f, qryA_profile_m)
     ruzAfm <- Ruzicka(qryA_profile_f, qryA_profile_m)
     
-    qryA_profile <- (qryA_profile_m + qryA_profile_f)/2
+    qryA_profile_c <- (qryA_profile_f+qryA_profile_m)/2 #Combined (F+M)/2
 
     if (input$mode=="Compare" & !is.null(qryB())) {
       qryB_profile_f <- as.numeric(eps[eps$ENSG==ensgB() & eps$SEX=="F",][1,tissue$SMTSD])
       qryB_profile_m <- as.numeric(eps[eps$ENSG==ensgB() & eps$SEX=="M",][1,tissue$SMTSD])
-      qryB_profile <- (qryB_profile_m + qryB_profile_f)/2
+      qryB_profile_c <- (qryB_profile_f+qryB_profile_m)/2
       #
-      wrho <- wPearson(qryA_profile, qryB_profile)
+      wrho <- wPearson(qryA_profile_c, qryB_profile_c)
       wrhoBfm <- wPearson(qryB_profile_f, qryB_profile_m)
       wrhoFab <- wPearson(qryA_profile_f, qryB_profile_f)
       wrhoMab <- wPearson(qryA_profile_m, qryB_profile_m)
       #
-      ruz <- Ruzicka(qryA_profile, qryB_profile)
+      ruz <- Ruzicka(qryA_profile_c, qryB_profile_c)
       ruzBfm <- Ruzicka(qryB_profile_f, qryB_profile_m)
       ruzFab <- Ruzicka(qryA_profile_f, qryB_profile_f)
       ruzMab <- Ruzicka(qryA_profile_m, qryB_profile_m)
@@ -419,15 +420,15 @@ server <- function(input, output, session) {
     } else if (input$mode=="Search" & !is.null(hit())) { ## Hit only if Search
       hit_profile_f <- as.numeric(eps[eps$ENSG==hit() & eps$SEX=="F",][1,tissue$SMTSD])
       hit_profile_m <- as.numeric(eps[eps$ENSG==hit() & eps$SEX=="M",][1,tissue$SMTSD])
-      hit_profile <- (hit_profile_m + hit_profile_f)/2
+      hit_profile_c <- (hit_profile_f+hit_profile_m)/2
       #
       # "B" = hit
-      wrho <- wPearson(qryA_profile, hit_profile)
+      wrho <- wPearson(qryA_profile_c, hit_profile_c)
       wrhoBfm <- wPearson(hit_profile_f, hit_profile_m)
       wrhoFab <- wPearson(qryA_profile_f, hit_profile_f)
       wrhoMab <- wPearson(qryA_profile_m, hit_profile_m)
       #
-      ruz <- Ruzicka(qryA_profile, hit_profile)
+      ruz <- Ruzicka(qryA_profile_c, hit_profile_c)
       ruzBfm <- Ruzicka(hit_profile_f, hit_profile_m)
       ruzFab <- Ruzicka(qryA_profile_f, hit_profile_f)
       ruzMab <- Ruzicka(qryA_profile_m, hit_profile_m)
@@ -489,29 +490,34 @@ server <- function(input, output, session) {
         rows_selected <- input$datarows_rows_selected
         if (!is.null(rows_selected)) {
           for (i in rows_selected) {
-            profile_f <- as.numeric(eps[eps$ENSG==hits()$EnsemblID[i] & eps$SEX=="F",][1,tissue$SMTSD])
-            profile_m <- as.numeric(eps[eps$ENSG==hits()$EnsemblID[i] & eps$SEX=="M",][1,tissue$SMTSD])
-            p <- add_trace(p, name = paste("(F)", hits()$symbol[i]), x = tissue$SMTSD, y = EpLogIf(profile_f, ("LogY" %in% input$opts)),
-                type = 'scatter', mode = 'lines+markers',
-                marker = list(symbol="circle", size=10),
-                text = paste0(hits()$symbol[i], ": ", tissue$SMTSD))
-            p <- add_trace(p, name = paste("(M)", hits()$symbol[i]), x = tissue$SMTSD, y = EpLogIf(profile_m, ("LogY" %in% input$opts)),
-                type = 'scatter', mode = 'lines+markers',
-                marker = list(symbol="circle", size=10),
-                text = paste0(hits()$symbol[i], ": ", tissue$SMTSD))
+            #group <- hits()$Group[i]
+            if ("F" %in% input$searchgroups) {
+              profile_f <- as.numeric(eps[eps$ENSG==hits()$EnsemblID[i] & eps$SEX=="F",][1,tissue$SMTSD])
+              p <- add_trace(p, name = paste("(F)", hits()$symbol[i]), x = tissue$SMTSD, y = EpLogIf(profile_f, ("LogY" %in% input$opts)),
+                  type = 'scatter', mode = 'lines+markers',
+                  marker = list(symbol="circle", size=10),
+                  text = paste0(hits()$symbol[i], ": ", tissue$SMTSD))
+            }
+            if ("M" %in% input$searchgroups) {
+              profile_m <- as.numeric(eps[eps$ENSG==hits()$EnsemblID[i] & eps$SEX=="M",][1,tissue$SMTSD])
+              p <- add_trace(p, name = paste("(M)", hits()$symbol[i]), x = tissue$SMTSD, y = EpLogIf(profile_m, ("LogY" %in% input$opts)),
+                  type = 'scatter', mode = 'lines+markers',
+                  marker = list(symbol="circle", size=10),
+                  text = paste0(hits()$symbol[i], ": ", tissue$SMTSD))
+            }
           }
         }
       } else { #View
         annotxt <- sprintf("Afm: rho = %.2f; ruz = %.2f", wrhoAfm, ruzAfm)
       }
     } else { #NOT_SABV
-      p <-  add_trace(p, name = qryA(), x = tissue$SMTSD, y = EpLogIf(qryA_profile, ("LogY" %in% input$opts)),
+      p <-  add_trace(p, name = qryA(), x = tissue$SMTSD, y = EpLogIf(qryA_profile_c, ("LogY" %in% input$opts)),
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
             text = paste0(qryA(), ": ", tissue$SMTSD))
       if (input$mode=="Compare" & !is.null(qryB())) {
         annotxt <- sprintf("rho = %.2f; ruz = %.2f", wrho, ruz)
-        p <- add_trace(p, name = qryB(), x = tissue$SMTSD, y = EpLogIf(qryB_profile, ("LogY" %in% input$opts)),
+        p <- add_trace(p, name = qryB(), x = tissue$SMTSD, y = EpLogIf(qryB_profile_c, ("LogY" %in% input$opts)),
             type = 'scatter', mode = 'lines+markers',
             marker = list(symbol="circle", size=10),
             text = paste0(qryB(), ": ", tissue$SMTSD))
