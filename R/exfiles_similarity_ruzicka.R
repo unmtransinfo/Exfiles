@@ -37,64 +37,121 @@ eps <- read_delim(IFILE, "\t", col_types=cols(SEX=col_character()))
 #
 writeLines(sprintf("Tissue columns: %d", ncol(eps)-N_IDCOLS))
 #
+eps <- eps[order(eps$ENSG),]
 eps <- eps[!duplicated(eps[,c("ENSG","SEX")]),]
 eps <- eps[complete.cases(eps),] #No NAs
 #
-#F and M gene sets should be same.
 eps_f <- eps[eps$SEX=="F",]
 eps_m <- eps[eps$SEX=="M",]
 eps_f$SEX <- NULL
 eps_m$SEX <- NULL
-
-# Index by ENSG
-if (!setequal(eps_f$ENSG, eps_m$ENSG)) {
-  eps_f <- eps_f[eps_f$ENSG %in% intersect(eps_f$ENSG,eps_m$ENSG),]
-  eps_m <- eps_m[eps_m$ENSG %in% intersect(eps_f$ENSG,eps_m$ENSG),]
-  eps <- eps[eps$ENSG %in% intersect(eps_f$ENSG,eps_m$ENSG),]
-}
-eps <- eps[order(eps$ENSG),]
-eps_f <- eps_f[order(eps_f$ENSG),]
-eps_m <- eps_m[order(eps_m$ENSG),]
 #
-# Must have profiles for each gene.
+# Compute combined profiles:
+eps_c <- aggregate(eps[,!(names(eps) %in% c("ENSG","SEX"))], by=list(ENSG=eps$ENSG), FUN=mean, na.rm=F)
+#
 writeLines(sprintf("Expression profiles (F): %d", length(unique(eps_f$ENSG))))
 writeLines(sprintf("Expression profiles (M): %d", length(unique(eps_m$ENSG))))
+writeLines(sprintf("Expression profiles (C): %d", length(unique(eps_c$ENSG))))
 ###
+n_calc_all_total <- 0
+n_calc_filtered_total <- 0
 #
-# To compute FF, MM and FM via one combined matrix.
-eps_mx_f <- as.matrix(eps_f[,N_IDCOLS:ncol(eps_f)])
-rownames(eps_mx_f) <- paste0(eps_f$ENSG, "_F")
-eps_mx_m <- as.matrix(eps_m[,N_IDCOLS:ncol(eps_m)])
-rownames(eps_mx_m) <- paste0(eps_m$ENSG, "_M")
-eps_mx_fm <- rbind(eps_mx_f, eps_mx_m)
 ###
-N <- nrow(eps_mx_fm)
-writeLines(sprintf("N = %d ; theoretical N_results = %d (N(N-1)/2)", N, N*(N-1)/2))
+#F:
+group <- "F"
+eps_mx_f <- as.matrix(eps_f[,N_IDCOLS:ncol(eps_f)])
+rownames(eps_mx_f) <- eps_f$ENSG
+#
+N <- nrow(eps_f)
+writeLines(sprintf("(%s) N = %d ; per group N_calc_max = %d (N(N-1)/2)", group, N, N*(N-1)/2))
 #
 # Generates full matrix, but only want upper.
-ruzd <- labdsv::dsvdis(eps_mx_fm, "ruzicka", upper=T) #dist
+ruzd <- labdsv::dsvdis(eps_mx_f, "ruzicka", upper=T) #dist
 ruzm <- -as.matrix(ruzd) + 1 #matrix: sim=(1-dist)
 ruz <- reshape2::melt(ruzm)
 #
-names(ruz) <- c("ENSG_SEXA", "ENSG_SEXB", "Ruzicka")
-ruz$ENSG_SEXA <- as.character(ruz$ENSG_SEXA)
-ruz$ENSG_SEXB <- as.character(ruz$ENSG_SEXB)
-ruz <- ruz[ruz$ENSG_SEXA<ruz$ENSG_SEXB,] #Effect: select upper matrix.
-n_total <- nrow(ruz)
-writeLines(sprintf("Results: %d", nrow(ruz)))
+names(ruz) <- c("ENSGA", "ENSGB", "Ruzicka")
+ruz$ENSGA <- as.character(ruz$ENSGA)
+ruz$ENSGB <- as.character(ruz$ENSGB)
+ruz <- ruz[ruz$ENSGA<ruz$ENSGB,] #Effect: select upper matrix.
+n_calc_all <- nrow(ruz)
 ruz <- ruz[ruz$Ruzicka>=MIN_RUZ,]
-writeLines(sprintf("Results, post-filtered: %d (%.1f%%)", nrow(ruz),100*nrow(ruz)/n_total))
+n_calc_filtered <- nrow(ruz)
+writeLines(sprintf("Results (%s): all: %d; post-filtered: %d (%.1f%%)", group, n_calc_all, n_calc_filtered, 100*n_calc_filtered/n_calc_all))
+n_calc_all_total <- n_calc_all_total + n_calc_all
+n_calc_filtered_total <- n_calc_filtered_total + n_calc_filtered
 #
-ruz['ENSGA'] <- sub("_.*$", "", ruz$ENSG_SEXA)
-ruz['SEXA'] <- sub("^.*_", "", ruz$ENSG_SEXA)
-ruz['ENSGB'] <- sub("_.*$", "", ruz$ENSG_SEXB)
-ruz['SEXB'] <- sub("^.*_", "", ruz$ENSG_SEXB)
+ruz$SEXA <- group
+ruz$SEXB <- group
 ruz <- ruz[,c("ENSGA","SEXA","ENSGB","SEXB","Ruzicka")]
-#
 ruz$Ruzicka <- round(ruz$Ruzicka, digits=3)
-#
 write_delim(ruz, path=OFILE, delim="\t")
+#
 ###
+#M:
+group <- "M"
+eps_mx_m <- as.matrix(eps_m[,N_IDCOLS:ncol(eps_m)])
+rownames(eps_mx_m) <- eps_m$ENSG
+#
+N <- nrow(eps_m)
+writeLines(sprintf("(%s) N = %d ; per group N_calc_max = %d (N(N-1)/2)", group, N, N*(N-1)/2))
+#
+# Generates full matrix, but only want upper.
+ruzd <- labdsv::dsvdis(eps_mx_m, "ruzicka", upper=T) #dist
+ruzm <- -as.matrix(ruzd) + 1 #matrix: sim=(1-dist)
+ruz <- reshape2::melt(ruzm)
+#
+names(ruz) <- c("ENSGA", "ENSGB", "Ruzicka")
+ruz$ENSGA <- as.character(ruz$ENSGA)
+ruz$ENSGB <- as.character(ruz$ENSGB)
+ruz <- ruz[ruz$ENSGA<ruz$ENSGB,] #Effect: select upper matrix.
+n_calc_all <- nrow(ruz)
+ruz <- ruz[ruz$Ruzicka>=MIN_RUZ,]
+n_calc_filtered <- nrow(ruz)
+writeLines(sprintf("Results (%s): all: %d; post-filtered: %d (%.1f%%)", group, n_calc_all, n_calc_filtered, 100*n_calc_filtered/n_calc_all))
+n_calc_all_total <- n_calc_all_total + n_calc_all
+n_calc_filtered_total <- n_calc_filtered_total + n_calc_filtered
+#
+ruz$SEXA <- group
+ruz$SEXB <- group
+ruz <- ruz[,c("ENSGA","SEXA","ENSGB","SEXB","Ruzicka")]
+ruz$Ruzicka <- round(ruz$Ruzicka, digits=3)
+write_delim(ruz, path=OFILE, delim="\t", append=T)
+#
+###
+#C:
+group <- "C"
+eps_mx_c <- as.matrix(eps_c[,N_IDCOLS:ncol(eps_c)])
+rownames(eps_mx_c) <- eps_c$ENSG
+#
+###
+N <- nrow(eps_c)
+writeLines(sprintf("(%s) N = %d ; per group N_calc_max = %d (N(N-1)/2)", group, N, N*(N-1)/2))
+#
+# Generates full matrix, but only want upper.
+ruzd <- labdsv::dsvdis(eps_mx_m, "ruzicka", upper=T) #dist
+ruzm <- -as.matrix(ruzd) + 1 #matrix: sim=(1-dist)
+ruz <- reshape2::melt(ruzm)
+#
+names(ruz) <- c("ENSGA", "ENSGB", "Ruzicka")
+ruz$ENSGA <- as.character(ruz$ENSGA)
+ruz$ENSGB <- as.character(ruz$ENSGB)
+ruz <- ruz[ruz$ENSGA<ruz$ENSGB,] #Effect: select upper matrix.
+n_calc_all <- nrow(ruz)
+ruz <- ruz[ruz$Ruzicka>=MIN_RUZ,]
+n_calc_filtered <- nrow(ruz)
+writeLines(sprintf("Results (%s): all: %d; post-filtered: %d (%.1f%%)", group, n_calc_all, n_calc_filtered, 100*n_calc_filtered/n_calc_all))
+n_calc_all_total <- n_calc_all_total + n_calc_all
+n_calc_filtered_total <- n_calc_filtered_total + n_calc_filtered
+#
+ruz$SEXA <- group
+ruz$SEXB <- group
+ruz <- ruz[,c("ENSGA","SEXA","ENSGB","SEXB","Ruzicka")]
+ruz$Ruzicka <- round(ruz$Ruzicka, digits=3)
+write_delim(ruz, path=OFILE, delim="\t", append=T)
+###
+#
+writeLines(sprintf("TOTAL results: all: %d; post-filtered: %d (%.1f%%)", n_calc_all_total, n_calc_filtered_total, 100*n_calc_filtered_total/n_calc_all_total))
 writeLines(sprintf("Total elapsed: %s", NiceTime((proc.time()-t0)[3])))
 Sys.time()
 #
