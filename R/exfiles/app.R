@@ -187,7 +187,7 @@ ui <- fluidPage(
           radioButtons("mode", "Mode", choices=c("View", "Compare", "Search"), selected="View", inline=T),
           #checkboxInput("SABV", span("SABV", icon("venus",lib="font-awesome"),icon("mars", lib="font-awesome")), value=T),
           radioButtons("score", "Score", choices=c("Ruzicka", "wRho", "Combo"), selected="Combo", inline=T),
-          checkboxGroupInput("searchgroups", "Searchgroups", choices=c("F","M","FM"), selected=c("F","M","FM"), inline=T),
+          checkboxGroupInput("searchgroups", "Searchgroups", choices=c("F","M","FM"), selected=c("F","M"), inline=T),
           checkboxGroupInput("opts", "Output", choices=c("SABV","IDG","LogY","Annplot"), selected=c("SABV","IDG","LogY"), inline=T),
           br(),
           actionButton("randGene", "Demo", style='padding:4px; background-color:#DDDDDD; font-weight:bold'),
