@@ -54,10 +54,11 @@ def ReadTissues(ifile, verbose):
 #############################################################################
 ### Keep only healthier subjects: 
 ### (DTHHRDY = 4-point Hardy Scale Death Classification.)
+### Keep 0, 1, 2 and reject 3, 4 and NA.
 #############################################################################
 def CleanSubjects(subjects, verbose):
-  LOG("=== Subjects with Hardy score > 2 or NA: %d (removing)"%(subjects.query('DTHHRDY > 2').shape[0]))
-  subjects = subjects.query('DTHHRDY <= 2')
+  LOG("=== Removing subjects with Hardy score > 2 or NA: %d"%(subjects[~(subjects.DTHHRDY<=2)].shape[0]))
+  subjects = subjects[subjects.DTHHRDY<=2]
   LOG("Subjects dataset nrows: %d ; ncols: %d:"%(subjects.shape[0],subjects.shape[1]))
   DescribeDf(subjects, verbose)
   return subjects
@@ -101,13 +102,13 @@ def CleanSamples(samples, verbose):
   LOG("\tDEBUG: samples.SEX.apply()...")
   samples.SEX = samples.SEX.apply(lambda x: 'F' if x==2 else 'M' if x==1 else None)
   LOG("\tDEBUG: samples.dropna(subset=['SEX'])...")
-  samples.dropna(subset=['SEX'], inplace=True)
+  if (samples.SEX.isna().sum()>0):
+    samples.dropna(subset=['SEX'], inplace=True)
   LOG("\tSamples: %d; tissues: %d"%(samples.shape[0],samples.SMTSD.nunique()))
   ### Remove samples with severe degree of autolysis (self-digestion).
-  LOG("\tDEBUG: samples.SMATSSCR!=3...")
-  samples = samples.loc[samples.SMATSSCR!=3]
-  LOG("\tDEBUG: samples.SMATSSCR!=2...")
-  samples = samples.loc[samples.SMATSSCR!=2]
+  ### NOTE that we keep SMATSSCR NAs.
+  LOG("\tDEBUG: (samples.SMATSSCR!=3)&(samples.SMATSSCR!=2)...")
+  samples = samples.loc[(samples.SMATSSCR!=3)&(samples.SMATSSCR!=2)]
   LOG("\tSamples: %d; tissues: %d"%(samples.shape[0],samples.SMTSD.nunique()))
   samples.loc[(samples.SMTS.str.strip()=='') & samples.SMTSD.str.startswith("Skin -"), 'SMTS'] = 'Skin'
   LOG("\tSamples: %d; tissues: %d"%(samples.shape[0],samples.SMTSD.nunique()))
@@ -191,26 +192,6 @@ def CleanRnaseq(rnaseq, verbose):
   smtsd_breast = "Breast - Mammary Tissue"
   LOG("Remove manually, not 100%% sex-specific: \"%s\"..."%smtsd_breast)
   rnaseq = rnaseq[rnaseq.SMTSD!=smtsd_breast] 
-
-########
-### Maybe no such genes? This requires too much memory anyway (80GB+).
-#  LOG("For each tissue, remove genes not expressed in both sexes...")
-#  tissues=list(rnaseq.SMTSD.sort_values().unique())
-#  for i,smtsd in enumerate(tissues):
-#    rnaseq_this = rnaseq[rnaseq.SMTSD==smtsd]
-#    nsex_lt2 = (rnaseq_this[['ENSG','SEX']].groupby(by=['ENSG'], as_index=True).nunique()<2).rename(columns={'SEX':'nsex_lt2'})
-#    n_lt2 = (nsex_lt2.nsex_lt2.value_counts()[True] if True in nsex_lt2.nsex_lt2.value_counts() else 0)
-#    if n_lt2>0:
-#      LOG("\t%s: removing genes not expressed in both sexes: %d"%(smtsd,n_lt2))
-#      rnaseq_this = pandas.merge(rnaseq_this, nsex_lt2, left_on=['ENSG'], right_index=True)
-#      rnaseq_this = rnaseq_this[~rnaseq_this['nsex_lt2']]
-#      rnaseq_this.drop(columns=['nsex_lt2'], inplace=True)
-#    if i==0:
-#      rnaseq_out=rnaseq_this
-#    else:
-#      rnaseq_out=pandas.concat([rnaseq_out,rnaseq_this])
-#  rnaseq = rnaseq_out
-########
 
   LOG("For each tissue, remove genes with TPMs all zero...")
   tissues=list(rnaseq.SMTSD.sort_values().unique())

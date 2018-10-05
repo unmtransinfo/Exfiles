@@ -11,8 +11,8 @@
 ### Comparison groups:
 ###   - F: F vs F
 ###   - M: M vs M
-###   - C: Combined, non-sexed comparisons
-### For Combined, profiles are mean of F, M: C = (F+M)/2
+###   - N: Non-sexed comparisons
+### For Non-sexed, profiles N = (F+M)/2
 #############################################################################
 # Conserve memory by writing results directly to file.
 #############################################################################
@@ -76,20 +76,13 @@ eps_m <- eps[eps$SEX=="M",]
 eps_f$SEX <- NULL
 eps_m$SEX <- NULL
 ###
-#F and M gene sets should be same. Not necessary?
-#if (!setequal(eps_f$ENSG, eps_m$ENSG)) {
-#  eps_f <- eps_f[eps_f$ENSG %in% intersect(eps_f$ENSG,eps_m$ENSG),]
-#  eps_m <- eps_m[eps_m$ENSG %in% intersect(eps_m$ENSG,eps_m$ENSG),]
-#  eps <- eps[eps$ENSG %in% intersect(eps_f$ENSG,eps_m$ENSG),]
-#}
-###
 # Compute combined profiles:
-eps_c <- aggregate(eps[,!(names(eps) %in% c("ENSG","SEX"))], by=list(ENSG=eps$ENSG), FUN=mean, na.rm=F)
+eps_n <- aggregate(eps[,!(names(eps) %in% c("ENSG","SEX"))], by=list(ENSG=eps$ENSG), FUN=mean, na.rm=F)
 #
 # Must have profiles for each gene.
 writeLines(sprintf("Expression profiles (F): %d", length(unique(eps_f$ENSG))))
 writeLines(sprintf("Expression profiles (M): %d", length(unique(eps_m$ENSG))))
-writeLines(sprintf("Expression profiles (C): %d", length(unique(eps_c$ENSG))))
+writeLines(sprintf("Expression profiles (N): %d", length(unique(eps_n$ENSG))))
 ###
 #
 ###
@@ -162,19 +155,19 @@ n_na_total <- n_na_total + n_na
 n_ok_total <- n_ok_total + n_ok
 #
 ###
-#C:
-eps_mx_c <- as.matrix(eps_c[,N_IDCOLS:ncol(eps_c)])
-rownames(eps_mx_c) <- eps_c$ENSG
+#N:
+eps_mx_n <- as.matrix(eps_n[,N_IDCOLS:ncol(eps_n)])
+rownames(eps_mx_n) <- eps_n$ENSG
 #
 n_calc <- 0
 n_na <- 0
 n_ok <- 0
 #
-for (ensgA in eps_c$ENSG) {
-  ensgs_this <- eps_c$ENSG[eps_c$ENSG>ensgA]
-  group <- "C"
-  epAs <- eps_mx_c[rep(ensgA,length(ensgs_this)),]
-  epBs <- eps_mx_c[ensgs_this,]
+for (ensgA in eps_n$ENSG) {
+  ensgs_this <- eps_n$ENSG[eps_n$ENSG>ensgA]
+  group <- "N"
+  epAs <- eps_mx_n[rep(ensgA,length(ensgs_this)),]
+  epBs <- eps_mx_n[ensgs_this,]
   results_this <- wPearson_mx(epAs, epBs)
   n_na <- n_na + sum(is.na(results_this))
   n_calc <- n_calc + length(results_this)

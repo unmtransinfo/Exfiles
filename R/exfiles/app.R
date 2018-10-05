@@ -40,7 +40,7 @@ if (file.exists("exfiles.Rdata")) {
   ###
   idg <- read_delim("gtex_gene_idg.tsv", "\t") # IDG gene/protein attributes
   idg <- idg[,c("accession", "idgTDL", "idgFamily")]
-  colnames(idg) <- c("uniprot", "idgTDL", "idgFamily")
+  colnames(idg) <- c("uniprot", "idgTDL", "idgDTO")
   ###
   # ENSG, SEX, tissue.1, tissue.2, etc.
   ###
@@ -49,6 +49,7 @@ if (file.exists("exfiles.Rdata")) {
   # ENSGA, ENSGB, Group, wRho, Ruzicka
   ###
   ggc <- read_delim("exfiles_ggc.tsv.gz", "\t", col_types="cccdd")
+  ggc$Group[ggc$Group=="C"] <- "N"
   ###
   save(tissue, gene, idg, eps, ggc, file="exfiles.Rdata")
 }
@@ -91,7 +92,10 @@ message(sprintf("Gene unique ENSG count: %d", length(unique(gene$ENSG))))
 message(sprintf("Gene unique SYMB count: %d", length(unique(gene$symbol))))
 #
 gene <- merge(gene, idg, by="uniprot", all.x=T, all.y=F)
-message(sprintf("Genes mapped to IDG: %d", sum(!is.na(gene$uniprot))))
+message(sprintf("Gene unique UniProt count: %d", length(unique(gene$uniprot))))
+#
+tbl <- table(gene$idgDTO)
+message(sprintf("%24s: %6s\n", names(tbl), tbl))
 #
 ###
 ggc$Combo <- round(ggc$wRho*ggc$Ruzicka, digits=2)
@@ -136,51 +140,49 @@ from <B>GTEx</B> RNA-seq data, with <B>Sex As a Biological Variable (SABV)</B>.
 Gene expression profiles are computed as real valued vectors of expression levels 
 across the defined tissue types.</P>
 <P>
-<B>Inputs</B> are query geneA, and <I>optionally</I>, geneB.
+<B>Inputs</B> are query GeneA, and <I>optionally</I>, GeneB.
 Ex-files modes of operation:
 <UL>
 <LI><B>View</B> - view profile for one gene
-<LI><B>Search</B> - search for genes based on profile similarity
 <LI><B>Compare</B> - compare input genes via profiles
+<LI><B>Search</B> - search for genes based on profile similarity
 </UL>
 <P>
 <B>Score:</B>
 <UL>
-<LI><B>Ruzicka</B> - Similarity measure, size-normalizing, hence advantageous over Euclidean.
+<LI><B>Ruzicka</B> - Similarity measure, size-normalizing, hence advantageous over Euclidean, RMSD, etc.
 <LI><B>wRho</B> - Weighted Pearson correlation coefficient, weighted by average values for each tissue, to mitigate noise.
 <LI><B>Combo</B> - Product wRho*Ruzicka, scoring function balancing correlation and similarity.
 </UL>
 <B>Results:</B>
 <UL>
-<LI>Search results include the top hit, displayed against the query in the
-plot, and other hits displayed in a table and downloadable as CSV.  <B>Note: current dataset includes only highly
-correlated or anti-correlated profiles.</B>
-<LI>Compare results consist of the plot of GeneA vs. GeneB.
-<LI>SABV results include both sexes for both genes, thus four profiles.
+<LI><B>View:</B> plots query GeneA with sex-specific profiles.
+<LI><B>Compare:</B> plots query GeneA vs. GeneB with sex-specific profiles.
+<LI><B>Search:</B> returns hits based on the GeneA query. The top hit is displayed against GeneA in the plot, and other hits displayed in a table and downloadable as TSV.
+<LI><B>Groups</B> denote comparisons among F-only, M-only or N (Non-sexed) representing un-stratified subjects, computed as mean of F and M profiles.
 <LI>Expression units: <B>TPM</B> = RNA-seq Transcripts Per Million-kilobase or <B>LOG<SUB>10</SUB>(1+TPM)</B>.
 <LI>Expression profiles are computed as medians for GTEx samples, by tissue and sex.
-<LI>Groups denote comparisons among F-only, M-only or C (combined) representing un-stratified subjects, computed as mean of F and M profiles.
 <LI>Option Dissim[ilarity] reverse-sorts search results. To find anti-correlated genes, search by wRho.
 <LI><B>Sex-linked genes</B> may be identified via chromosomal location (X*/Y*).
-<LI><B>IDG (Illuminating the Druggable Genome)</B> provides target development level (TDL) and links to IDG resources for drug discovery applications.
+<LI><B>IDG (Illuminating the Druggable Genome)</B> provides target development level (TDL), Drug Target Ontology (DTO) classification,
+and links to IDG data portal Pharos.
 </UL></P>
 <P>
-Notes on data preparation: This version is focused on SABV knowledge discovery, thus reproductive and 
-breast tissues not considered. Also we restrict to protein-encoding genes unambiguously mapped to HUGO gene symbols.
+<B>Notes on data preparation:</B> This version is focused on SABV knowledge discovery, thus reproductive and 
+breast tissues not included. Also limited to protein-encoding genes unambiguously mapped to HUGO gene symbols. Search results where ruz&lt;0.50 and |wRho|&lt;0.50 are excluded from dataset.
 </P>
-<B>Ref:</B>\"Ex-Files: Sex-Specific Gene Expression Profiles Explorer\", Bocci et al., <i>[manuscript in preparation]</i>.
-<P>
-<B>Algorithms:</B> Giovanni Bocci, Oleg Ursu, Cristian Bologa, Steve Mathias, Jeremy Yang &amp; Tudor Oprea<BR/>
-<B>Web app:</B> Jeremy Yang<BR/>
+<B>Reference:</B>\"Ex-files: Sex-Specific Gene Expression Profiles Explorer\", Bocci et al., <i>[manuscript in preparation]</i>.<BR/>
+<B>Authors:</B> Giovanni Bocci, Oleg Ursu, Cristian Bologa, Steve Mathias, Jeremy Yang &amp; Tudor Oprea, <A HREF=\"http://datascience.unm.edu\" target=\"_blank\">Translational Informatics Division, University of New Mexico</A><BR/>
+<B>Correspondence</B> from users of this app is welcome, and should be directed to <a href=\"mailto:jjyang_REPLACE_WITH_ATSIGN_salud.unm.edu\">Jeremy Yang</a>.<br/>
 Data from <A HREF=\"https://www.gtexportal.org/\" TARGET=\"_blank\">GTEx, The Genotype-Tissue Expression Project</A>.<BR/>
 Built with R-Shiny &amp; Plotly.<BR/>
+This work was supported by the National Institutes of Health grants OT3-OD025464 and U24-CA224370.<BR/>
 ")}
 #
 #############################################################################
 ui <- fluidPage(
-  titlePanel(h2(sprintf("%s, GTEx expression-profile exploration", APPNAME), 
-                span("+SABV", icon("venus",lib="font-awesome"),icon("mars", lib="font-awesome")),
-                em("(BETA)")), 
+  titlePanel(h2(sprintf("%s, GTEx expression-profile exploration", paste(APPNAME, "SABV")), 
+                span(icon("venus",lib="font-awesome"), icon("mars", lib="font-awesome"), icon("lightbulb", lib="font-awesome")), em("(BETA)")), 
              windowTitle=paste(APPNAME, "SABV")),
   fluidRow(
     column(4, 
@@ -188,10 +190,9 @@ ui <- fluidPage(
           selectizeInput("qryA", label="GeneA", choices = gene_choices, selected=qryArand),
           selectizeInput("qryB", label="GeneB (optional)", choices = c(list('None'='none'), gene_choices)),
           radioButtons("mode", "Mode", choices=c("View", "Compare", "Search"), selected="View", inline=T),
-          #checkboxInput("SABV", span("SABV", icon("venus",lib="font-awesome"),icon("mars", lib="font-awesome")), value=T),
           radioButtons("score", "Score", choices=c("Ruzicka", "wRho", "Combo"), selected="Combo", inline=T),
-          checkboxGroupInput("groups", "Groups", choices=c("F","M","C"), selected=c("F","M"), inline=T),
-          checkboxGroupInput("opts", "Output", choices=c("IDG","Dissim","LogY","Annplot"), selected=c("IDG","LogY"), inline=T),
+          checkboxGroupInput("groups", "Groups", choices=c("F","M","N"), selected=c("F","M"), inline=T),
+          checkboxGroupInput("opts", "Output", choices=c("IDG", "Dissim","LogY","Annplot"), selected=c("IDG","LogY"), inline=T),
           br(),
           actionButton("randGene", "Demo", style='padding:4px; background-color:#DDDDDD; font-weight:bold'),
           actionButton("goRefresh", "Refresh", style='padding:4px; background-color:#DDDDDD; font-weight:bold'),
@@ -222,7 +223,7 @@ ui <- fluidPage(
   bsTooltip("qryB", "Needed for Compare, ignored for View and Search modes.", "top"),
   bsTooltip("mode", "View 1 gene, Compare 2 genes, or Search for similar genes.", "top"),
   bsTooltip("score", "Ruzicka similarity, Pearson weighted correlation, or combination of both.", "top"),
-  bsTooltip("groups", "Search F-only, M-only, or non-sexed comparisons.", "top"),
+  bsTooltip("groups", "Search F-only, M-only, or Non-sexed comparisons.", "top"),
   bsTooltip("opts", "Output options affecting plot and datatable but not query logic.", "top"),
   bsTooltip("randGene", "Random GeneA query.", "top"),
   bsTooltip("goRefresh", "Refresh plot, output.", "top"),
@@ -236,7 +237,7 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   observeEvent(input$showhelp, {
     showModal(modalDialog(
-      title = HTML(sprintf("<H2>%s Help</H2>", APPNAME)),
+      title = HTML(sprintf("<H2>%s Help</H2>", paste(APPNAME, "SABV"))),
       HTML(HelpHtm()),
       easyClose = T,
       footer = tagList(modalButton("Dismiss"))
@@ -301,9 +302,9 @@ server <- function(input, output, session) {
     ggc_hits["EnsemblID"] <- NA #Populate with non-query gene.
     ggc_hits$EnsemblID[ggc_hits$ENSGA==ensgA()] <- ggc_hits$ENSGB[ggc_hits$ENSGA==ensgA()]
     ggc_hits$EnsemblID[ggc_hits$ENSGB==ensgA()] <- ggc_hits$ENSGA[ggc_hits$ENSGB==ensgA()]
-    gene_cols <- c("ENSG", "uniprot", "symbol","name","chr","idgTDL")
+    gene_cols <- c("ENSG", "uniprot", "symbol","name","chr","idgTDL","idgDTO")
     ggc_hits <- merge(ggc_hits, gene[,gene_cols], by.x="EnsemblID", by.y="ENSG", all.x=T, all.y=F)
-    hits_cols <- c("EnsemblID","uniprot","symbol","name","chr","idgTDL","Group","Score") #datatable() ref by # (0+)
+    hits_cols <- c("EnsemblID","uniprot","symbol","name","chr","idgTDL","idgDTO","Group","Score") #datatable() ref by # (0+)
     ggc_hits <- ggc_hits[,hits_cols]
     if ("Dissim" %in% input$opts) {
       ggc_hits <- ggc_hits[order(ggc_hits$Score),]
@@ -368,7 +369,7 @@ server <- function(input, output, session) {
     if ("IDG" %in% input$opts) {
       invis_cols <- c(0,1)
     } else {
-      invis_cols <- c(0,1,5)
+      invis_cols <- c(0,1,5,6)
     }
     DT::datatable(data=hits(), rownames=F, 
         selection=list(target="row", mode="multiple", selected=c(1)),
@@ -376,11 +377,11 @@ server <- function(input, output, session) {
 	      options=list(
 		autoWidth=T,
 		columnDefs = list(
-			list(className='dt-center', targets=c(2,4,5,6,7)),
+			list(className='dt-center', targets=c(2,4,5,6,7,8)),
 			list(visible=F, targets=invis_cols)
 			)
 		), 
-	      colnames=c("EnsemblID", "uniprot", "Symbol", "Name", "Chr", "idgTDL", "Group", input$score)) %>%
+	      colnames=c("EnsemblID", "uniprot", "Symbol", "Name", "Chr", "idgTDL","idgDTO", "Group", input$score)) %>%
         formatRound(digits=2, columns=ncol(hits()))
   }, server=T)
 
@@ -389,7 +390,7 @@ server <- function(input, output, session) {
     ggc_hits <- hits()
     ggc_hits["Query"] <- qryA()
     ggc_hits <- ggc_hits[,c(ncol(ggc_hits),1:(ncol(ggc_hits)-1))] #Query col 1st.
-    names(ggc_hits) <- c("Query", "EnsemblID","UniProt","GeneSymbol","GeneName","Chr", "idgTDL", "Group", input$score)
+    names(ggc_hits) <- c("Query", "EnsemblID","UniProt","GeneSymbol","GeneName","Chr", "idgTDL","idgDTO", "Group", input$score)
     return(ggc_hits)
   })
 
@@ -409,19 +410,19 @@ server <- function(input, output, session) {
     rhoAfm <- wPearson(qryA_profile_f, qryA_profile_m)
     ruzAfm <- Ruzicka(qryA_profile_f, qryA_profile_m)
     
-    qryA_profile_c <- (qryA_profile_f+qryA_profile_m)/2 #Combined (F+M)/2
+    qryA_profile_n <- (qryA_profile_f+qryA_profile_m)/2 #Non-sexed (F+M)/2
 
     if (input$mode=="Compare" & !is.null(qryB())) {
       qryB_profile_f <- as.numeric(eps[eps$ENSG==ensgB() & eps$SEX=="F",][1,tissue$SMTSD])
       qryB_profile_m <- as.numeric(eps[eps$ENSG==ensgB() & eps$SEX=="M",][1,tissue$SMTSD])
-      qryB_profile_c <- (qryB_profile_f+qryB_profile_m)/2
+      qryB_profile_n <- (qryB_profile_f+qryB_profile_m)/2
       #
-      rhoCab <- wPearson(qryA_profile_c, qryB_profile_c)
+      rhoNab <- wPearson(qryA_profile_n, qryB_profile_n)
       rhoBfm <- wPearson(qryB_profile_f, qryB_profile_m)
       rhoFab <- wPearson(qryA_profile_f, qryB_profile_f)
       rhoMab <- wPearson(qryA_profile_m, qryB_profile_m)
       #
-      ruzCab <- Ruzicka(qryA_profile_c, qryB_profile_c)
+      ruzNab <- Ruzicka(qryA_profile_n, qryB_profile_n)
       ruzBfm <- Ruzicka(qryB_profile_f, qryB_profile_m)
       ruzFab <- Ruzicka(qryA_profile_f, qryB_profile_f)
       ruzMab <- Ruzicka(qryA_profile_m, qryB_profile_m)
@@ -463,8 +464,8 @@ server <- function(input, output, session) {
           marker = list(symbol="circle", size=10),
           text = paste0(qryA(), ": ", tissue$SMTSD))
     }
-    if ("C" %in% input$groups) {
-      p <- add_trace(p, name = paste("(C)", qryA()), x = tissue$SMTSD, y = EpLogIf(qryA_profile_c, ("LogY" %in% input$opts)),
+    if ("N" %in% input$groups) {
+      p <- add_trace(p, name = paste("(N)", qryA()), x = tissue$SMTSD, y = EpLogIf(qryA_profile_n, ("LogY" %in% input$opts)),
           type = 'scatter', mode = 'lines+markers',
           marker = list(symbol="circle", size=10),
           text = paste0(qryA(), ": ", tissue$SMTSD))
@@ -484,33 +485,33 @@ server <- function(input, output, session) {
           text = paste0(qryB(), ": ", tissue$SMTSD))
         annos <- c(annos, sprintf("Mab: rho = %.2f; ruz = %.2f", rhoMab, ruzMab))
       }
-      if ("C" %in% input$groups) {
-        p <- add_trace(p, name = paste("(C)", qryB()), x = tissue$SMTSD, y = EpLogIf(qryB_profile_c, ("LogY" %in% input$opts)),
+      if ("N" %in% input$groups) {
+        p <- add_trace(p, name = paste("(N)", qryB()), x = tissue$SMTSD, y = EpLogIf(qryB_profile_n, ("LogY" %in% input$opts)),
           type = 'scatter', mode = 'lines+markers',
           marker = list(symbol="circle", size=10),
           text = paste0(qryB(), ": ", tissue$SMTSD))
-        annos <- c(annos, sprintf("Cab: rho = %.2f; ruz = %.2f", rhoCab, ruzCab))
+        annos <- c(annos, sprintf("Nab: rho = %.2f; ruz = %.2f", rhoNab, ruzNab))
       }
     } else if (input$mode=="Search" & !is.null(hit())) {
       ##
       # Include genes selected via interactive table.
-      # Each row has hits()$Group[i] F|M|C so how to handle that?
+      # Each row has hits()$Group[i] F|M|N so how to handle that?
       ##
       rows_selected <- input$datarows_rows_selected
       if (!is.null(rows_selected)) {
         for (i in rows_selected) {
           hit_profile_f <- as.numeric(eps[eps$ENSG==hits()$EnsemblID[i] & eps$SEX=="F",][1,tissue$SMTSD])
           hit_profile_m <- as.numeric(eps[eps$ENSG==hits()$EnsemblID[i] & eps$SEX=="M",][1,tissue$SMTSD])
-          hit_profile_c <- (hit_profile_f+hit_profile_m)/2
+          hit_profile_n <- (hit_profile_f+hit_profile_m)/2
           #
           rhoFah <- wPearson(qryA_profile_f, hit_profile_f)
           rhoMah <- wPearson(qryA_profile_m, hit_profile_m)
-          rhoCah <- wPearson(qryA_profile_c, hit_profile_c)
+          rhoNah <- wPearson(qryA_profile_n, hit_profile_n)
           #rhoHfm <- wPearson(hit_profile_f, hit_profile_m)
           #
           ruzFah <- Ruzicka(qryA_profile_f, hit_profile_f)
           ruzMah <- Ruzicka(qryA_profile_m, hit_profile_m)
-          ruzCah <- Ruzicka(qryA_profile_c, hit_profile_c)
+          ruzNah <- Ruzicka(qryA_profile_n, hit_profile_n)
           #ruzHfm <- Ruzicka(hit_profile_f, hit_profile_m)
           #
           if ("F" %in% input$groups) {
@@ -527,13 +528,13 @@ server <- function(input, output, session) {
                 text = paste0(hits()$symbol[i], ": ", tissue$SMTSD))
             annos <- c(annos, sprintf("Mab: rho = %.2f; ruz = %.2f", rhoMah, ruzMah))
           }
-          if ("C" %in% input$groups) {
-            hit_profile_c <- (hit_profile_f + hit_profile_m)/2
-            p <- add_trace(p, name = paste("(C)", hits()$symbol[i]), x = tissue$SMTSD, y = EpLogIf(hit_profile_c, ("LogY" %in% input$opts)),
+          if ("N" %in% input$groups) {
+            hit_profile_n <- (hit_profile_f + hit_profile_m)/2
+            p <- add_trace(p, name = paste("(N)", hits()$symbol[i]), x = tissue$SMTSD, y = EpLogIf(hit_profile_n, ("LogY" %in% input$opts)),
                 type = 'scatter', mode = 'lines+markers',
                 marker = list(symbol="circle", size=10),
                 text = paste0(hits()$symbol[i], ": ", tissue$SMTSD))
-            annos <- c(annos, sprintf("Cab: rho = %.2f; ruz = %.2f", rhoCah, ruzCah))
+            annos <- c(annos, sprintf("Nab: rho = %.2f; ruz = %.2f", rhoNah, ruzNah))
           }
         }
       }

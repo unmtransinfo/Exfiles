@@ -119,13 +119,13 @@ ruz$Ruzicka <- round(ruz$Ruzicka, digits=3)
 write_delim(ruz, path=OFILE, delim="\t", append=T)
 #
 ###
-#C:
-group <- "C"
-eps_mx_c <- as.matrix(eps_c[,N_IDCOLS:ncol(eps_c)])
-rownames(eps_mx_c) <- eps_c$ENSG
+#N:
+group <- "n"
+eps_mx_n <- as.matrix(eps_n[,N_IDCOLS:ncol(eps_n)])
+rownames(eps_mx_n) <- eps_n$ENSG
 #
 ###
-N <- nrow(eps_c)
+N <- nrow(eps_n)
 writeLines(sprintf("(%s) N = %d ; per group N_calc_max = %d (N(N-1)/2)", group, N, N*(N-1)/2))
 #
 # Generates full matrix, but only want upper.

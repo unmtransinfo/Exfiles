@@ -26,13 +26,23 @@ cat $DATADIR/gtex_rnaseq.ensgv \
 #
 printf "Unique ENSGs: %d\n" $(cat $DATADIR/gtex_rnaseq.ensg |wc -l)
 ###
+# gtex_gene_map.R Inputs:
+#	ensembl_biomart.tsv (Ensembl.org/biomart, Homo sapiens dataset w/ ENSP IDs.)
+#	hugo_protein-coding_gene.tsv (ftp)
+#	gtex_rnaseq.ensg
+# gtex_gene_map.R Output:
+#	gtex_gene_xref.tsv (ENSG,NCBI,HGNCID,chr,uniprot,symbol,name)
+###
+# https://www.genenames.org/cgi-bin/statistics
+#wget -O - 'ftp://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/locus_groups/protein-coding_gene.txt' >$DATADIR/hugo_protein-coding_gene.tsv
+###
 ./R/gtex_gene_map.R
 #
 ###
 # IDG:
 cat $DATADIR/gtex_gene_xref.tsv \
 	|sed -e '1d' \
-	|awk -F '\t' '{print $4}' \
+	|awk -F '\t' '{print $5}' \
 	>$DATADIR/gtex_gene_xref.uniprot
 #
 pharos_query.py \
@@ -41,13 +51,3 @@ pharos_query.py \
 	getTargets
 #
 #############################################################################
-# OBSOLETED:
-###
-# https://www.genenames.org/cgi-bin/statistics
-#wget -O - 'ftp://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/locus_groups/protein-coding_gene.txt' \
-#	>$DATADIR/hugo_protein-coding_gene.tsv
-###
-#API slow. Use HUGO download instead.
-#hugo_query.py --get --ftypes "ENSEMBL_GENE_ID" --qfile $DATADIR/gtex_rnaseq.ensg \
-#	--o $DATADIR/gtex_rnaseq_ensg_hugo.tsv
-###

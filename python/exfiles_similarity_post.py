@@ -11,11 +11,11 @@ Output cols:
 	ENSGA,ENSGB,Group,wRho,Ruzicka
 
 where
-	Group = F|M|C
+	Group = F|M|N
 
 F = F vs F
 M = M vs M
-C = combined by mean (F+M)/2
+N = Non-sexed, profiles = (F+M)/2
 
 (No longer filtering in this code. MIN_KEEP flawed idea since it helps 
 with Search mode but loses many comparisons for Compare mode. Cutoffs
@@ -52,10 +52,10 @@ def GroupComparisons(cors, sims, verbose):
   cors_f['Group']='F'
   cors_m = cors[(cors.SEXA=='M')&(cors.SEXB=='M')].drop(columns=['SEXA','SEXB'])
   cors_m['Group']='M'
-  cors_c = cors[(cors.SEXA=='C')&(cors.SEXB=='C')].drop(columns=['SEXA','SEXB'])
-  cors_c['Group'] = 'C'
+  cors_n = cors[(cors.SEXA=='N')&(cors.SEXB=='N')].drop(columns=['SEXA','SEXB'])
+  cors_n['Group'] = 'N'
   #
-  cors_grouped = pandas.concat([cors_f,cors_m,cors_c])
+  cors_grouped = pandas.concat([cors_f,cors_m,cors_n])
   cors_grouped = cors_grouped[['ENSGA','ENSGB','Group','wRho']]
   LOG("DEBUG: cors_grouped nrows: %d ; ncols: %d:"%(cors_grouped.shape[0],cors_grouped.shape[1]))
   LOG("DEBUG: cors_grouped.Group.value_counts():\n%s"%(str(cors_grouped.Group.value_counts())))
@@ -66,10 +66,10 @@ def GroupComparisons(cors, sims, verbose):
   sims_f['Group']='F'
   sims_m = sims[(sims.SEXA=='M')&(sims.SEXB=='M')].drop(columns=['SEXA','SEXB'])
   sims_m['Group']='M'
-  sims_c = sims[(sims.SEXA=='C')&(sims.SEXB=='C')].drop(columns=['SEXA','SEXB'])
-  sims_c['Group'] = 'C'
+  sims_n = sims[(sims.SEXA=='N')&(sims.SEXB=='N')].drop(columns=['SEXA','SEXB'])
+  sims_n['Group'] = 'N'
   #
-  sims_grouped = pandas.concat([sims_f,sims_m,sims_c])
+  sims_grouped = pandas.concat([sims_f,sims_m,sims_n])
   sims_grouped = sims_grouped[['ENSGA','ENSGB','Group','Ruzicka']]
   LOG("DEBUG: sims_grouped nrows: %d ; ncols: %d:"%(sims_grouped.shape[0],sims_grouped.shape[1]))
   LOG("DEBUG: sims_grouped.Group.value_counts():\n%s"%(str(sims_grouped.Group.value_counts())))
