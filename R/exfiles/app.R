@@ -171,7 +171,7 @@ and links to IDG data portal Pharos.
 <B>Notes on data preparation:</B> This version is focused on SABV knowledge discovery, thus reproductive and 
 breast tissues not included. Also limited to protein-encoding genes unambiguously mapped to HUGO gene symbols. Search results where ruz&lt;0.50 and |wRho|&lt;0.50 are excluded from dataset.
 </P>
-<B>Reference:</B>\"Ex-files: Sex-Specific Gene Expression Profiles Explorer\", Bocci et al., <i>[manuscript in preparation]</i>.<BR/>
+<B>Reference:</B>\"Ex-files: Sex-Specific Gene Expression Profiles Explorer\", Bocci et al., <i>[submitted]</i>.<BR/>
 <B>Authors:</B> Giovanni Bocci, Oleg Ursu, Cristian Bologa, Steve Mathias, Jeremy Yang &amp; Tudor Oprea, <A HREF=\"http://datascience.unm.edu\" target=\"_blank\">Translational Informatics Division, University of New Mexico</A><BR/>
 <B>Correspondence</B> from users of this app is welcome, and should be directed to <a href=\"mailto:jjyang_REPLACE_WITH_ATSIGN_salud.unm.edu\">Jeremy Yang</a>.<br/>
 Data from <A HREF=\"https://www.gtexportal.org/\" TARGET=\"_blank\">GTEx, The Genotype-Tissue Expression Project</A>.<BR/>
