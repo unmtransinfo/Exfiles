@@ -6,78 +6,34 @@ library(dplyr)
 library(plotly)
 
 ###
+rdatafile <- "R/exfiles/exfiles.Rdata"
 #
-if (file.exists("R/exfiles/exfiles.Rdata")) {
+if (file.exists(rdatafile)) {
   message(sprintf("Loading dataset from Rdata..."))
-  load("R/exfiles/exfiles.Rdata")
+  load(rdatafile)
 } else {
-  message(sprintf("Loading dataset from files, writing Rdata..."))
-  ###
-  # i, SMTS, SMTSD
-  ###
-  tissue <- read_delim("R/exfiles/exfiles_tissue_order.tsv", "\t")
-  ###
-  # ENSG, NCBI, HGNCID, chr, uniprot, symbol, name
-  ###
-  gene <- read_delim("R/exfiles/gtex_gene_xref.tsv", "\t") # gene attributes
-  ###
-  idg <- read_delim("R/exfiles/gtex_gene_idg.tsv", "\t") # IDG gene/protein attributes
-  idg <- idg[,c("accession", "idgTDL", "idgFamily")]
-  colnames(idg) <- c("uniprot", "idgTDL", "idgDTO")
-  ###
-  # ENSG, SEX, tissue.1, tissue.2, etc.
-  ###
-  eps <- read_delim("R/exfiles/exfiles_eps.tsv", "\t", col_types=cols(SEX=col_character()))
-  ###
-  # ENSGA, ENSGB, Group, wRho, Ruzicka
-  ###
-  ggc <- read_delim("R/exfiles/exfiles_ggc.tsv.gz", "\t", col_types="cccdd")
-  ggc$Group[ggc$Group=="C"] <- "N"
-  ###
-  #save(tissue, gene, idg, eps, ggc, file="R/exfiles/exfiles.Rdata")
+  message(sprintf("Datafile missing: %s", rdatafile))
+  quit()
 }
 #
-tissue_missing <- setdiff(tissue$SMTSD, colnames(eps))
-if (length(tissue_missing)>0) {
-  message(sprintf("NOTE: TISSUE_MISSING: %d. %s\n", 1:length(tissue_missing),
-tissue_missing
-))
-} else {
-  message(sprintf("All tissues found."))
-}
 tissue <- tissue[tissue$SMTSD %in% colnames(eps),]
 eps <- eps[,c("ENSG","SEX",tissue$SMTSD)]
 #
-message(sprintf("Tissue count: %d",nrow(tissue)))
-#
 ensgs <- intersect(eps$ENSG, c(ggc$ENSGA,ggc$ENSGB))
 ensgs <- intersect(ensgs, gene$ENSG)
-message(sprintf("Gene count: %d",length(ensgs)))
-#
-ensg_dups <- gene$ENSG[duplicated(gene$ENSG)]
-message(sprintf("Duplicated/ambiguous gene IDs: %d", length(ensg_dups)))
 #
 gene <- gene[gene$ENSG %in% ensgs,]
-#
-message(sprintf("Unknown/unmapped gene SYMBs: %d", sum(is.na(gene$symbol))))
-#
 gene <- gene[!is.na(gene$symbol),]
-#
-symb_dups <- gene$symbol[duplicated(gene$symbol)]
-message(sprintf("Duplicated/ambiguous gene SYMBs: %d", length(symb_dups)))
-#
 gene <- gene[!duplicated(gene$ENSG),]
 gene <- gene[!duplicated(gene$symbol),]
+gene <- merge(gene, idg, by="uniprot", all.x=T, all.y=F)
 #
+message(sprintf("Tissue count: %d",nrow(tissue)))
 message(sprintf("Gene count: %d", nrow(gene)))
 message(sprintf("Gene unique ENSG count: %d", length(unique(gene$ENSG))))
 message(sprintf("Gene unique SYMB count: %d", length(unique(gene$symbol))))
-#
-gene <- merge(gene, idg, by="uniprot", all.x=T, all.y=F)
 message(sprintf("Gene unique UniProt count: %d", length(unique(gene$uniprot))))
 #
-tbl <- table(gene$idgDTO)
-message(sprintf("%24s: %6s\n", names(tbl), tbl))
 #
 #############################################################################
 ### Unweight smaller, noise-dominated expression values.
