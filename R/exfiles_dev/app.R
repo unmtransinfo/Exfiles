@@ -1,7 +1,8 @@
 ##########################################################################################
 ### Modes:
 ###      VIEW: geneA
-###    SEARCH: geneA similarity search
+### SIMSEARCH: via profile similarity
+### TXTSEARCH: via symbols or names
 ###   COMPARE: geneA vs. geneB
 ### SABV: sex-as-biological-variable analysis
 ##########################################################################################
@@ -172,13 +173,13 @@ This work was supported by the National Institutes of Health grants OT3-OD025464
 #
 #############################################################################
 ui <- fluidPage(
-  titlePanel(h2(sprintf("%s, GTEx expression-profile exploration", paste(APPNAME, "SABV")), 
-                span(icon("venus",lib="font-awesome"), icon("mars", lib="font-awesome"), icon("lightbulb", lib="font-awesome")), em("(BETA)")), 
+  titlePanel(h2(sprintf("%s, GTEx expression-profile exploration", APPNAME), em("SABV"), 
+                span(icon("venus",lib="font-awesome"), icon("mars", lib="font-awesome"), icon("lightbulb", lib="font-awesome"))), 
              windowTitle=paste(APPNAME, "SABV")),
   fluidRow(
     column(4, 
         wellPanel(
-    radioButtons("mode", "Mode", choices=c("View", "Compare", "SimSearch", "TxtSearch"), selected="TxtSearch", inline=T),
+    radioButtons("mode", "Mode", choices=c("View", "Compare", "SimSearch", "TxtSearch"), selected="View", inline=T),
 	conditionalPanel(condition="input.mode == 'TxtSearch'",
 	      textInput("qryTxt", "Query (list or regex)", width='80%'),
 	      checkboxInput("iCase","IgnoreCase", value=T, width='20%')),
@@ -218,7 +219,8 @@ ui <- fluidPage(
 	tags$a(href="https://druggablegenome.net", target="_blank", span("IDG", tags$img(id="idg_logo", height="60", valign="bottom", src="IDG_logo_only.png")))
 	))),
   bsTooltip("qryA", "Needed for all modes.", "top"),
-  bsTooltip("qryB", "Needed for Compare, ignored for View and Search modes.", "top"),
+  bsTooltip("qryB", "Needed for Compare mode only", "top"),
+  bsTooltip("qryTxt", "Enter space-separated list of gene symbols, or regular expression.", "top"),
   bsTooltip("mode", "View 1 gene, Compare 2 genes, or Search for similar genes.", "top"),
   bsTooltip("score", "Ruzicka similarity, Pearson weighted correlation, or combination of both.", "top"),
   bsTooltip("groups", "Search F-only, M-only, or Non-sexed comparisons.", "top"),
@@ -263,7 +265,13 @@ server <- function(input, output, session) {
   })
   ensgA <- reactive({
     if (is.null(qryA())) { return(NULL) }
-    gene$ENSG[gene$symbol==qryA()]
+    ensg <- gene$ENSG[gene$symbol==qryA()]
+    if (length(ensg)>1) {
+      message(sprintf("ERROR: multiple ENSGs for qryA=%s: %s", qryA(), paste(collapse=",", ensg)))
+      return(ensg[1])
+    } else {
+      return(ensg)
+    }
   })
   chrA <- reactive({
     if (is.null(ensgA())) { return(NULL) }
@@ -276,7 +284,13 @@ server <- function(input, output, session) {
   })
   ensgB <- reactive({
     if (is.null(qryB())) { return(NULL) }
-    gene$ENSG[gene$symbol==qryB()]
+    ensg <- gene$ENSG[gene$symbol==qryB()]
+    if (length(ensg)>1) {
+      message(sprintf("ERROR: multiple ENSGs for qryB=%s: %s", qryB(), paste(collapse=",", ensg)))
+      return(ensg[1])
+    } else {
+      return(ensg)
+    }
   })
   chrB <- reactive({
     if (is.null(ensgB())) { return(NULL) }
@@ -450,6 +464,19 @@ server <- function(input, output, session) {
       write_delim(hits_export(), file, delim="\t") 
   })
 
+  plotTitle <- reactive({
+    if (input$mode=="Compare" & !is.null(qryB())) {
+      titletxt = sprintf("GTEx Gene-Tissue Profiles: %s vs %s<BR>\"%s\" vs \"%s\"", qryA(), qryB(), gene$name[gene$ENSG==ensgA()], gene$name[gene$ENSG==ensgB()])
+    } else if (input$mode=="SimSearch" & !is.null(hit())) {
+      titletxt = sprintf("Ex-files, GTEx-Profiles: %s <BR>\"%s\"", qryA(), gene$name[gene$ENSG==ensgA()])
+    } else if (input$mode=="TxtSearch" & !is.null(hits())) {
+      titletxt = sprintf("Ex-files, GTEx-Profiles: \"%s\"", input$qryTxt)
+    } else { #View
+      titletxt = sprintf("Ex-files, GTEx-Profiles: %s<BR>\"%s\"", qryA(), gene$name[gene$ENSG==ensgA()])
+    }
+    return(titletxt)
+  })
+    
   output$plot <- renderPlotly({
     if (is.null(ensgA()) & is.null(hits())) { return(NULL) }
     if (length(input$groups)==0) { return(NULL) }
@@ -481,22 +508,12 @@ server <- function(input, output, session) {
 
     ### PLOT:
 
-    if (input$mode=="Compare" & !is.null(qryB())) {
-      titletxt = sprintf("GTEx Gene-Tissue Profiles: %s vs %s<BR>\"%s\" vs \"%s\"", qryA(), qryB(), gene$name[gene$ENSG==ensgA()], gene$name[gene$ENSG==ensgB()])
-    } else if (input$mode=="SimSearch" & !is.null(hit())) {
-      titletxt = sprintf("Ex-files, GTEx-Profiles: %s vs %s<BR>\"%s\" vs \"%s\"", qryA(), hit_symbol(), gene$name[gene$ENSG==ensgA()], gene$name[gene$ENSG==hit()])
-    } else if (input$mode=="TxtSearch" & !is.null(hits())) {
-      titletxt = sprintf("Ex-files, GTEx-Profiles: \"%s\"", input$qryTxt)
-    } else { #View
-      titletxt = sprintf("Ex-files, GTEx-Profiles: %s<BR>\"%s\"", qryA(), gene$name[gene$ENSG==ensgA()])
-    }
-    
     xaxis = list(tickangle=45, tickfont=list(family="Arial", size=10), categoryorder = "array", categoryarray = tissue$SMTSD)
     yaxis = list(title=ifelse("LogY" %in% input$opts, "Expression: LOG<SUB>10</SUB>(1+TPM)", "Expression: TPM"))
     
     p <- plot_ly() %>%
       layout(xaxis = xaxis, yaxis = yaxis, 
-         title = titletxt,
+         title = plotTitle(),
          margin = list(t=100, r=80, b=160, l=60),
          legend = list(x=.9, y=1),
          showlegend=T,
