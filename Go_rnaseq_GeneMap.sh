@@ -45,6 +45,7 @@ cat $DATADIR/gtex_gene_xref.tsv \
 	|awk -F '\t' '{print $5}' \
 	>$DATADIR/gtex_gene_xref.uniprot
 #
+# description field unneeded, big.
 pharos_query.py \
 	--i $DATADIR/gtex_gene_xref.uniprot \
 	--o $DATADIR/gtex_gene_idg.tsv \

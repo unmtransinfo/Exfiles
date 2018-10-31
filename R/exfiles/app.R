@@ -41,31 +41,33 @@ if (file.exists("exfiles.Rdata")) {
   ###
   idg <- read_delim("gtex_gene_idg.tsv", "\t") # IDG gene/protein attributes
   idg <- idg[,c("accession", "idgTDL", "idgFamily")]
+  idg <- idg[!duplicated(idg$accession),]
   colnames(idg) <- c("uniprot", "idgTDL", "idgDTO")
   ###
   # ENSG, SEX, tissue.1, tissue.2, etc.
   ###
-  eps <- read_delim("exfiles_eps.tsv", "\t", col_types=cols(SEX=col_character())) # expression profiles
+  eps <- read_delim("exfiles_eps.tsv", "\t", col_types=cols(SEX=col_character()))
   ###
   # ENSGA, ENSGB, Group, wRho, Ruzicka
   ###
   ggc <- read_delim("exfiles_ggc.tsv.gz", "\t", col_types="cccdd")
   ggc$Group[ggc$Group=="C"] <- "N"
+  #
+  tissue <- tissue[tissue$SMTSD %in% colnames(eps),]
+  eps <- eps[,c("ENSG","SEX",tissue$SMTSD)]
+  #
+  ensgs <- intersect(eps$ENSG, c(ggc$ENSGA,ggc$ENSGB))
+  ensgs <- intersect(ensgs, gene$ENSG)
+  eps <- eps[eps$ENSG %in% ensgs,]
+  #
+  gene <- gene[gene$ENSG %in% ensgs,]
+  gene <- gene[!is.na(gene$symbol),]
+  gene <- gene[!duplicated(gene$ENSG),]
+  gene <- gene[!duplicated(gene$symbol),]
+  gene <- merge(gene, idg, by="uniprot", all.x=T, all.y=F)
   ###
   save(tissue, gene, idg, eps, ggc, file="exfiles.Rdata")
 }
-#
-tissue <- tissue[tissue$SMTSD %in% colnames(eps),]
-eps <- eps[,c("ENSG","SEX",tissue$SMTSD)]
-#
-ensgs <- intersect(eps$ENSG, c(ggc$ENSGA,ggc$ENSGB))
-ensgs <- intersect(ensgs, gene$ENSG)
-#
-gene <- gene[gene$ENSG %in% ensgs,]
-gene <- gene[!is.na(gene$symbol),]
-gene <- gene[!duplicated(gene$ENSG),]
-gene <- gene[!duplicated(gene$symbol),]
-gene <- merge(gene, idg, by="uniprot", all.x=T, all.y=F)
 #
 message(sprintf("Tissue count: %d",nrow(tissue)))
 message(sprintf("Gene count: %d", nrow(gene)))
