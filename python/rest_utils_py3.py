@@ -58,7 +58,7 @@ def RequestURL(url,headers,data,usr,pw,parse_json,parse_xml,nmax_retry,verbose):
     try:
       with urllib.request.urlopen(req,timeout=REST_TIMEOUT) as f:
         fbytes=f.read() #With Python3 read bytes from sockets.
-        ftxt=fbytes.decode('unicode_escape')
+        ftxt=fbytes.decode('utf-8')
         #f.close()
     except urllib.request.HTTPError as e:
       if e.code==404:
@@ -84,7 +84,7 @@ def RequestURL(url,headers,data,usr,pw,parse_json,parse_xml,nmax_retry,verbose):
 
   if parse_json:
     try:
-      rval=json.loads(ftxt, encoding='unicode_escape')
+      rval=json.loads(ftxt, encoding='utf-8')
     except ValueError as e:
       if verbose: print('JSON Error: %s'%e,file=sys.stderr)
       try:
@@ -92,7 +92,7 @@ def RequestURL(url,headers,data,usr,pw,parse_json,parse_xml,nmax_retry,verbose):
         #print('DEBUG: ftxt="%s"'%str(ftxt), file=sys.stderr)
         ftxt_fix=ftxt.replace(r'\"','&quot;').replace(r'\\','')
         ftxt_fix=ftxt_fix.replace(r'\n','\\\\n') #ok?
-        rval=json.loads(ftxt_fix, encoding='unicode_escape')
+        rval=json.loads(ftxt_fix, encoding='utf-8')
         if verbose>1:
           print('Apparently fixed JSON Error: %s'%e,file=sys.stderr)
         if verbose>2:

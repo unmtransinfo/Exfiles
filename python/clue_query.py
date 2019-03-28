@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 #############################################################################
-### Clue CMap L1000 API client.
+### Clue CMap API client.
 ### https://clue.io/api
 ### https://clue.io/connectopedia/query_api_tutorial
 ### https://clue.io/connectopedia/perturbagen_types_and_controls
 ### l1000_type: "landmark"|"inferred"|"best inferred"|"not inferred"
+### API services: cells, genes, perts, pcls, plates, profiles, sigs,
+### probeset_to_entrez_id, rep_fda_exclusivity
 #############################################################################
-### curl -X GET --header "user_key: e404c56be1d299b6a0b4253808e88fdf" 'https://api.clue.io/api/perts?filter=\{"where":\{"pert_id":"TRCN0000219783"\}\}' |python3 -m json.tool
+### Cell app: https://clue.io/cell-app
+#############################################################################
+### curl -X GET --header "user_key: e404c56be1d299b6a0b4253808e88fdf" 'https://api.clue.io/api/cells?filter=\{"where":\{"provider_name":"ATCC"\}\}' |python3 -m json.tool
 #############################################################################
 import sys,os,argparse,json
 import urllib.parse
@@ -34,6 +38,26 @@ def ListDatasets(verbose):
   print(json.dumps(response, indent=2), file=sys.stderr)
 
 #############################################################################
+def ListPerturbagenClasses(fout, verbose):
+  headers={"user_key": API_KEY}
+  url=('https://'+API_HOST+API_BASE_URL+'/pcls')
+  pcls = rest_utils.GetURL(url, headers=headers, parse_json=True, verbose=verbose)
+  tags=None; n_pcl=0;
+  for pcl in pcls:
+    n_pcl+=1
+    if not tags:
+      tags=pcl.keys()
+      fout.write('\t'.join(tags)+'\n')
+    vals=[];
+    for tag in tags:
+      if tag not in pcl:
+        vals.append('')
+      else:
+        vals.append(str(pcl[tag]))
+    fout.write('\t'.join(vals)+'\n')
+  print('pcls: %d'%n_pcl, file=sys.stderr)
+
+#############################################################################
 def GetGenes(ids, id_type, fout, verbose):
   url_base=('https://'+API_HOST+API_BASE_URL+'/genes?user_key='+API_KEY)
   tags = None
@@ -47,8 +71,10 @@ def GetGenes(ids, id_type, fout, verbose):
       qry=('{"where":{"%s":"%s"},"skip":%d,"limit":%d}'%(
 	id_type, urllib.parse.quote(id_this), i_chunk*N_CHUNK, N_CHUNK))
       url=url_base+('&filter=%s'%(qry))
-      genes = rest_utils.GetURL(url, parse_json=True, verbose=verbose)
-      # Should check response code; may need to retry.
+      try:
+        genes = rest_utils.GetURL(url, parse_json=True, verbose=verbose)
+      except:
+        break
       if not genes:
         break
       for gene in genes:
@@ -90,7 +116,7 @@ def GetPerturbagens(ids, id_type, fout, verbose):
   headers={"Accept": "application/json", "user_key": API_KEY}
   url_base=('https://'+API_HOST+API_BASE_URL+'/perts')
   tags = None
-  fields = ['pert_id', 'pert_iname', 'pert_type', 'pert_vendor', 'pert_url', 'id', 'pubchem_cid', 'entrez_geneId', 'vector_id', 'clone_name', 'oligo_seq', 'description', 'target', 'structure_url', 'moa', 'tas', 'num_sig', 'status']
+  fields = ['pert_id', 'pert_iname', 'pert_type', 'pert_vendor', 'pert_url', 'id', 'pubchem_cid', 'entrez_geneId', 'vector_id', 'clone_name', 'oligo_seq', 'description', 'target', 'structure_url', 'moa', 'pcl_membership', 'tas', 'num_sig', 'status']
   n_pert=0;
   for id_this in ids:
     n_pert_this=0;
@@ -154,7 +180,7 @@ def GetCells(ids, id_type, fout, verbose):
       try:
         cells = rest_utils.GetURL(url, headers=headers, parse_json=True, verbose=verbose)
       except:
-        continue
+        break
       if not cells:
         break
       #print(json.dumps(cells, indent=2), file=sys.stderr) #DEBUG
@@ -179,6 +205,7 @@ def GetCells(ids, id_type, fout, verbose):
   print('cells: %d'%n_cell, file=sys.stderr)
 
 #############################################################################
+# 2570 (3/28/2019)
 def GetCells_All(fout, verbose):
   headers={"Accept": "application/json", "user_key": API_KEY}
   url_base=('https://'+API_HOST+API_BASE_URL+'/cells')
@@ -255,17 +282,59 @@ def GetSignatures(ids, id_type, fout, verbose):
   print('sigs: %d'%n_sig, file=sys.stderr)
 
 #############################################################################
+def GetThings(service, ids, id_type, fout, verbose):
+  url_base=('https://'+API_HOST+API_BASE_URL+'/'+service+'?user_key='+API_KEY)
+  tags = None
+  n_thing=0;
+  for id_this in ids:
+    n_thing_this=0;
+    if verbose:
+      print('id: %s'%id_this, file=sys.stderr)
+    i_chunk=0;
+    while True:
+      qry=('{"where":{"%s":"%s"},"skip":%d,"limit":%d}'%(
+	id_type, urllib.parse.quote(id_this), i_chunk*N_CHUNK, N_CHUNK))
+      url=url_base+('&filter=%s'%(qry))
+      try:
+        things = rest_utils.GetURL(url, parse_json=True, verbose=verbose)
+      except:
+        break
+      if not things:
+        break
+      for thing in things:
+        n_thing_this+=1
+        if not tags:
+          tags = thing.keys()
+          fout.write('\t'.join(tags)+'\n')
+        vals = []
+        for tag in tags:
+          if tag not in thing:
+            vals.append('')
+          elif type(thing[tag]) in (list, tuple):
+            vals.append(';'.join([str(x) for x in thing[tag]]))
+          else:
+            vals.append(str(thing[tag]))
+        fout.write('\t'.join(vals)+'\n')
+      i_chunk+=1
+    if verbose:
+      print('\t%ss: %d'%(service, n_thing_this), file=sys.stderr)
+    n_thing+=n_thing_this
+  print('%ss: %d'%(service, n_thing), file=sys.stderr)
+
+#############################################################################
 if __name__=="__main__":
   PROG=os.path.basename(sys.argv[0])
   parser = argparse.ArgumentParser(description='CLUE.IO REST API client utility')
   ops = ['getGenes', 'getGenes_all', 'getGenes_landmark', 
 	'getPerturbagens', 'getPerturbagens_all',
-	'getSignatures', 'getSignatures_all',
+	'getSignatures',
+	'getProfiles',
 	'getCells', 'getCells_all',
+	'listPerturbagenClasses',
 	'listDatasets', 'listDatatypes']
-  id_types=['gene_symbol', 'entrez_id', 'l1000_type', 'pert_type', 'pert_id', 'pert_iname', 'pert_desc', 'cell_type', 'cell_iname']
+  #id_types=['gene_symbol', 'entrez_id', 'l1000_type', 'pert_type', 'pert_id', 'pert_iname', 'pert_desc', 'cell_type', 'cell_iname']
   parser.add_argument("op", choices=ops, help='operation')
-  parser.add_argument("--id_type", choices=id_types, default='gene_symbol', help='gene ID type')
+  parser.add_argument("--id_type", help='query ID or field type, e.g. gene_symbol')
   parser.add_argument("--id", help="ID")
   parser.add_argument("--ifile", help="input file, IDs")
   parser.add_argument("--nmax", type=int, help="max results")
@@ -318,14 +387,19 @@ if __name__=="__main__":
   elif args.op=='getSignatures':
     if not ids: parser.error('--id or --ifile required.')
     GetSignatures(ids, args.id_type, fout, args.verbose)
-  elif args.op=='getSignatures_all':
-    GetSignatures_All(fout, args.verbose)
+
+  elif args.op=='getProfiles':
+    if not ids: parser.error('--id or --ifile required.')
+    GetThings('profiles', ids, args.id_type, fout, args.verbose)
 
   elif args.op=='listDatasets':
     ListDatasets(args.verbose)
 
   elif args.op=='listDatatypes':
     ListDatatypes(args.verbose)
+
+  elif args.op=='listPerturbagenClasses':
+    ListPerturbagenClasses(fout, args.verbose)
 
   else:
     parser.print_help()
