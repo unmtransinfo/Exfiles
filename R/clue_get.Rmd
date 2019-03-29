@@ -1,0 +1,88 @@
+---
+title: 'CMap Clues for disease drug-target associations'
+author: "Jeremy Yang"
+output:
+  html_document:
+    number_sections: yes
+    toc: yes
+---
+
+For explanation of "inferred", etc., see https://clue.io/connectopedia/category/Analytical%20Methods
+
+```{r echo=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE)
+base::date()
+```
+
+```{r setup, echo=TRUE, message=FALSE}
+library(readr)
+library(data.table)
+library(plotly, quietly=T)
+```
+
+# Genes:
+```{r message=FALSE}
+genes <- read_delim("data/clue_genes_all.tsv", "\t", col_types = cols(entrez_id = col_character()))
+setDT(genes)
+sprintf("genes: %d", nrow(genes))
+```
+
+## L1000 Landmark and Inferred Types
+```{r}
+l1000_types <- genes[, .(.N), by="l1000_type"]
+p1 <- plot_ly(data=l1000_types, type="pie", labels=~l1000_type, values=~N, textinfo="label+value+percent", textposition="auto") %>%
+  layout(title="Genes by L1000 type", margin=list(t=100, b=60), font=list(family="Monospace", size=20), showlegend=F)
+p1
+```
+
+# Perturbagens (small molecules, not genetic)
+```{r message=FALSE}
+perts <- read_delim("data/clue_perts_all.tsv", "\t", col_types = cols(pubchem_cid = col_character()))
+setDT(perts)
+sprintf("perturbagens: %d ; compounds (pert_type = \"trt_cp\"): %d", nrow(perts), sum(perts$pert_type=="trt_cp"))
+perts <- perts[pert_type=="trt_cp"]
+```
+
+## Perturbagen classes 
+Available for some compounds (drugs?).
+```{r message=FALSE}
+pcls <- read_delim("data/clue_pcls.tsv", "\t")
+setDT(pcls)
+pert2pcl <- perts[!is.na(pcl_membership), .(pert_id, pcl_membership)]
+pert2pcl <- pert2pcl[, lapply(.SD, function(x) unlist(tstrsplit(x, ";", fixed=TRUE))), by = pert_id][!is.na(pcl_membership)]
+setnames(pert2pcl, old="pcl_membership", new="pcl")
+pert2pcl <- merge(pert2pcl, pcls, by.x="pcl", by.y="group_id", all.x=T, all.y=F)
+knitr::kable(pert2pcl[, .(N_perts = .N), by="pcl"][order(-N_perts)][1:10], caption="PCLs (top 10)")
+```
+
+```{r}
+p3 <- plot_ly(x=perts$num_sig, type="histogram") %>%
+  layout(title=paste0("Clue perturbagens (compounds), N_signatures<br>(N_total = ", nrow(perts), ")"), 
+         xaxis=list(type="log", title="N_signatures"), yaxis=list(title="N"),
+         margin=list(t=120), font=list(family="Arial", size=20), showlegend=F)
+p3
+```
+#
+
+# Cell Lines:
+For known primary disease only.
+```{r message=FALSE}
+cells <- read_delim("data/clue_cells_all.tsv", "\t")
+setDT(cells)
+n_cells_total <- nrow(cells)
+cells <- cells[!grepl("normal", primary_disease) & !grepl(";", primary_disease) & !(is.null(primary_disease)) & primary_disease!="other"]
+sprintf("Cell lines: %d ; with known primary disease: %d", n_cells_total, nrow(cells))
+```
+
+## Primary diseases:
+```{r}
+diseases <- cells[, .(N_cells = .N), by="primary_disease"][order(-N_cells)]
+sprintf("Cell line primary_disease count: %d", length(unique(diseases$primary_disease)))
+knitr::kable(diseases[1:10], caption="Cell Lines count by diseases (top 10)")
+p4 <- plot_ly(data=diseases, type="pie", labels=~primary_disease, values=~N_cells, textinfo="label", textposition="auto") %>%
+  layout(title=sprintf("Clue cell lines by primary_disease<br>N_cells = %d ; N_disease = %d", nrow(cells), nrow(diseases)), margin=list(t=100, b=60), font=list(family="Monospace", size=12), showlegend=T)
+p4
+```
+
+# Signatures (examples)
+For a given cell_id and pert_id, there may be a signature, which will indicate up- and down- regulated genes.
