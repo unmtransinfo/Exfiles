@@ -88,18 +88,54 @@ p4
 Assay-well level data.
 
 Fields:
+
 * assay
 * cell_id
 * pert_id, pert_desc
 * det_plate, det_well
+
+### Read sample profiles for psychiatric drug aripiprazole
+
+```{r message=FALSE}
+profiles <- read_delim("data/cmap_profiles_aripiprazole.tsv", "\t")
+sprintf("profiles: %d ; perts: %d ; assays: %d ; cells: %d", nrow(profiles), length(unique(profiles$pert_id)),
+        length(unique(profiles$assay)), length(unique(profiles$cell_id)))
+```
 
 # Signatures
 For a given cell_id and pert_id, there may be a signature, which will indicate up- and down- regulated genes.
 (Bing = Best inferred genes, includes Landmark)
 
 Fields:
+
 * pert_id, pert_iname, pert_desc, pert_dose
 * cell_id, provenance_code
 * target_is_lm, target_is_bing, target_zs
 * dn100_bing: 100 most downregulated genes 
 * up100_bing: 100 most upregulated genes
+
+### Read sample signatures for psychiatric drug aripiprazole
+Remove BING genes with ambiguous UP/DOWN regulation.
+
+```{r message=FALSE}
+sigs <- read_delim("data/cmap_sigs_aripiprazole.tsv", "\t")
+setDT(sigs)
+sprintf("sigs: %d ; perts: %d ; cells: %d", nrow(sigs), length(unique(sigs$pert_id)),
+        length(unique(sigs$cell_id)))
+sig2upg <- sigs[, .(pert_id, bing = up100_bing)]
+sig2upg <- sig2upg[, lapply(.SD, function(x) unlist(tstrsplit(x, ";", fixed=TRUE))), by=pert_id][!is.na(bing)]
+sig2upg <- unique(sig2upg)
+sig2upg <- sig2upg[order(as.integer(sig2upg$bing))]
+sig2upg[["up"]] <- TRUE
+
+sig2dng <- sigs[, .(pert_id, bing = dn100_bing)]
+sig2dng <- sig2dng[, lapply(.SD, function(x) unlist(tstrsplit(x, ";", fixed=TRUE))), by=pert_id][!is.na(bing)]
+sig2dng <- unique(sig2dng)
+sig2dng <- sig2dng[order(as.integer(sig2dng$bing))]
+sig2dng[["down"]] <- TRUE
+sig2bing <- merge(sig2upg, sig2dng, by=c("pert_id", "bing"), all=T)
+sig2bing <- sig2bing[order(as.integer(sig2bing$bing))]
+sprintf("UP/DOWN-regulated genes, up: %d ; down: %d ; up_AND_down (removed): %d", 
+        nrow(sig2bing[(up)]), nrow(sig2bing[(down)]), nrow(sig2bing[(up)&(down)]))
+sig2bing <- sig2bing[(is.na(up) | is.na(down))]
+```
