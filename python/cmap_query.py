@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 #############################################################################
-### Clue CMap API client.
+### CMap Clue API client.
+### CMap is the project; Clue is the platform.
 ### https://clue.io/api
 ### https://clue.io/connectopedia/query_api_tutorial
 ### https://clue.io/connectopedia/perturbagen_types_and_controls
 ### l1000_type: "landmark"|"inferred"|"best inferred"|"not inferred"
+### BING = Best inferred plus Landmark
 ### API services: cells, genes, perts, pcls, plates, profiles, sigs,
 ### probeset_to_entrez_id, rep_fda_exclusivity
 #############################################################################
-### Cell app: https://clue.io/cell-app
+### Apps:
+### https://clue.io/cell-app
+### https://clue.io/repurposing-app
 #############################################################################
 ### curl -X GET --header "user_key: e404c56be1d299b6a0b4253808e88fdf" 'https://api.clue.io/api/cells?filter=\{"where":\{"provider_name":"ATCC"\}\}' |python3 -m json.tool
 #############################################################################
@@ -162,6 +166,39 @@ def GetPerturbagens_All(fout, verbose):
   GetPerturbagens(pert_types, 'pert_type', fout, verbose)
 
 #############################################################################
+def GetDrugs_All(fout, verbose):
+  headers={"Accept": "application/json", "user_key": API_KEY}
+  url_base=('https://'+API_HOST+API_BASE_URL+'/rep_drugs')
+  tags = None
+  n_drug=0; i_chunk=0;
+  while True:
+    qry=('{"skip":%d,"limit":%d}'%(i_chunk*N_CHUNK, N_CHUNK))
+    url=url_base+('?filter=%s'%(qry))
+    try:
+      drugs = rest_utils.GetURL(url, headers=headers, parse_json=True, verbose=verbose)
+    except Exception as e:
+      print('Exception: %s'%e, file=sys.stderr)
+      continue
+    if not drugs:
+      break
+    for drug in drugs:
+      n_drug+=1
+      if not tags:
+        tags = drug.keys()
+        fout.write('\t'.join(tags)+'\n')
+      vals = []
+      for tag in tags:
+        if tag not in drug:
+          vals.append('')
+        elif type(drug[tag]) in (list, tuple):
+          vals.append(';'.join([str(x) for x in drug[tag]]))
+        else:
+          vals.append(str(drug[tag]))
+      fout.write('\t'.join(vals)+'\n')
+    i_chunk+=1
+  print('drugs: %d'%n_drug, file=sys.stderr)
+
+#############################################################################
 def GetCells(ids, id_type, fout, verbose):
   headers={"Accept": "application/json", "user_key": API_KEY}
   url_base=('https://'+API_HOST+API_BASE_URL+'/cells')
@@ -239,87 +276,72 @@ def GetCells_All(fout, verbose):
   print('cells: %d'%n_cell, file=sys.stderr)
 
 #############################################################################
-def GetSignatures(ids, id_type, fout, verbose):
+def GetSignatures(args, fout):
+  fields=['pert_id','pert_iname','pert_desc','pert_dose','cell_id','provenance_code','target_seq','target_is_lm','target_is_bing','target_zs','dn100_bing','up100_bing']
   headers={"Accept": "application/json", "user_key": API_KEY}
   url_base=('https://'+API_HOST+API_BASE_URL+'/sigs')
-  tags = None
-  n_sig=0;
-  for id_this in ids:
-    n_sig_this=0;
-    if verbose:
-      print('id: %s'%id_this, file=sys.stderr)
-    i_chunk=0;
-    while True:
-      qry=('{"where":{"%s":"%s"},"skip":%d,"limit":%d}'%(
-	id_type, urllib.parse.quote(id_this),
-	i_chunk*N_CHUNK, N_CHUNK))
-      url=url_base+('?filter=%s'%(qry))
-      try:
-        sigs = rest_utils.GetURL(url, headers=headers, parse_json=True, verbose=verbose)
-      except:
-        continue
-      if not sigs:
-        break
-      #print(json.dumps(sigs, indent=2), file=sys.stderr) #DEBUG
-      for sig in sigs:
-        n_sig_this+=1
-        if not tags:
-          tags = sig.keys()
-          fout.write('\t'.join(tags)+'\n')
-        vals = []
-        for tag in tags:
-          if tag not in sig:
-            vals.append('')
-          elif type(sig[tag]) in (list, tuple):
-            vals.append(';'.join([str(x) for x in sig[tag]]))
-          else:
-            vals.append(str(sig[tag]))
-        fout.write('\t'.join(vals)+'\n')
-      i_chunk+=1
-    if verbose:
-      print('\tsigs: %d'%n_sig_this, file=sys.stderr)
-    n_sig+=n_sig_this
-  print('sigs: %d'%n_sig, file=sys.stderr)
+  tags=None; n_sig=0; i_chunk=0;
+  while True:
+    qry=('{"where":%s,"fields":[%s],"skip":%d,"limit":%d}'%(
+	args.clue_where, (','.join(['"%s"'%f for f in fields])),
+	args.skip+i_chunk*N_CHUNK, N_CHUNK))
+    url=url_base+('?filter=%s'%(qry))
+    try:
+      sigs = rest_utils.GetURL(url, headers=headers, parse_json=True, verbose=args.verbose)
+    except:
+      continue
+    if not sigs:
+      break
+    #print(json.dumps(sigs, indent=2), file=sys.stderr) #DEBUG
+    for sig in sigs:
+      n_sig+=1
+      if not tags:
+        tags = sig.keys()
+        fout.write('\t'.join(tags)+'\n')
+      vals = []
+      for tag in tags:
+        if tag not in sig:
+          vals.append('')
+        elif type(sig[tag]) in (list, tuple):
+          vals.append(';'.join([str(x) for x in sig[tag]]))
+        else:
+          vals.append(str(sig[tag]))
+      fout.write('\t'.join(vals)+'\n')
+      if n_sig==args.nmax: break
+    i_chunk+=1
+  print('signatures: %d'%n_sig, file=sys.stderr)
 
 #############################################################################
-def GetThings(service, ids, id_type, fout, verbose):
+def GetThings(service, args, fout):
   url_base=('https://'+API_HOST+API_BASE_URL+'/'+service+'?user_key='+API_KEY)
-  tags = None
-  n_thing=0;
-  for id_this in ids:
-    n_thing_this=0;
-    if verbose:
-      print('id: %s'%id_this, file=sys.stderr)
-    i_chunk=0;
-    while True:
-      qry=('{"where":{"%s":"%s"},"skip":%d,"limit":%d}'%(
-	id_type, urllib.parse.quote(id_this), i_chunk*N_CHUNK, N_CHUNK))
-      url=url_base+('&filter=%s'%(qry))
-      try:
-        things = rest_utils.GetURL(url, parse_json=True, verbose=verbose)
-      except:
-        break
-      if not things:
-        break
-      for thing in things:
-        n_thing_this+=1
-        if not tags:
-          tags = thing.keys()
-          fout.write('\t'.join(tags)+'\n')
-        vals = []
-        for tag in tags:
-          if tag not in thing:
-            vals.append('')
-          elif type(thing[tag]) in (list, tuple):
-            vals.append(';'.join([str(x) for x in thing[tag]]))
-          else:
-            vals.append(str(thing[tag]))
-        fout.write('\t'.join(vals)+'\n')
-      i_chunk+=1
-    if verbose:
-      print('\t%ss: %d'%(service, n_thing_this), file=sys.stderr)
-    n_thing+=n_thing_this
-  print('%ss: %d'%(service, n_thing), file=sys.stderr)
+  tags=None; n_thing=0; i_chunk=0;
+  while True:
+    qry=('{"where":%s,"skip":%d,"limit":%d}'%(
+	args.clue_where, args.skip+i_chunk*N_CHUNK, N_CHUNK))
+    url=url_base+('&filter=%s'%(qry))
+    try:
+      things = rest_utils.GetURL(url, parse_json=True, verbose=args.verbose)
+    except:
+      break
+    if not things:
+      break
+    for thing in things:
+      n_thing+=1
+      if not tags:
+        tags = thing.keys()
+        fout.write('\t'.join(tags)+'\n')
+      vals = []
+      for tag in tags:
+        if tag not in thing:
+          vals.append('')
+        elif type(thing[tag]) in (list, tuple):
+          vals.append(';'.join([str(x) for x in thing[tag]]))
+        else:
+          vals.append(str(thing[tag]))
+      fout.write('\t'.join(vals)+'\n')
+      if n_thing==args.nmax: break
+    i_chunk+=1
+  print('%s: %d'%(service, n_thing), file=sys.stderr)
 
 #############################################################################
 if __name__=="__main__":
@@ -327,15 +349,15 @@ if __name__=="__main__":
   parser = argparse.ArgumentParser(description='CLUE.IO REST API client utility')
   ops = ['getGenes', 'getGenes_all', 'getGenes_landmark', 
 	'getPerturbagens', 'getPerturbagens_all',
-	'getSignatures',
-	'getProfiles',
+	'getDrugs_all',
+	'getSignatures', 'getProfiles',
 	'getCells', 'getCells_all',
 	'listPerturbagenClasses',
 	'listDatasets', 'listDatatypes']
-  #id_types=['gene_symbol', 'entrez_id', 'l1000_type', 'pert_type', 'pert_id', 'pert_iname', 'pert_desc', 'cell_type', 'cell_iname']
   parser.add_argument("op", choices=ops, help='operation')
   parser.add_argument("--id_type", help='query ID or field type, e.g. gene_symbol')
   parser.add_argument("--id", help="ID")
+  parser.add_argument("--clue_where", help="Clue API where, e.g. '{\"pert_desc\":\"sirolimus\",\"cell_id\":\"MCF7\"}'")
   parser.add_argument("--ifile", help="input file, IDs")
   parser.add_argument("--nmax", type=int, help="max results")
   parser.add_argument("--skip", type=int, help="skip results", default=0)
@@ -378,6 +400,9 @@ if __name__=="__main__":
   elif args.op=='getPerturbagens_all':
     GetPerturbagens_All(fout, args.verbose)
 
+  elif args.op=='getDrugs_all':
+    GetDrugs_All(fout, args.verbose)
+
   elif args.op=='getCells':
     if not ids: parser.error('--id or --ifile required.')
     GetCells(ids, args.id_type, fout, args.verbose)
@@ -385,12 +410,12 @@ if __name__=="__main__":
     GetCells_All(fout, args.verbose)
 
   elif args.op=='getSignatures':
-    if not ids: parser.error('--id or --ifile required.')
-    GetSignatures(ids, args.id_type, fout, args.verbose)
+    if not args.clue_where: parser.error('--clue_where required.')
+    GetSignatures(args, fout)
 
   elif args.op=='getProfiles':
-    if not ids: parser.error('--id or --ifile required.')
-    GetThings('profiles', ids, args.id_type, fout, args.verbose)
+    if not args.clue_where: parser.error('--clue_where required.')
+    GetThings('profiles', args, fout)
 
   elif args.op=='listDatasets':
     ListDatasets(args.verbose)

@@ -22,7 +22,7 @@ library(plotly, quietly=T)
 
 # Genes:
 ```{r message=FALSE}
-genes <- read_delim("data/clue_genes_all.tsv", "\t", col_types = cols(entrez_id = col_character()))
+genes <- read_delim("data/cmap_genes_all.tsv", "\t", col_types = cols(entrez_id = col_character()))
 setDT(genes)
 sprintf("genes: %d", nrow(genes))
 ```
@@ -37,16 +37,16 @@ p1
 
 # Perturbagens (small molecules, not genetic)
 ```{r message=FALSE}
-perts <- read_delim("data/clue_perts_all.tsv", "\t", col_types = cols(pubchem_cid = col_character()))
+perts <- read_delim("data/cmap_perts_all.tsv", "\t", col_types = cols(pubchem_cid = col_character()))
 setDT(perts)
-sprintf("perturbagens: %d ; compounds (pert_type = \"trt_cp\"): %d", nrow(perts), sum(perts$pert_type=="trt_cp"))
+sprintf("perturbagens: %d ; compounds (pert_type = trt_cp): %d", nrow(perts), sum(perts$pert_type=="trt_cp"))
 perts <- perts[pert_type=="trt_cp"]
 ```
 
 ## Perturbagen classes 
 Available for some compounds (drugs?).
 ```{r message=FALSE}
-pcls <- read_delim("data/clue_pcls.tsv", "\t")
+pcls <- read_delim("data/cmap_pcls.tsv", "\t")
 setDT(pcls)
 pert2pcl <- perts[!is.na(pcl_membership), .(pert_id, pcl_membership)]
 pert2pcl <- pert2pcl[, lapply(.SD, function(x) unlist(tstrsplit(x, ";", fixed=TRUE))), by = pert_id][!is.na(pcl_membership)]
@@ -67,7 +67,7 @@ p3
 # Cell Lines:
 For known primary disease only.
 ```{r message=FALSE}
-cells <- read_delim("data/clue_cells_all.tsv", "\t")
+cells <- read_delim("data/cmap_cells_all.tsv", "\t")
 setDT(cells)
 n_cells_total <- nrow(cells)
 cells <- cells[!grepl("normal", primary_disease) & !grepl(";", primary_disease) & !(is.null(primary_disease)) & primary_disease!="other"]
@@ -84,5 +84,22 @@ p4 <- plot_ly(data=diseases, type="pie", labels=~primary_disease, values=~N_cell
 p4
 ```
 
-# Signatures (examples)
+# Profiles
+Assay-well level data.
+
+Fields:
+* assay
+* cell_id
+* pert_id, pert_desc
+* det_plate, det_well
+
+# Signatures
 For a given cell_id and pert_id, there may be a signature, which will indicate up- and down- regulated genes.
+(Bing = Best inferred genes, includes Landmark)
+
+Fields:
+* pert_id, pert_iname, pert_desc, pert_dose
+* cell_id, provenance_code
+* target_is_lm, target_is_bing, target_zs
+* dn100_bing: 100 most downregulated genes 
+* up100_bing: 100 most upregulated genes
