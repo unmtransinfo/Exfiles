@@ -3,6 +3,7 @@ title: 'CMap Clues for disease drug-target associations'
 author: "Jeremy Yang"
 output:
   html_document:
+    fig_caption: yes
     number_sections: yes
     toc: yes
 ---
@@ -56,11 +57,11 @@ knitr::kable(pert2pcl[, .(N_perts = .N), by="pcl"][order(-N_perts)][1:10], capti
 ```
 
 ```{r}
-p3 <- plot_ly(x=perts$num_sig, type="histogram") %>%
+p2 <- plot_ly(x=perts$num_sig, type="histogram") %>%
   layout(title=paste0("Clue perturbagens (compounds), N_signatures<br>(N_total = ", nrow(perts), ")"), 
          xaxis=list(type="log", title="N_signatures"), yaxis=list(title="N"),
          margin=list(t=120), font=list(family="Arial", size=20), showlegend=F)
-p3
+p2
 ```
 #
 
@@ -79,9 +80,9 @@ sprintf("Cell lines: %d ; with known primary disease: %d", n_cells_total, nrow(c
 diseases <- cells[, .(N_cells = .N), by="primary_disease"][order(-N_cells)]
 sprintf("Cell line primary_disease count: %d", length(unique(diseases$primary_disease)))
 knitr::kable(diseases[1:10], caption="Cell Lines count by diseases (top 10)")
-p4 <- plot_ly(data=diseases, type="pie", labels=~primary_disease, values=~N_cells, textinfo="label", textposition="auto") %>%
+p3 <- plot_ly(data=diseases, type="pie", labels=~primary_disease, values=~N_cells, textinfo="label", textposition="auto") %>%
   layout(title=sprintf("Clue cell lines by primary_disease<br>N_cells = %d ; N_disease = %d", nrow(cells), nrow(diseases)), margin=list(t=100, b=60), font=list(family="Monospace", size=12), showlegend=T)
-p4
+p3
 ```
 
 # Profiles
@@ -139,3 +140,41 @@ sprintf("UP/DOWN-regulated genes, up: %d ; down: %d ; up_AND_down (removed): %d"
         nrow(sig2bing[(up)]), nrow(sig2bing[(down)]), nrow(sig2bing[(up)&(down)]))
 sig2bing <- sig2bing[(is.na(up) | is.na(down))]
 ```
+
+### Gene symbols, names etc. from TCRD
+
+```{r message=FALSE}
+tcrd <- read_delim("/home/data/TCRD/data/tcrd_targets.tsv", "\t",
+                       col_types = cols_only(fam = col_character(), name = col_character(),
+                                             tdl = col_character(), geneid = col_character(),
+                                             sym=col_character(), uniprot=col_character(),
+                                             stringid=col_character()))
+setDT(tcrd)
+#setnames(tcrd, old=names(tcrd), new=sub("^.*\\.", "", names(tcrd)))
+tcrd$fam[tcrd$fam=="None"] <- NA
+sig2bing <- merge(sig2bing, tcrd, by.x="bing", by.y="geneid", all.x=T, all.y=F)
+```
+
+### Up/down regulated genes by TDL and family:
+
+```{r message=FALSE}
+tdl_counts <- sig2bing[!is.na(tdl), .(N_genes = .N), by=c("fam", "tdl")]
+tdls <- c("Tdark", "Tbio", "Tchem", "Tclin")
+tdl_counts[["tdl"]] <- factor(tdl_counts$tdl, levels=tdls)
+tdl_counts <- tdl_counts[order(fam, tdl)]
+#
+p4 <- plot_ly(data=tdl_counts, type="bar", x=~fam, y=~N_genes, color=~tdl, colors=c("#333333","red","green","blue"),
+	text=tdl_counts$N_genes, textposition = 'auto') %>%
+	layout(title=sprintf("+/- regulated genes for aripiprazole<br>N_total = %d ; N_fam_none = %d", nrow(sig2bing), nrow(sig2bing[is.na(fam)])), 
+	barmode="group", showlegend=T, legend=list(x=.8, y=.9),
+	margin=list(t=120, b=60, r=60), font=list(family="Monospace", size=16))
+p4
+#knitr::kable(tdl_counts, caption="+/- regulated genes by TDL and family")
+```
+
+### GPCRs:
+```{r}
+knitr::kable(sig2bing[fam=="GPCR", .(pert_id, bing, up_or_down = ifelse((up), "UP", ifelse((down), "DOWN", "?")), sym, name, tdl)], caption="+/- regulated GPCRs")
+```
+
+
