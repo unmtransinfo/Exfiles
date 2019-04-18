@@ -61,6 +61,12 @@ for (ensg_this in unique(indata$ensg)) {
   indata[ensg==ensg_this, exfiles_ruzicka_f_vs_m := ruz]
 }
 message(sprintf("n_err: %d", n_err))
+hist(indata$exfiles_ruzicka_f_vs_m)
+
+qtl <- quantile(indata$exfiles_ruzicka_f_vs_m, probs=seq(0, 1, .1), na.rm=T)
+message(sprintf("%5sile: %.3f\n", names(qtl), qtl))
+
+setorder(indata, exfiles_ruzicka_f_vs_m, na.last=T)
 
 write_delim(indata, "data/Copy_of_RelevantMvsF_ADRs_ExfilesSABV.tsv", delim="\t")
 ###
