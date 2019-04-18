@@ -240,8 +240,7 @@ server <- function(input, output, session) {
   observeEvent(input$showhelp, {
     showModal(modalDialog(easyClose=T, footer=tagList(modalButton("Dismiss")),
       title=HTML(sprintf("<H2>%s Help</H2>", paste(APPNAME, "SABV"))),
-      HTML(HelpHtm())
-    ))
+      HTML(HelpHtm())))
   })
   
   Sys.sleep(1)
