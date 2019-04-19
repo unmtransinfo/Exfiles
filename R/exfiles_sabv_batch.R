@@ -4,9 +4,18 @@
 ###
 library(readr)
 library(data.table)
+library(wCorr)
+library(plotly)
 #
 Ruzicka <- function(A,B) {
   sum(pmin(A,B), rm.na=T)/sum(pmax(A,B), rm.na=T)
+}
+### Unweight smaller, noise-dominated expression values.
+wPearson <- function(A,B) {
+  ok <- !is.na(A) & !is.na(B)
+  A <- A[ok]
+  B <- B[ok]
+  wCorr::weightedCorr(A, B, method="Pearson", weights=(A+B)/2)
 }
 ###
 indata <- read_delim("data/Copy_of_RelevantMvsF_ADRs.tsv", "\t")
@@ -14,38 +23,21 @@ setDT(indata)
 ###
 # Compute SABV measures for single genes, F vs. M.
 ###
-eps <- read_delim("data/exfiles_eps.csv", ",", col_types = cols(.default = col_number(), ensg=col_character(),
-                                                                ncbi=col_character(), gene=col_character(),
-                                                                sex=col_character()))
+eps <- read_delim("data/exfiles_eps.tsv", "\t", col_types=cols(.default=col_number(), ENSG=col_character(), SEX=col_character()))
 setDT(eps)
 #
 ###
 #
-writeLines(sprintf("Input ENSGs mapped to Exfiles: %d / %d", length(intersect(indata$ensg, eps$ensg)), uniqueN(indata$ensg)))
-#
-#hugo_ids <- read_delim("data/hugo_protein-coding_gene.tsv", "\t", col_types=cols(.default=col_character()))
-#setDT(hugo_ids)
-#hugo_ids <- unique(hugo_ids[, .(hugo_symbol = symbol, hugo_uniprot = uniprot_ids, hugo_ensg = ensembl_gene_id)])
-#
-#writeLines(sprintf("Input UNIPROTs mapped to HUGO: %d / %d", length(intersect(indata$uniprot, hugo_ids$hugo_uniprot)), uniqueN(indata$uniprot)))
-#writeLines(sprintf("HUGO ENSGs mapped to Exfiles: %d / %d", length(intersect(hugo_ids$hugo_ensg, eps$ensg)), uniqueN(eps$ensg)))
-#
-#indata <- merge(indata, hugo_ids, by.x="uniprot", by.y="hugo_uniprot", all.x=T, all.y=F)
-#
-#writeLines(sprintf("HUGO ENSGs mapped to Input and Exfiles: %d / %d", length(intersect(indata$hugo_ensg, eps$ensg)), uniqueN(indata$hugo_ensg)))
+writeLines(sprintf("Input ENSGs mapped to Exfiles: %d / %d", length(intersect(indata$ensg, eps$ENSG)), uniqueN(indata$ensg)))
 #
 
 ### Expression profile for gene, sex.
 expro <- function(ensg_this, sex_this, eps) {
-  #if (nrow(eps[ensg==ensg_this & sex==sex_this])>1) {
-  #  #writeLines(sprintf("DEBUG: %s (%s) ambiguous: %s", ensg_this, sex_this, paste(eps[ensg==ensg_this & sex==sex_this, ensg], collapse=",")))
-  #  return(NA)
-  #}
-  if (nrow(eps[ensg==ensg_this & sex==sex_this])==0) {
-    writeLines(sprintf("DEBUG: %s (%s) not found.", ensg_this, sex_this))
+  if (nrow(eps[ENSG==ensg_this & SEX==sex_this])==0) {
+    message(sprintf("DEBUG: %s (%s) not found.", ensg_this, sex_this))
     return(NA)
   }
-  return(as.numeric(eps[ensg==ensg_this & sex==sex_this, 5:ncol(eps)]))
+  return(as.numeric(eps[ENSG==ensg_this & SEX==sex_this, 3:ncol(eps)]))
 }
 
 n_err <- 0
@@ -57,16 +49,28 @@ for (ensg_this in unique(indata$ensg)) {
     next 
   }
   ruz <- Ruzicka(expro_f, expro_m)
-  #message(sprintf("DEBUG: ensg=%s ; ruz=%f", ensg_this, ruz))
+  rho <- wPearson(expro_f, expro_m)
+  #message(sprintf("DEBUG: ensg=%s ; ruz=%.3f ; rho=%.3f", ensg_this, ruz, rho))
   indata[ensg==ensg_this, exfiles_ruzicka_f_vs_m := ruz]
+  indata[ensg==ensg_this, exfiles_rho_f_vs_m := rho]
+  
 }
 message(sprintf("n_err: %d", n_err))
-hist(indata$exfiles_ruzicka_f_vs_m)
+
+plots <- list()
+plots[["Ruzicka"]] <- plot_ly(indata, type="histogram", x=~exfiles_ruzicka_f_vs_m, name="Ruzicka")
+plots[["wPearson"]] <- plot_ly(indata, type="histogram", x=~exfiles_rho_f_vs_m, name="wPearson")
+subplot(plots, nrows=1) %>%
+  layout(title="Exfiles similarity measures", margin=list(t=120))
+
 
 qtl <- quantile(indata$exfiles_ruzicka_f_vs_m, probs=seq(0, 1, .1), na.rm=T)
-message(sprintf("%5sile: %.3f\n", names(qtl), qtl))
+message(sprintf("Ruzicka: %5sile: %.3f\n", names(qtl), qtl))
+qtl <- quantile(indata$exfiles_rho_f_vs_m, probs=seq(0, 1, .1), na.rm=T)
+message(sprintf("wRho: %5sile: %.3f\n", names(qtl), qtl))
 
-setorder(indata, exfiles_ruzicka_f_vs_m, na.last=T)
+indata[, exfiles_combo_f_vs_m := exfiles_ruzicka_f_vs_m * exfiles_rho_f_vs_m]
+setorder(indata, exfiles_combo_f_vs_m, na.last=T)
 
 write_delim(indata, "data/Copy_of_RelevantMvsF_ADRs_ExfilesSABV.tsv", delim="\t")
 ###
