@@ -1,5 +1,5 @@
 ---
-title: 'CMap Clues for disease drug-target associations'
+title: 'CMap Clues for drug-target illumination'
 author: "Jeremy Yang"
 output:
   html_document:
@@ -8,21 +8,48 @@ output:
     toc: yes
 ---
 
-For explanation of "inferred", etc., see https://clue.io/connectopedia/category/Analytical%20Methods
+# Introduction
 
-```{r echo=FALSE}
+LINCS is an NIH initiative, generally a superset of CMAP, a Broad Institute project. Clue.io is the software
+platform for CMAP data exploration. The Clue.io API supplied the data for this workflow.
+
+Important terms:
+
+* `Landmark genes`: L1000 set, selected for experiments for optimal genomic representation.
+* `Best inferred`, `inferred`, `not inferred`: classes of non-landmarks relative to landmarks.
+* `Cell lines`: used in experiments; associated with diseases, tissues and organs.
+* `Perturbagens`: small molecules or genetic.
+* `L1000 Assay`: measures effect of perturbagen against landmarks, up/down regulated genes.
+* `Profiles`: of perturbagens, from assays including L1000.
+* `Signatures`: aggregated profiles(?)
+
+See also: <https://clue.io/connectopedia/category/Analytical%20Methods>
+
+## Applying CMAP for drug-target illumination
+
+In general, genes which are regulated by a perturbagen are more likely to be associated with tissues and
+diseases also associated with that perturbagen. The signatures of perturbagens are polypharmalogical 
+descriptors which could suggest repurposing hypotheses, e.g. where drugs with different indications have 
+similar profiles, new indications are suggested.
+
+__However, at this time it is not clear to me (JJY) what is a strong direction for drug-target hypothesis generation,
+by integrating CMAP and GTEx/Ex-files data.__
+
+
+```{r echo=FALSE, message=FALSE}
 knitr::opts_chunk$set(echo=FALSE, message=FALSE)
 base::date()
 ```
 
-```{r setup, echo=TRUE, message=FALSE}
+```{r echo=FALSE, message=FALSE}
 library(readr)
 library(data.table)
 library(plotly, quietly=T)
 ```
 
 # Genes:
-```{r message=FALSE}
+
+```{r}
 genes <- read_delim("data/cmap_genes_all.tsv", "\t", col_types = cols(entrez_id = col_character()))
 setDT(genes)
 sprintf("genes: %d", nrow(genes))
