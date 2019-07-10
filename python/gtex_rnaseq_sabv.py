@@ -59,7 +59,7 @@ def ReadTissues(ifile, verbose):
 #############################################################################
 def DescribeDf(df, verbose):
   buff = io.StringIO()
-  df.info(buf=buff,verbose=bool(verbose>0),null_counts=bool(verbose>0))
+  df.info(buf=buff, verbose=bool(verbose>0), null_counts=bool(verbose>0))
   print(re.sub(re.compile('^', re.M), '\t', buff.getvalue()), file=sys.stdout)
 
 #############################################################################
@@ -139,19 +139,19 @@ def TAU(X):
 #############################################################################
 if __name__=='__main__':
   parser = argparse.ArgumentParser(description='GTEx RNAseq Exfiles/SABV preprocessor')
-  parser.add_argument("--i",dest="ifile",help="input median TPM, 1-row/gene+tissue+sex (TSV)")
-  parser.add_argument("--i_sample",dest="ifile_sample",help="input sample TPM, 1-row/gene+sample (TSV)")
-  parser.add_argument("--i_tissue",dest="ifile_tissue",help="input (ordered) tissue file")
-  parser.add_argument("--o",dest="ofile",help="output (TSV)")
-  parser.add_argument("--decimals",type=int,default=3,help="output decimal places")
-  parser.add_argument("-v","--verbose",action="count")
+  parser.add_argument("--i", dest="ifile", help="input median TPM, 1-row/gene+tissue+sex (TSV)")
+  parser.add_argument("--i_sample", dest="ifile_sample", help="input sample TPM, 1-row/gene+sample (TSV)")
+  parser.add_argument("--i_tissue", dest="ifile_tissue", help="input (ordered) tissue file")
+  parser.add_argument("--o", dest="ofile", help="output (TSV)")
+  parser.add_argument("--decimals", type=int, default=3, help="output decimal places")
+  parser.add_argument("-v", "--verbose", action="count")
   args = parser.parse_args()
 
   PROG=os.path.basename(sys.argv[0])
   t0 = time.time()
 
   if args.verbose:
-    print('Python: %s\nPandas: %s'%(sys.version,pandas.__version__), file=sys.stdout)
+    print('Python: %s\nPandas: %s'%(sys.version, pandas.__version__), file=sys.stdout)
 
   if args.ifile_tissue:
     tissues = ReadTissues(args.ifile_tissue, args.verbose)
@@ -164,12 +164,13 @@ if __name__=='__main__':
   tpms = ReadMedianTPMs(args.ifile, args.verbose)
 
   if args.verbose:
-    #DescribeTPMs(tpms)
+    #DescribeDf(tpms)
     print("SABV TPM median unique counts: genes: %d"%(tpms.ENSG.nunique()), file=sys.stdout)
 
   print('=== SABV analysis:', file=sys.stdout)
-  print('=== Compute TAU (tissue specificity, Yanai et al., 2004):', file=sys.stdout)
+  print('=== Compute TAU (tissue specificity):', file=sys.stdout)
   taus = TAUs(tpms, args.verbose)
+  print('=== Compute TAU (tissue specificity)+SABV:', file=sys.stdout)
   taus_sex = TAUs_SABV(tpms, args.verbose)
   tpms = pandas.merge(tpms, taus, on=['ENSG'], how='left')
   tpms = pandas.merge(tpms, taus_sex, on=['ENSG','SEX'], how='left')
@@ -182,6 +183,7 @@ if __name__=='__main__':
   if not args.ifile_sample:
     print("NOTE: sample TPM input needed for Wilcoxon rank-sum test (skipping).", file=sys.stdout)
   else:
+    print("=== Compute Wilcoxon rank-sum statistic+pval:", file=sys.stdout)
     sampletpms = ReadSampleTPMs(args.ifile_sample, args.verbose)
     wrs = WilcoxonRankSum(sampletpms, args.verbose)
     wrs = wrs.rename(columns={'stat':'WilcoxonRankSum_stat', 'pval':'WilcoxonRankSum_pval'})
@@ -191,4 +193,4 @@ if __name__=='__main__':
     print("=== Output SABV file: %s"%args.ofile, file=sys.stdout)
     tpms.round(args.decimals).to_csv(args.ofile, sep='\t', index=False)
 
-  print("%s Elapsed: %ds"%(PROG,(time.time()-t0)), file=sys.stderr)
+  print("%s Elapsed: %ds"%(PROG, (time.time()-t0)), file=sys.stderr)
