@@ -5,6 +5,9 @@ DATADIR="data"
 #
 cwd=$(pwd)
 #
+printf "Start: %s\n" "$(date)"
+#
+set -x
 #
 $cwd/python/gtex_rnaseq_sabv.py \
 	--i $DATADIR/gtex_rnaseq_prep_median.tsv \
@@ -12,4 +15,5 @@ $cwd/python/gtex_rnaseq_sabv.py \
 	--o $DATADIR/gtex_rnaseq_sabv.tsv \
 	-v
 #
+printf "Done: %s\n" "$(date)"
 #

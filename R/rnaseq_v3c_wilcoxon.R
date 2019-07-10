@@ -9,10 +9,13 @@ library(stringr)
 library(tidyr)
 #library(Hmisc)
 
+fdir <- "/home/data/GTEx/data"
 ###
 ### READ TISSUE SAMPLES:
 ### SMTS = tissue name, SMTSD = tissue description
-sample.label <- fread("/home/data/GTEx/data/GTEx_v7_Annotations_SampleAttributesDS.txt", header = T, sep = "\t", quote = "", na.strings = "")
+fname <- "GTEx_v7_Annotations_SampleAttributesDS.txt"
+writeLines(sprintf("File: %s", fname))
+sample.label <- fread(sprintf("%s/%s", fdir, fname), header = T, sep = "\t", quote = "", na.strings = "")
 ### Clean, remove, rename, split cols:
 sample.label <- sample.label[, .(SAMPID, SMATSSCR, SMTS, SMTSD)]
 sample.label[!is.na(SMTSD),]
@@ -22,7 +25,9 @@ sample.label[, SUBJID := sprintf("%s-%s", C1, C2)]
 sample.label[, `:=`(C1 = NULL, C2 = NULL)]
 #
 ### READ SUBJECTS:
-subject.label <- fread("/home/data/GTEx/data/GTEx_v7_Annotations_SubjectPhenotypesDS.txt", header = T, sep = "\t", quote = "", na.strings = "")
+fname <- "GTEx_v7_Annotations_SubjectPhenotypesDS.txt"
+writeLines(sprintf("File: %s", fname))
+subject.label <- fread(sprintf("%s/%s", fdir, fname), header = T, sep = "\t", quote = "", na.strings = "")
 ### Keep only subjects healthy at death: 
 ### (DTHHRDY = 4-point Hardy Scale Death Classification.)
 subject.label <- subject.label[DTHHRDY == 1 | DTHHRDY == 2]
@@ -42,10 +47,10 @@ setkey(sample.label, SAMPID)
 ### 56202 data rows x 11688 data cols.
 ### Big: 2.6GB uncompressed.  Need: ~10GB RAM.
 ### Rows: genes; cols: Name, Description, SampId1, SampId2, ... SampId11688
-fdir <- "/home/data/GTEx/data"
 #fname <- "GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm_00001-01000.gct.gz"
 fname <- "GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm.gct.gz"
-rnaseq <- fread(sprintf("gunzip -c %s/%s", fdir, fname), "\t", skip=2, header=T, sep="\t", quote="")
+writeLines(sprintf("File: %s", fname))
+rnaseq <- fread(cmd=sprintf("gunzip -c %s/%s", fdir, fname), skip=2, header=T, sep="\t", quote="")
 ### Clean, remove, rename cols:
 rnaseq[, Description:=NULL]
 setnames(rnaseq, old = c("Name"), new = c("ENSG"))
