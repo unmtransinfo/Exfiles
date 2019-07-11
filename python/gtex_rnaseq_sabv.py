@@ -15,6 +15,7 @@ Workflow (analysis):
  - READ: gene IDs and names mapping file.
 
  - COMPUTE: TAU, TAU_F, TAU_M, tissue specificity index (Yanai et al., 2004)., by gene and gene+sex.
+ - COMPUTE: TPM rank (quantile) among tissues, including by sex.
  - COMPUTE: Log fold-change, log of ratio (TPM_F/TPM_M).
 
  - COMPUTE: Wilcoxon rank sum test, F vs M, each gene+tissue.
@@ -90,22 +91,18 @@ def TAUs_SABV(tpms, verbose):
   return taus_sex
 
 #############################################################################
-def WilcoxonRankSum(tpms, verbose):
-  wrs = tpms[['SMTSD', 'ENSG']].copy().drop_duplicates().sort_values(by=['SMTSD', 'ENSG'])
-  wrs.reset_index(drop=True, inplace=True)
-  wrs['stat'] = pandas.Series(dtype=float)
-  wrs['pval'] = pandas.Series(dtype=float)
-
-  for smtsd in wrs.SMTSD.unique():
-    tpms_this = tpms[tpms.SMTSD==smtsd]
-    for ensg in tpms_this.ENSG.unique():
-      vals_f = tpms_this.TPM[(tpms_this.ENSG==ensg) & (tpms_this.SEX=="F")]
-      vals_m = tpms_this.TPM[(tpms_this.ENSG==ensg) &(tpms_this.SEX=="M")]
-      stat, pval = scipy.stats.ranksums(x=vals_f, y=vals_m)
-      #stat, pval = scipy.stats.mannwhitneyu(x=vals_f.rank(), y=vals_m.rank(), use_continuity=True, alternative="two-sided")
-      wrs.stat.loc[(wrs.SMTSD==smtsd) & (wrs.ENSG==ensg)] = stat
-      wrs.pval.loc[(wrs.SMTSD==smtsd) & (wrs.ENSG==ensg)] = pval
-  return wrs
+def RankByTissue(tpms, verbose):
+  tpms['TPM_RANK'] = pandas.Series(dtype=float)
+  tpms['TPM_RANK_BYSEX'] = pandas.Series(dtype=float)
+  for ensg in tpms.ENSG.unique():
+    tpms_this = tpms.loc[(tpms.ENSG==ensg)]
+    tpms.TPM_RANK.loc[(tpms.ENSG==ensg)] = tpms_this.TPM.rank(ascending=True, pct=True)
+    for sex in tpms_this.SEX.unique():
+      tpms_this_bysex = tpms.loc[(tpms.SEX==sex) & (tpms.ENSG==ensg)]
+      tpms.TPM_RANK_BYSEX.loc[(tpms.SEX==sex) & (tpms.ENSG==ensg)] = tpms_this_bysex.TPM.rank(ascending=True, pct=True)
+  tpms['TPM_LEVEL'] = tpms.TPM_RANK.apply(lambda x: 'Not detected' if x==0 else 'Low' if x<.25 else 'Medium' if x<.75 else 'High')
+  tpms['TPM_LEVEL_BYSEX'] = tpms.TPM_RANK_BYSEX.apply(lambda x: 'Not detected' if x==0 else 'Low' if x<.25 else 'Medium' if x<.75 else 'High')
+  return tpms
 
 #############################################################################
 def SABV_LogFoldChange(tpms, verbose):
@@ -135,6 +132,24 @@ def TAU(X):
     tau += (1 - x/xmax)
   tau /= (N - 1)
   return(tau)
+
+#############################################################################
+def WilcoxonRankSum(tpms, verbose):
+  """May be very slow for large datasets."""
+  wrs = tpms[['SMTSD', 'ENSG']].copy().drop_duplicates().sort_values(by=['SMTSD', 'ENSG'])
+  wrs.reset_index(drop=True, inplace=True)
+  wrs['stat'] = pandas.Series(dtype=float)
+  wrs['pval'] = pandas.Series(dtype=float)
+  for smtsd in wrs.SMTSD.unique():
+    tpms_this = tpms[tpms.SMTSD==smtsd]
+    for ensg in tpms_this.ENSG.unique():
+      vals_f = tpms_this.TPM[(tpms_this.ENSG==ensg) & (tpms_this.SEX=="F")]
+      vals_m = tpms_this.TPM[(tpms_this.ENSG==ensg) &(tpms_this.SEX=="M")]
+      stat, pval = scipy.stats.ranksums(x=vals_f, y=vals_m)
+      #stat, pval = scipy.stats.mannwhitneyu(x=vals_f.rank(), y=vals_m.rank(), use_continuity=True, alternative="two-sided")
+      wrs.stat.loc[(wrs.SMTSD==smtsd) & (wrs.ENSG==ensg)] = stat
+      wrs.pval.loc[(wrs.SMTSD==smtsd) & (wrs.ENSG==ensg)] = pval
+  return wrs
 
 #############################################################################
 if __name__=='__main__':
@@ -175,19 +190,22 @@ if __name__=='__main__':
   tpms = pandas.merge(tpms, taus, on=['ENSG'], how='left')
   tpms = pandas.merge(tpms, taus_sex, on=['ENSG','SEX'], how='left')
 
+  print('=== Compute TPM rank (quantile) among tissues, including by sex:', file=sys.stdout)
+  tpms = RankByTissue(tpms, args.verbose)
+
   print("=== Compute Log fold-change, log of ratio (F/M):", file=sys.stdout)
   ### (One row per gene+tissue, cols for M and F TPM.)
   lfc = SABV_LogFoldChange(tpms, args.verbose)
   tpms = pandas.merge(tpms, lfc, on=['ENSG','SMTSD'], how='left')
 
-  if not args.ifile_sample:
-    print("NOTE: sample TPM input needed for Wilcoxon rank-sum test (skipping).", file=sys.stdout)
-  else:
-    print("=== Compute Wilcoxon rank-sum statistic+pval:", file=sys.stdout)
+  if args.ifile_sample:
+    print("=== From SAMPLE-LEVEL TPMs, compute Wilcoxon rank-sum statistic+pval:", file=sys.stdout)
     sampletpms = ReadSampleTPMs(args.ifile_sample, args.verbose)
     wrs = WilcoxonRankSum(sampletpms, args.verbose)
     wrs = wrs.rename(columns={'stat':'WilcoxonRankSum_stat', 'pval':'WilcoxonRankSum_pval'})
     tpms = pandas.merge(tpms, wrs, on=['ENSG','SMTSD'], how='left')
+  else:
+    print("NOTE: SAMPLE-LEVEL TPMs not provided, so SKIPPING Wilcoxon rank-sum test.", file=sys.stdout)
 
   if args.ofile:
     print("=== Output SABV file: %s"%args.ofile, file=sys.stdout)
