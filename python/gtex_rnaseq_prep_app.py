@@ -133,17 +133,18 @@ def DescribeSamples(samples):
   #  LOG('\t%d. "%s": %4d'%(i,name,val))
 
 #############################################################################
-### READ GENE TPMs (full or demo subset)
-### Top 2 rows, format:
-###	#1.2
-###	nrow	ncol
-### Full file is ~56k rows, 2.6GB uncompressed.  Demo ~1k rows.
-### *   GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm.gct.gz
-### *   GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm_demo.gct.gz
-#############################################################################
-### Truncate ENSGV version, use un-versioned ENSG for mapping. Ok?
-#############################################################################
 def ReadRnaseq(ifile, verbose):
+  """
+	READ GENE TPMs (full or demo subset)
+	 Top 2 rows, format:
+		#1.2
+		nrow	ncol
+	 Full file is ~56k rows, 2.6GB uncompressed.  Demo ~1k rows.
+	 *   GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm.gct.gz
+	 *   GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm_demo.gct.gz
+
+	 Truncate ENSGV version, use un-versioned ENSG for mapping. Ok?
+  """
   LOG("=== ReadRnaseq:")
   fin = open(ifile, "rb")
   LOG('GTEx RNAseq TPM datafile: %s'%fin.name)
@@ -160,9 +161,8 @@ def ReadRnaseq(ifile, verbose):
   return rnaseq
 
 #############################################################################
-### Read gene IDs, etc.: ENSG,NCBI,HGNCID,symbol,name
-#############################################################################
 def ReadGenes(ifile, verbose):
+  """Read gene IDs, etc.: ENSG,NCBI,HGNCID,symbol,name"""
   LOG("=== ReadGenes:")
   fin = open(ifile)
   LOG('GTEx/Ensembl/HGNC genes datafile: %s'%fin.name)
@@ -173,25 +173,25 @@ def ReadGenes(ifile, verbose):
   return genes
 
 #############################################################################
-### Memory intensive. Divide task to manage memory use.
-### For each tissue, group and concatenate results.
-#############################################################################
-def CleanRnaseq(rnaseq, verbose):
+def CleanRnaseq(rnaseq, keep_all_tissues, verbose):
+  """
+	Memory intensive. Divide task to manage memory use.
+	For each tissue, group and concatenate results.
+  """
   if verbose: LOG("NOTE: CleanRnaseq IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())))
   LOG("=== CleanRnaseq:")
-
-  LOG("Remove sex-specific tissues...")
-  tissues=list(rnaseq.SMTSD.sort_values().unique())
-  sex_specific_tissues=[]
-  for smtsd in tissues:
-    if rnaseq[rnaseq.SMTSD==smtsd].SEX.nunique()<2:
-      sex_specific_tissues.append(smtsd)
-      LOG("\tRemoving sex-specific tissue: \"%s\""%(smtsd))
-      rnaseq = rnaseq[rnaseq.SMTSD!=smtsd]
-
-  smtsd_breast = "Breast - Mammary Tissue"
-  LOG("Remove manually, not 100%% sex-specific: \"%s\"..."%smtsd_breast)
-  rnaseq = rnaseq[rnaseq.SMTSD!=smtsd_breast] 
+  if not keep_all_tissues:
+    LOG("Remove sex-specific tissues...")
+    tissues=list(rnaseq.SMTSD.sort_values().unique())
+    sex_specific_tissues=[]
+    for smtsd in tissues:
+      if rnaseq[rnaseq.SMTSD==smtsd].SEX.nunique()<2:
+        sex_specific_tissues.append(smtsd)
+        LOG("\tRemoving sex-specific tissue: \"%s\""%(smtsd))
+        rnaseq = rnaseq[rnaseq.SMTSD!=smtsd]
+    smtsd_breast = "Breast - Mammary Tissue"
+    LOG("Remove manually, not 100%% sex-specific: \"%s\"..."%smtsd_breast)
+    rnaseq = rnaseq[rnaseq.SMTSD!=smtsd_breast] 
 
   LOG("For each tissue, remove genes with TPMs all zero...")
   tissues=list(rnaseq.SMTSD.sort_values().unique())
@@ -220,9 +220,8 @@ def CleanRnaseq(rnaseq, verbose):
   return rnaseq
 
 #############################################################################
-### Compute median TPM by gene+tissue+sex.
-#############################################################################
 def SABV_aggregate_median(rnaseq, verbose):
+  """Compute median TPM by gene+tissue+sex."""
   LOG("=== SABV_aggregate_median:")
   if verbose: LOG("NOTE: SABV_aggregate_median IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())))
   rnaseq = rnaseq[['ENSG', 'SMTSD', 'SEX', 'TPM']].groupby(by=['ENSG','SMTSD','SEX'], as_index=False).median()
@@ -230,13 +229,14 @@ def SABV_aggregate_median(rnaseq, verbose):
   return rnaseq
 
 #############################################################################
-### Reshape to one-row-per-gene format.
-### From:   ENSG,SMTSD,SEX,TPM,LOG_TPM
-### To:	    ENSG,SEX,TPM_1,TPM_2,...TPM_N (N tissues)
-### Preserve tissue order.
-### Some missing TPM values, written as "" to TSV output.
-#############################################################################
 def PivotToProfiles(rnaseq, verbose):
+  """
+	Reshape to one-row-per-gene format.
+	From:   ENSG,SMTSD,SEX,TPM,LOG_TPM
+	To:	    ENSG,SEX,TPM_1,TPM_2,...TPM_N (N tissues)
+	Preserve tissue order.
+	Some missing TPM values, written as "" to TSV output.
+  """
   LOG("NOTE: PivotToProfiles IN: nrows = %d, cols: %s"%(rnaseq.shape[0],str(rnaseq.columns.tolist())))
   LOG("NOTE: PivotToProfiles tissue count: %d"%(rnaseq.SMTSD.nunique()))
   tissues = pandas.Series(pandas.unique(rnaseq.SMTSD.sort_values()))
@@ -246,10 +246,8 @@ def PivotToProfiles(rnaseq, verbose):
 
   rnaseq_f = rnaseq[rnaseq.SEX=='F'].drop(columns=['SEX'])
   rnaseq_m = rnaseq[rnaseq.SEX=='M'].drop(columns=['SEX'])
-
   rnaseq_f = rnaseq_f[['ENSG','SMTSD','TPM']]
   rnaseq_m = rnaseq_m[['ENSG','SMTSD','TPM']]
-
   exfiles_f = rnaseq_f.pivot(index='ENSG', columns='SMTSD')
   exfiles_f.columns = exfiles_f.columns.get_level_values(1)
   exfiles_f = exfiles_f.reset_index(drop=False)
@@ -272,16 +270,17 @@ def LOG(msg, file=sys.stdout, flush=True):
 #############################################################################
 if __name__=='__main__':
   parser = argparse.ArgumentParser(description='GTEx RNAseq Exfiles/SABV preprocessor')
-  parser.add_argument("--i_subject",dest="ifile_subject",help="input subjects file")
-  parser.add_argument("--i_sample",dest="ifile_sample",help="input samples file")
-  parser.add_argument("--i_rnaseq",dest="ifile_rnaseq",help="input rnaseq file")
-  parser.add_argument("--i_gene",dest="ifile_gene",help="input gene file")
-  parser.add_argument("--o_median",dest="ofile_median",help="output median TPM, 1-row/gene+tissue+sex (TSV)")
-  parser.add_argument("--o_sample",dest="ofile_sample",help="output sample TPM, 1-row/gene+sample (TSV)")
-  parser.add_argument("--o_profiles",dest="ofile_profiles",help="output profiles, 1-row/gene+sex (TSV)")
-  parser.add_argument("--o_tissue",dest="ofile_tissue",help="output tissues (TSV)")
-  parser.add_argument("--decimals",type=int,default=3,help="output decimal places")
-  parser.add_argument("-v","--verbose",action="count")
+  parser.add_argument("--i_subject", dest="ifile_subject", help="input subjects file")
+  parser.add_argument("--i_sample", dest="ifile_sample", help="input samples file")
+  parser.add_argument("--i_rnaseq", dest="ifile_rnaseq", help="input rnaseq file")
+  parser.add_argument("--i_gene", dest="ifile_gene", help="input gene file")
+  parser.add_argument("--o_median", dest="ofile_median", help="output median TPM, 1-row/gene+tissue+sex (TSV)")
+  parser.add_argument("--o_sample", dest="ofile_sample", help="output sample TPM, 1-row/gene+sample (TSV)")
+  parser.add_argument("--o_profiles", dest="ofile_profiles", help="output profiles, 1-row/gene+sex (TSV)")
+  parser.add_argument("--o_tissue", dest="ofile_tissue", help="output tissues (TSV)")
+  parser.add_argument("--decimals", type=int, default=3, help="output decimal places")
+  parser.add_argument("--keep_all_tissues", action="store_true", help="normally remove reproductive+breast")
+  parser.add_argument("-v", "--verbose", action="count")
   args = parser.parse_args()
 
   PROG=os.path.basename(sys.argv[0])
@@ -355,7 +354,7 @@ if __name__=='__main__':
   LOG("RNAseq unique gene count (after merge with samples): %d"%(rnaseq.ENSG.nunique()))
   LOG("RNAseq unique tissue count (after merge with samples): %d"%(rnaseq.SMTSD.nunique()))
 
-  rnaseq = CleanRnaseq(rnaseq, args.verbose)
+  rnaseq = CleanRnaseq(rnaseq, args.keep_all_tissues, args.verbose)
 
   if args.ofile_sample:
     LOG("=== Output sample TPM file: %s"%args.ofile_sample)

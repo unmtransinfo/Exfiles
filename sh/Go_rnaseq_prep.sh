@@ -12,6 +12,8 @@ else
 	# rnaseqfile="$SRCDATADIR/GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm_demo_10pct.gct.gz"
 fi
 #
+suffix="_alltissues"
+#
 # "exfiles_eps.tsv" named for and read by Exfiles app.R.
 #
 $cwd/python/gtex_rnaseq_prep_app.py \
@@ -19,10 +21,11 @@ $cwd/python/gtex_rnaseq_prep_app.py \
 	--i_sample $SRCDATADIR/GTEx_v7_Annotations_SampleAttributesDS.txt \
 	--i_gene $DATADIR/gtex_gene_xref.tsv \
 	--i_rnaseq $rnaseqfile \
-	--o_sample $DATADIR/gtex_rnaseq_prep_sample.tsv \
-	--o_median $DATADIR/gtex_rnaseq_prep_median.tsv \
-	--o_tissue $DATADIR/gtex_rnaseq_prep_tissues.tsv \
-	--o_profiles $DATADIR/exfiles_eps.tsv \
+	--o_sample $DATADIR/gtex_rnaseq_prep_sample${suffix}.tsv \
+	--o_median $DATADIR/gtex_rnaseq_prep_median${suffix}.tsv \
+	--o_tissue $DATADIR/gtex_rnaseq_prep_tissues${suffix}.tsv \
+	--o_profiles $DATADIR/exfiles_eps${suffix}.tsv \
+	--keep_all_tissues \
 	-v
 #
 ###
