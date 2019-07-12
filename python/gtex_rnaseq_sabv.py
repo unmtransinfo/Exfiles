@@ -92,14 +92,18 @@ def TAUs_SABV(tpms, verbose):
 
 #############################################################################
 def RankByTissue(tpms, verbose):
+  """
+	Avoid SettingwithCopyWarning with syntax:
+	df[(EXPRESSION), 'COLNAME'] = NEWVALS
+  """
   tpms['TPM_RANK'] = pandas.Series(dtype=float)
   tpms['TPM_RANK_BYSEX'] = pandas.Series(dtype=float)
   for ensg in tpms.ENSG.unique():
     tpms_this = tpms.loc[(tpms.ENSG==ensg)]
-    tpms.TPM_RANK.loc[(tpms.ENSG==ensg)] = tpms_this.TPM.rank(ascending=True, pct=True)
+    tpms.loc[(tpms.ENSG==ensg), 'TPM_RANK'] = tpms_this.TPM.rank(ascending=True, pct=True)
     for sex in tpms_this.SEX.unique():
       tpms_this_bysex = tpms.loc[(tpms.SEX==sex) & (tpms.ENSG==ensg)]
-      tpms.TPM_RANK_BYSEX.loc[(tpms.SEX==sex) & (tpms.ENSG==ensg)] = tpms_this_bysex.TPM.rank(ascending=True, pct=True)
+      tpms.loc[(tpms.SEX==sex) & (tpms.ENSG==ensg), 'TPM_RANK_BYSEX'] = tpms_this_bysex.TPM.rank(ascending=True, pct=True)
   tpms['TPM_LEVEL'] = tpms.TPM_RANK.apply(lambda x: 'Not detected' if x==0 else 'Low' if x<.25 else 'Medium' if x<.75 else 'High')
   tpms['TPM_LEVEL_BYSEX'] = tpms.TPM_RANK_BYSEX.apply(lambda x: 'Not detected' if x==0 else 'Low' if x<.25 else 'Medium' if x<.75 else 'High')
   return tpms

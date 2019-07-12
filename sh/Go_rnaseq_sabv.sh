@@ -4,15 +4,17 @@
 # This may be very slow on full file. 24h+?
 #
 SRCDATADIR="/home/data/GTEx/data"
-DATADIR="data"
 #
 cwd=$(pwd)
+#
+DATADIR="${cwd}/data"
 #
 printf "Start: %s\n" "$(date)"
 #
 set -x
 #
-suffix="_alltissues"
+suffix="_test"
+#suffix="_alltissues"
 #
 #	--i_sample $DATADIR/gtex_rnaseq_prep_sample${suffix}.tsv \
 #
