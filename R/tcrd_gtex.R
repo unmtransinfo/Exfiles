@@ -3,7 +3,14 @@
 library(readr)
 library(data.table)
 
-tcrd_gtex <- read_delim("data/tcrd_expression-gtex.tsv.gz", "\t", col_types=cols(.default=col_character(), number_value=col_double()), na=c("", "NULL"))
+
+###
+
+message(sprintf("=== TCRD-GTEx export for comparison:"))
+ifile_tcrd <- "data/tcrd_expression-gtex.tsv.gz"
+message(sprintf("%s", ifile_tcrd))
+
+tcrd_gtex <- read_delim(ifile_tcrd, "\t", col_types=cols(.default=col_character(), number_value=col_double()), na=c("", "NULL"))
 setDT(tcrd_gtex)
 
 message(sprintf("Total GTEx data from TCRD table expression: %d", nrow(tcrd_gtex)))
@@ -31,7 +38,11 @@ hist(tcrd_gtex$number_value, main="GTEx expression histogram")
 
 ###
 
-gtex_sabv <- read_delim("data/gtex_rnaseq_sabv_alltissues.tsv.gz", "\t", col_types=cols(.default=col_double(), ENSG=col_character(), SMTSD=col_character(), SEX=col_character()), na=c("", "NULL"))
+message(sprintf("=== Exfiles-GTEx SABV workflow output file:"))
+ifile_sabv <- "data/gtex_rnaseq_sabv_alltissues.tsv.gz"
+message(sprintf("%s", ifile_sabv))
+
+gtex_sabv <- read_delim(ifile_sabv, "\t", col_types=cols(.default=col_double(), ENSG=col_character(), SEX=col_character(), SMTSD=col_character(), TPM_LEVEL=col_character(), TPM_LEVEL_BYSEX=col_character()), na=c("", "NULL"))
 setDT(gtex_sabv)
 
 message(sprintf("Total GTEx data from Exfiles workflow: %d", nrow(gtex_sabv)))
@@ -39,3 +50,10 @@ message(sprintf("Unique genes: %d", uniqueN(gtex_sabv[, ENSG])))
 message(sprintf("Unique tissues: %d", uniqueN(gtex_sabv[, SMTSD])))
 
 message(sprintf("Tissue in this dataset and NOT in TCRD file: \"%s\"\n", setdiff(gtex_sabv$SMTSD, tcrd_gtex$tissue)))
+
+
+for (tag in c("SEX", "TPM_LEVEL", "TPM_LEVEL_BYSEX")) {
+  tbl <- table(gtex_sabv[[tag]], useNA="ifany")
+  message(sprintf("%s: %6s: %9d\n", tag, names(tbl), as.integer(tbl)))
+}
+
