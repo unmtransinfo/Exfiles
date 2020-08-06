@@ -28,8 +28,10 @@ if [ "$DEMO" ]; then
 	rnaseqfile=${demofile}
 fi
 #
+###
 suffix="_alltissues"
 #
+# gtex_gene_xref.tsv from gtex_gene_xref.R, from Ensembl/Biomart and HUGO files.
 # "exfiles_eps.tsv" named for and read by Exfiles app.R.
 #
 $cwd/python/gtex_rnaseq_prep_app.py \
@@ -44,8 +46,4 @@ $cwd/python/gtex_rnaseq_prep_app.py \
 	--keep_all_tissues \
 	-v
 #
-###
-# exfiles_tissue_order.tsv exported from Google sheet.
-###
-# gtex_gene_xref.tsv written by gtex_gene_map.R, from Ensembl/Biomart and HUGO files.
 ###

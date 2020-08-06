@@ -3,11 +3,12 @@
 cwd=$(pwd)
 #
 DATADIR="${cwd}/data"
-# (Not all columns relevant for GTEx.)
-${cwd}/sh/runsql_my.sh -h juniper.health.unm.edu -n tcrd -c \
-	-q "SELECT etype, protein_id, tissue, qual_value, number_value, age, sex 
-FROM expression WHERE etype = 'GTEx'" \
-	|perl -pe 's/\tNULL\t/\t\t/g' \
+#
+(mysql -B -h tcrd.kmc.io -u tcrd -p tcrd660 <<__EOF__
+SELECT protein_id, tissue, uberon_id, tpm_level, tpm_level_bysex, tpm_f, tpm_m, tau, tau_bysex, gender AS "sex"
+FROM gtex
+__EOF__
+) \
 	|gzip -c \
 	>$DATADIR/tcrd_expression-gtex.tsv.gz
 #
