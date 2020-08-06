@@ -5,3 +5,7 @@ GTEx RNAseq pre-processing and analysis workflows initially developed by Oleg Ur
 Jupyter notebooks and Python/Pandas port by Jeremy Yang.
 Dockerization and AWS deployments by Mike Garcia.
 See R Shiny app at http://unmtid-shinyapps.net/exfiles/.
+
+## Dependencies
+
+* [BioClients](https://github.com/jeremyjyang/BioClients) for `BioClients.lincs.Client_cmap`.
