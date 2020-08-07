@@ -9,7 +9,7 @@ library(data.table)
 ###
 biomart <- read_delim("data/ensembl_biomart.tsv", "\t", na=c("","NA"))
 setDT(biomart)
-setnames(biomart, c('ENSG','ENSGV','HGNCID','NCBI'))
+setnames(biomart, c('ENSG', 'ENSGV', 'HGNCID', 'NCBI'))
 ###
 # All ENSG (un-versioned) IDs from GTEx RNAseq (1 column).
 ###
@@ -19,17 +19,17 @@ n_gtex_ensg <- nrow(gtex_ensg)
 message(sprintf("GTEx ENSGs: %d", n_gtex_ensg))
 ###
 x <- merge(gtex_ensg, unique(biomart[, .(ENSG, NCBI)]), by='ENSG', all.x=T, all.y=F)
-message(sprintf("GTEx ENSGs mapped to NCBI: %d / %d (%.1f%%)",
+message(sprintf("ENSGs mapped to NCBI: %d / %d (%.1f%%)",
 	sum(!is.na(x$NCBI)), n_gtex_ensg,
 	100*sum(!is.na(x$NCBI))/n_gtex_ensg))
 #
 x <- merge(gtex_ensg, unique(biomart[, .(ENSG, HGNCID)]), by='ENSG', all.x=T, all.y=F)
-message(sprintf("GTEx ENSGs mapped to HGNCID: %d / %d (%.1f%%)",
+message(sprintf("ENSGs mapped to HGNCID: %d / %d (%.1f%%)",
 	sum(!is.na(x$HGNCID)), n_gtex_ensg,
 	100*sum(!is.na(x$HGNCID))/n_gtex_ensg))
 ###
 x <- merge(gtex_ensg, unique(biomart[, .(ENSG, NCBI, HGNCID)]), by='ENSG', all.x=T, all.y=F)
-message(sprintf("GTEx ENSGs mapped to NCBI and HGNCID: %d / %d (%.1f%%)", 
+message(sprintf("ENSGs mapped to NCBI and HGNCID: %d / %d (%.1f%%)", 
 	sum(!is.na(x$HGNCID)&!is.na(x$NCBI)), n_gtex_ensg,
 	100*sum(!is.na(x$HGNCID)&!is.na(x$NCBI))/n_gtex_ensg))
 ###
@@ -44,11 +44,11 @@ setnames(hugo, old=c("uniprot_ids", "location"), new=c("uniprot", "chr"))
 gtex_gene <- x
 ###
 x <- merge(gtex_gene[!is.na(HGNCID)], hugo, by.x='HGNCID', by.y='hgnc_id', all.x=T, all.y=F)
-message(sprintf("GTEx ENSGs mapped to HGNC symbols: %d / %d (%.1f%%)",
+message(sprintf("ENSGs mapped to HGNC symbols: %d / %d (%.1f%%)",
 	sum(!is.na(x$symbol)), n_gtex_ensg,
 	100*sum(!is.na(x$symbol))/n_gtex_ensg))
 #
-message(sprintf("GTEx ENSGs mapped to UniProt IDs: %d / %d (%.1f%%)",
+message(sprintf("ENSGs mapped to UniProt IDs: %d / %d (%.1f%%)",
                    sum(!is.na(x$uniprot)), n_gtex_ensg,
                    100*sum(!is.na(x$uniprot))/n_gtex_ensg))
 #
@@ -60,17 +60,18 @@ writeLines(sprintf("Ensembl/HGNC ENSG mismatch: %s != %s", ensg2ensg_mismatch$EN
 #
 gtex_gene <- x[, ensembl_gene_id := NULL]
 #
-gtex_gene <- gtex_gene[!(is.na(HGNCID)|is.na(NCBI)|is.na(uniprot))]
+gtex_gene <- gtex_gene[!(is.na(HGNCID) | is.na(NCBI) | is.na(uniprot))]
 gtex_gene <- gtex_gene[ , .(ENSG, NCBI, HGNCID, chr, uniprot, symbol, name)]
-ofile <- "data/gtex_gene_xref.tsv"
-message(sprintf("Output file, GTEx/Ensembl/HGNC: %s ; nrow: %d", ofile, nrow(gtex_gene)))
-message(sprintf("Output file, GTEx/Ensembl/HGNC, ENSG: %d", length(unique(gtex_gene$ENSG))))
-message(sprintf("Output file, GTEx/Ensembl/HGNC, NCBI: %d", length(unique(gtex_gene$NCBI))))
-message(sprintf("Output file, GTEx/Ensembl/HGNC, HGNCID: %d", length(unique(gtex_gene$HGNCID))))
-message(sprintf("Output file, GTEx/Ensembl/HGNC, chromosomal location: %d", length(unique(gtex_gene$chr))))
-message(sprintf("Output file, GTEx/Ensembl/HGNC, UniProt: %d", length(unique(gtex_gene$uniprot))))
-message(sprintf("Output file, GTEx/Ensembl/HGNC, symbol: %d", length(unique(gtex_gene$symbol))))
-message(sprintf("Output file, GTEx/Ensembl/HGNC, name: %d", length(unique(gtex_gene$name))))
+message(sprintf("N_ENSG: %d", uniqueN(gtex_gene$ENSG)))
+message(sprintf("N_NCBI: %d", uniqueN(gtex_gene$NCBI)))
+message(sprintf("N_HGNCID: %d", uniqueN(gtex_gene$HGNCID)))
+message(sprintf("N_chromosomal_location: %d", uniqueN(gtex_gene$chr)))
+message(sprintf("N_UniProt: %d", uniqueN(gtex_gene$uniprot)))
+message(sprintf("N_gene_symbol: %d", uniqueN(gtex_gene$symbol)))
+message(sprintf("N_gene_name: %d", uniqueN(gtex_gene$name)))
 #
-write_tsv(gtex_gene, ofile)
+ofile <- "data/gtex_gene_xref.tsv"
+ofile_uniprot <- "data/gtex_gene_xref.uniprot"
+write_delim(gtex_gene, ofile, "\t")
+write_delim(data.table(uniprot = unique(unlist(strsplit(gtex_gene$uniprot, "\\|")))), ofile_uniprot, "\t", col_names=F)
 ###

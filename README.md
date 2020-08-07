@@ -8,4 +8,6 @@ See R Shiny app at http://unmtid-shinyapps.net/exfiles/.
 
 ## Dependencies
 
+* R 3.6+
+* R packages: readr, data.table, labdsv, wCorr
 * [BioClients](https://github.com/jeremyjyang/BioClients) for `BioClients.lincs.Client_cmap`.

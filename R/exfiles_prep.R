@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 ###
-### This processes the original files provided by Giovanni (early Feb 2018): 
+### This processes the files provided by Giovanni (early Feb 2018): 
 ### (1) result_recall.csv: gene-gene associations
 ### (2) receptors_all.csv: expression profiles
 ###
