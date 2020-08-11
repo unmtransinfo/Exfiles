@@ -1,13 +1,13 @@
 #!/bin/bash
 #############################################################################
-### See gtex_gene_map.R, uses gtex_rnaseq.ensg, which maps
+### See gtex_gene_xref.R, uses gtex_rnaseq.ensg, which maps
 ### RNAseq ENSG IDs to NCBI IDs and HUGO symbols.
 #############################################################################
 #
 cwd=$(pwd)
 #
-SRCDATADIR="/home/data/GTEx/data"
-DATADIR="data"
+SRCDATADIR="$HOME/../data/GTEx/data"
+DATADIR="${cwd}/data"
 #
 set -x
 #
@@ -29,11 +29,12 @@ cat $DATADIR/gtex_rnaseq.ensgv \
 #
 printf "Unique ENSGs: %d\n" $(cat $DATADIR/gtex_rnaseq.ensg |wc -l)
 ###
-# gtex_gene_xref.R Inputs:
+# gtex_gene_xref.R
+# Inputs:
 #	ensembl_biomart.tsv (Ensembl.org/biomart, Homo sapiens dataset w/ ENSP IDs.)
 #	hugo_protein-coding_gene.tsv (ftp)
 #	gtex_rnaseq.ensg
-# gtex_gene_map.R Output:
+# Output:
 #	gtex_gene_xref.tsv (ENSG, NCBI, HGNCID, chr, uniprot, symbol, name)
 ###
 # https://www.genenames.org/cgi-bin/statistics

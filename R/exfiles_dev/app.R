@@ -9,7 +9,11 @@
 ### GGC = gene-gene associations
 ### EPS = Expression Profiles
 ##########################################################################################
-### Jeremy Yang
+### exfiles_tissue_order.tsv - manually curated, from GDoc
+### gtex_gene_xref.tsv - from gtex_gene_xref.R
+### gtex_gene_idg.tsv - BioClients.idg.Client 
+### exfiles_eps.tsv - expression profiles; exfiles_prep.R?
+### exfiles_ggc.tsv.gz - gene-gene correlations; exfiles_similarity_ruzicka.R?
 ##########################################################################################
 library(readr)
 library(wCorr)
@@ -22,7 +26,7 @@ library(plotly, quietly=T)
 ###
 # This code runs once for all sessions.
 ###
-APPNAME <- "Ex-files"
+APPNAME <- "Exfiles"
 ###
 t0 <- proc.time()
 if (file.exists("exfiles.Rdata")) {

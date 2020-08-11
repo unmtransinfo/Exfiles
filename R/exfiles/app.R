@@ -9,7 +9,11 @@
 ### GGC = gene-gene associations
 ### EPS = Expression Profiles
 ##########################################################################################
-### Jeremy Yang
+### exfiles_tissue_order.tsv - exported from GDoc, manually ordered by TIO.
+### gtex_gene_xref.tsv - from gtex_gene_xref.R
+### gtex_gene_idg.tsv
+### exfiles_eps.tsv - expression profiles; 
+### exfiles_ggc.tsv.gz - gene-gene correlations; 
 ##########################################################################################
 library(readr)
 library(wCorr)
