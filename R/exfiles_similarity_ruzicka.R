@@ -14,7 +14,7 @@ Sys.time()
 #
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args)>0) { IFILE <- args[1] } else { 
-  IFILE <- "data/exfiles_eps_alltissues.tsv"
+  IFILE <- "data/exfiles_eps.tsv.gz"
 }
 if (length(args)>1) { OFILE <- args[2] } else { 
   OFILE <- "data/exfiles_eps_Ruzicka.tsv"
@@ -36,7 +36,7 @@ setDT(eps)
 #
 message(sprintf("Tissue columns: %d", ncol(eps)-N_IDCOLS))
 #
-eps <- eps[order(ENSG)]
+setorder(eps, ENSG)
 eps <- eps[!duplicated(eps[, .(ENSG, SEX)])]
 for (j in 3:ncol(eps))
   set(eps, which(is.na(eps[[j]])), j, 0)
@@ -82,8 +82,8 @@ message(sprintf("Results (%s): all: %d; post-filtered: %d (%.1f%%)", group, n_ca
 n_calc_all_total <- n_calc_all_total + n_calc_all
 n_calc_filtered_total <- n_calc_filtered_total + n_calc_filtered
 #
-ruz$SEXA <- group
-ruz$SEXB <- group
+ruz[, SEXA := group]
+ruz[, SEXB := group]
 ruz <- ruz[, .(ENSGA, SEXA, ENSGB, SEXB, Ruzicka)]
 ruz[, Ruzicka := round(Ruzicka, digits=3)]
 write_delim(ruz, path=OFILE, delim="\t")
@@ -121,17 +121,17 @@ ruz[, Ruzicka := round(Ruzicka, digits=3)]
 write_delim(ruz, path=OFILE, delim="\t", append=T)
 #
 ###
-#N:
-group <- "n"
-eps_mx_n <- as.matrix(eps_n[, N_IDCOLS:ncol(eps_n)])
-rownames(eps_mx_n) <- eps_n$ENSG
+#C:
+group <- "C"
+eps_mx_c <- as.matrix(eps_c[, N_IDCOLS:ncol(eps_c)])
+rownames(eps_mx_c) <- eps_c$ENSG
 #
 ###
-N <- nrow(eps_n)
+N <- nrow(eps_c)
 message(sprintf("(%s) N = %d ; per group N_calc_max = %d (N(N-1)/2)", group, N, N*(N-1)/2))
 #
 # Generates full matrix, but only want upper.
-ruzd <- labdsv::dsvdis(eps_mx_m, "ruzicka", upper=T) #dist
+ruzd <- labdsv::dsvdis(eps_mx_c, "ruzicka", upper=T) #dist
 ruzm <- -as.matrix(ruzd) + 1 #matrix: sim=(1-dist)
 ruz <- reshape2::melt(ruzm)
 setDT(ruz)

@@ -9,11 +9,11 @@
 ### GGC = gene-gene associations
 ### EPS = Expression Profiles
 ##########################################################################################
-### exfiles_tissue_order.tsv - exported from GDoc, manually ordered by TIO.
+### exfiles_tissue_order.tsv - manually curated, from GDoc
 ### gtex_gene_xref.tsv - from gtex_gene_xref.R
-### gtex_gene_idg.tsv
-### exfiles_eps.tsv - expression profiles; 
-### exfiles_ggc.tsv.gz - gene-gene correlations; 
+### gtex_gene_idg.tsv - BioClients.idg.Client 
+### exfiles_eps.tsv.gz - expression profiles; gtex_rnaseq_prep_app.py
+### exfiles_ggc.tsv.gz - gene-gene comparisons; exfiles_similarity_post.py
 ##########################################################################################
 library(readr)
 library(wCorr)
@@ -26,7 +26,7 @@ library(plotly, quietly=T)
 ###
 # This code runs once for all sessions.
 ###
-APPNAME <- "Ex-files"
+APPNAME <- "Exfiles"
 ###
 t0 <- proc.time()
 if (file.exists("exfiles.Rdata")) {
@@ -37,24 +37,24 @@ if (file.exists("exfiles.Rdata")) {
   ###
   # i, SMTS, SMTSD
   ###
-  tissue <- read_delim("exfiles_tissue_order.tsv", "\t")
+  tissue <- read_delim("data/exfiles_tissue_order.tsv", "\t")
   ###
   # ENSG, NCBI, HGNCID, chr, uniprot, symbol, name
   ###
-  gene <- read_delim("gtex_gene_xref.tsv", "\t") # gene attributes
+  gene <- read_delim("data/gtex_gene_xref.tsv", "\t") # gene attributes
   ###
-  idg <- read_delim("gtex_gene_idg.tsv", "\t") # IDG gene/protein attributes
+  idg <- read_delim("data/gtex_gene_idg.tsv", "\t") # IDG gene/protein attributes
   idg <- idg[,c("accession", "idgTDL", "idgFamily")]
   idg <- idg[!duplicated(idg$accession),]
   colnames(idg) <- c("uniprot", "idgTDL", "idgDTO")
   ###
   # ENSG, SEX, tissue.1, tissue.2, etc.
   ###
-  eps <- read_delim("exfiles_eps.tsv", "\t", col_types=cols(SEX=col_character()))
+  eps <- read_delim("data/exfiles_eps.tsv.gz", "\t", col_types=cols(SEX=col_character()))
   ###
   # ENSGA, ENSGB, Group, wRho, Ruzicka
   ###
-  ggc <- read_delim("exfiles_ggc.tsv.gz", "\t", col_types="cccdd")
+  ggc <- read_delim("data/exfiles_ggc.tsv.gz", "\t", col_types="cccdd")
   ggc$Group[ggc$Group=="C"] <- "N"
   #
   tissue <- tissue[tissue$SMTSD %in% colnames(eps),]
@@ -63,12 +63,13 @@ if (file.exists("exfiles.Rdata")) {
   ensgs <- intersect(eps$ENSG, c(ggc$ENSGA,ggc$ENSGB))
   ensgs <- intersect(ensgs, gene$ENSG)
   eps <- eps[eps$ENSG %in% ensgs,]
+  ggc <- ggc[(ggc$ENSGA %in% ensgs) & (ggc$ENSGB %in% ensgs),]
   #
   gene <- gene[gene$ENSG %in% ensgs,]
+  gene <- merge(gene, idg, by="uniprot", all.x=F, all.y=F)
   gene <- gene[!is.na(gene$symbol),]
   gene <- gene[!duplicated(gene$ENSG),]
   gene <- gene[!duplicated(gene$symbol),]
-  gene <- merge(gene, idg, by="uniprot", all.x=T, all.y=F)
   ###
   save(tissue, gene, idg, eps, ggc, file="exfiles.Rdata")
 }
@@ -156,7 +157,7 @@ Ex-files modes of operation:
 <LI><B>View:</B> plots query GeneA with sex-specific profiles.
 <LI><B>Compare:</B> plots query GeneA vs. GeneB with sex-specific profiles.
 <LI><B>SimSearch:</B> returns hits based on the GeneA query. The top hit is displayed against GeneA in the plot, and other hits displayed in a table, plotted by manual selection, and downloadable as TSV.
-<LI><B>TxtSearch:</B> returns hits based on the query, which may be a substring, regular expression, or list of exact symbols. Hits are displayed in the table, plotted by manual selection, and downloadable as TSV.
+<LI><B>TxtSearch:</B> returns hits based on the query, which may be a substring, regular expression, or space-separated list of exact symbols. Hits are displayed in the table, plotted by manual selection, and downloadable as TSV.
 <LI><B>Groups</B> denote comparisons among F-only, M-only or N (Non-sexed) representing un-stratified subjects, computed as mean of F and M profiles.
 <LI>Expression units: <B>TPM</B> = RNA-seq Transcripts Per Million-kilobase or <B>LOG<SUB>10</SUB>(1+TPM)</B>.
 <LI>Expression profiles are computed as medians for GTEx samples, by tissue and sex.
@@ -179,9 +180,14 @@ This work was supported by the National Institutes of Health grants OT3-OD025464
 #
 #############################################################################
 ui <- fluidPage(
-  titlePanel(h2(sprintf("%s, GTEx expression-profile exploration", APPNAME), em("SABV"), 
-                span(icon("venus",lib="font-awesome"), icon("mars", lib="font-awesome"), icon("lightbulb", lib="font-awesome"))), 
-             windowTitle=paste(APPNAME, "SABV")),
+  titlePanel(
+    tags$table(width="100%", tags$tr(tags$td(
+    h2(sprintf("%s, GTEx expression-profile exploration", APPNAME), em("SABV"), 
+                span(icon("venus",lib="font-awesome"), icon("mars", lib="font-awesome"), icon("lightbulb", lib="font-awesome")))),
+    tags$td(align="right",
+      actionButton("goRefresh", "Refresh", style="padding:4px; background-color:#DDDDDD;font-weight:bold"),
+      actionButton("showhelp", "Help", style="padding:4px; background-color:#DDDDDD;font-weight:bold")))),
+    windowTitle=paste(APPNAME, "SABV")),
   fluidRow(
     column(4, 
         wellPanel(
@@ -190,7 +196,8 @@ ui <- fluidPage(
 	      textInput("qryTxt", "Query (list or regex)", width='80%'),
 	      checkboxInput("iCase","IgnoreCase", value=T, width='20%')),
 	conditionalPanel(condition="input.mode != 'TxtSearch'",
-          selectizeInput("qryA", label="GeneA", choices = gene_choices, selected=qryArand)),
+	       span("GeneA", style="font-weight:bold", actionButton("randGene", "Random", style='padding:1px')),
+        selectizeInput("qryA", label=NULL, choices=gene_choices, selected=qryArand)),
 	conditionalPanel(condition="input.mode == 'Compare'",
           selectizeInput("qryB", label="GeneB", choices = c(list('None'='none'), gene_choices))),
 	  conditionalPanel(condition="input.mode == 'SimSearch'",
@@ -198,22 +205,16 @@ ui <- fluidPage(
 	  conditionalPanel(condition="input.mode == 'TxtSearch'",
             radioButtons("field", "Field", choices=c("Symbol", "Name"), selected="Symbol", inline=T)),
           checkboxGroupInput("groups", "Groups", choices=c("F","M","N"), selected=c("N"), inline=T),
-          checkboxGroupInput("opts", "Output", choices=c("IDG", "Dissim","LogY","Annplot"), selected=c("IDG","LogY"), inline=T),
-          br(),
-          actionButton("randGene", "Demo", style='padding:4px; background-color:#DDDDDD; font-weight:bold'),
-          actionButton("goRefresh", "Refresh", style='padding:4px; background-color:#DDDDDD; font-weight:bold'),
-          actionButton("showhelp", "Help", style='padding:4px; background-color:#DDDDDD; font-weight:bold')
-          )),
+          checkboxGroupInput("opts", "Output", choices=c("IDG", "Dissim","LogY","Annplot"), selected=c("IDG","LogY"), inline=T)),
+	wellPanel(htmlOutput(outputId = "log_htm", height = "120px"))
+	),
     column(8, conditionalPanel(condition="true", plotlyOutput("plot", height = "580px")))
   ),
-  conditionalPanel(condition="true",
-    wellPanel(fluidRow(column(12, DT::dataTableOutput("datarows"))))),
-  conditionalPanel(condition="output.datarows_exist", #NOT WORKING. WHY?
-    wellPanel(fluidRow(column(12, downloadButton("hits_file", label="Download"))))),
+  conditionalPanel(condition="output.hits_exist=='TRUE'",
+    wellPanel(fluidRow(column(12, DT::dataTableOutput("datarows"))),
+              fluidRow(column(12, downloadButton("hits_file", label="Download"))))),
   fluidRow(column(12, wellPanel(
     htmlOutput(outputId = "result_htm", height = "60px")))),
-  fluidRow(column(12, wellPanel(
-      htmlOutput(outputId = "log_htm", height = "60px")))),
   fluidRow(
     column(12, em(strong(sprintf("%s", APPNAME)), " web app from ", 
 	tags$a(href="http://datascience.unm.edu", target="_blank", span("UNM", tags$img(id="unm_logo", height="60", valign="bottom", src="unm_new.png"))),
@@ -236,18 +237,23 @@ ui <- fluidPage(
   bsTooltip("unm_logo", "UNM Translational Informatics Division", "right"),
   bsTooltip("dcppc_logo", "NIH Data Commons Pilot Phase Consortium", "right"),
   bsTooltip("gtex_logo", "GTEx, Genotype-Tissue Expression project", "right"),
-  bsTooltip("idg_logo", "IDG, Illuminating the Druggable Genome project", "right")
+  bsTooltip("idg_logo", "IDG, Illuminating the Druggable Genome project", "right"),
+  conditionalPanel(condition="true", span(style="color:white", textOutput("hits_exist"))) #fails_if_hidden
 )
 
 #############################################################################
 server <- function(input, output, session) {
+  
   observeEvent(input$showhelp, {
     showModal(modalDialog(easyClose=T, footer=tagList(modalButton("Dismiss")),
       title=HTML(sprintf("<H2>%s Help</H2>", paste(APPNAME, "SABV"))),
-      HTML(HelpHtm())))
+      HTML(HelpHtm())
+    ))
   })
   
   Sys.sleep(1)
+  #outputOptions(output, "hits_exist", suspendWhenHidden=F) #Error: "hits_exist is not in list of output objects"
+  
   randGeneA_previous <- 0 # initialize once per session
   message(sprintf("NOTE: genes: %d ; correlations = %d", nrow(gene), nrow(ggc)))
   observe({
@@ -308,13 +314,12 @@ server <- function(input, output, session) {
     if (gsub(" ","",input$qryTxt)=="") { return(NULL) }
     qtxt <- sub("^ *(.*[^ ]) *$","\\1",input$qryTxt)
     if (nchar(qtxt)<3) { return(NULL) }
-    if (grepl("[, ]", qtxt)) {
-      vals <- strsplit(qtxt, "[, ]+")[[1]]
+    if (grepl(" ", qtxt)) {
+      vals <- strsplit(qtxt, " +")[[1]]
       qrex <- sprintf("(^%s$)", paste0(vals, collapse="$|^"))
     } else {
       qrex <- qtxt
     }
-    #message(sprintf("DEBUG: qrex = \"%s\"", qrex))
     return(qrex)
   })
   
@@ -346,12 +351,14 @@ server <- function(input, output, session) {
       }
       return(ggc_hits)
     } else if (input$mode == "TxtSearch") {
+      message(sprintf("DEBUG: is.null(qryRex()): %s", as.character(is.null(qryRex()))))
       if (is.null(qryRex())) { return(NULL) }
       if (input$field == "Symbol") {
         gene_hits <- gene[grepl(qryRex(), gene$symbol, ignore.case=input$iCase),]
       } else if (input$field == "Name") {
         gene_hits <- gene[grepl(qryRex(), gene$name, ignore.case=input$iCase),]
       }
+      message(sprintf("DEBUG: nrow(gene_hits)=%d", nrow(gene_hits)))
       if (nrow(gene_hits)==0) { return(NULL) }
       gene_hits <- rename(gene_hits, EnsemblID = ENSG)
       hits_cols <- c("EnsemblID","uniprot","symbol","name","chr","idgTDL","idgDTO") #datatable() ref by # (0+)
@@ -359,6 +366,12 @@ server <- function(input, output, session) {
       gene_hits <- gene_hits[OrderGeneSymbols(gene_hits$symbol),]
       return(gene_hits)
     } else { return(NULL) }
+  })
+  
+  output$hits_exist <- renderText({
+    message(sprintf("DEBUG: hits_exist: %s", as.character(!is.null(hits()))))
+    if (!grepl("Search", input$mode)) { return("FALSE") }
+    return(as.character(!is.null(hits())))
   })
   
   hit <- reactive({
@@ -444,9 +457,6 @@ server <- function(input, output, session) {
 	      colnames=colnames) %>%
         formatRound(digits=2, columns=ncol(hits()))
   }, server=T)
-  output$datarows_exist <- reactive({ #For conditionalPanel, to test for R NULL.
-    return(as.logical(!is.null(hits())))
-  })
 
   hits_export <- reactive({
     if (is.null(hits())) { return(NULL) }

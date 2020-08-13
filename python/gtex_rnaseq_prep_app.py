@@ -7,7 +7,7 @@ Command-line version; see also Jupyter notebook gtex_rnaseq_prep.ipynb
 
  - Author: Jeremy Yang
  - Based on R code by Oleg Ursu.
- - Required: Python3, Pandas 0.22+
+ - Required: Python 3.6+, Pandas
 
 Workflow (prep):
  - READ: GTEx Subjects data, 1-row/subject.
@@ -21,8 +21,8 @@ Workflow (prep):
  - REMOVE: genes in pseudoautosomal regions (PAR) of chromosome Y.
  - AGGREGATE: samples, computing median TPM by gene+tissue.
  - AGGREGATE: samples, computing median TPM by gene+tissue+sex.
- - OUTPUT: median TPMs, 1-row/gene+tissue+sex.
- - OUTPUT: expression profiles, 1-row/gene+sex.
+ - OUTPUT: median TPMs, 1-row/gene+tissue+sex: 
+ - OUTPUT: expression profiles, 1-row/gene+sex: exfiles_eps.tsv.gz
 
 """
 #############################################################################
