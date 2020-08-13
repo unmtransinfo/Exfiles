@@ -3,6 +3,9 @@
 ### Rationale of weighted Pearson is to unweight smaller, noise-dominated
 ### expression values.
 #############################################################################
+### If all tissues included, must ignore sex-specific tissues, since NAs
+### in profiles result in NAs as correlations.
+#############################################################################
 ### Process input expression profiles (exfiles) and calculate
 ### weighted correlation for all pairwise combos.
 ### Input expression profiles expected format 2 ID cols (ENSG,SEX) followed
@@ -96,7 +99,7 @@ n_na_total <- 0
 n_ok_total <- 0
 ###
 #F:
-eps_mx_f <- as.matrix(eps_f[, N_IDCOLS:ncol(eps_f)])
+eps_mx_f <- as.matrix(eps_f[, (N_IDCOLS+1):ncol(eps_f)])
 rownames(eps_mx_f) <- eps_f$ENSG
 #
 n_calc <- 0
@@ -129,7 +132,7 @@ n_na_total <- n_na_total + n_na
 n_ok_total <- n_ok_total + n_ok
 ###
 #M:
-eps_mx_m <- as.matrix(eps_m[, N_IDCOLS:ncol(eps_m)])
+eps_mx_m <- as.matrix(eps_m[, (N_IDCOLS+1):ncol(eps_m)])
 rownames(eps_mx_m) <- eps_m$ENSG
 #
 n_calc <- 0
@@ -164,7 +167,7 @@ n_ok_total <- n_ok_total + n_ok
 #
 ###
 #N:
-eps_mx_n <- as.matrix(eps_c[, N_IDCOLS:ncol(eps_c)])
+eps_mx_n <- as.matrix(eps_c[, (N_IDCOLS+1):ncol(eps_c)])
 rownames(eps_mx_n) <- eps_c$ENSG
 #
 n_calc <- 0
