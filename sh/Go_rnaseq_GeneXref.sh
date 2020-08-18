@@ -46,13 +46,11 @@ printf "Unique ENSGs: %d\n" $(cat $DATADIR/gtex_rnaseq.ensg |wc -l)
 # https://www.genenames.org/cgi-bin/statistics
 wget -O - 'ftp://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/locus_groups/protein-coding_gene.txt' >$DATADIR/hugo_protein-coding_gene.tsv
 ###
-# Writes gtex_gene_xref.tsv, gtex_gene_xref.uniprot
+# Writes gtex_gene_xref.tsv
 ${cwd}/R/gtex_gene_xref.R
 #
 ###
 # IDG:
-python3 -m BioClients.idg.Client get_targets \
-	--idtype "UNIPROT" \
-	--i $DATADIR/gtex_gene_xref.uniprot \
-	--o $DATADIR/gtex_gene_idg.tsv
+python3 -m BioClients.idg.Client list_targets \
+	--o $DATADIR/tcrd_targets.tsv
 #

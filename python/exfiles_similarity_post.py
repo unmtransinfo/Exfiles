@@ -83,14 +83,14 @@ def GroupComparisons(cors, sims):
 #############################################################################
 if __name__=='__main__':
   parser = argparse.ArgumentParser(description='Exfiles similarity')
-  parser.add_argument("--i_cor",dest="ifile_cor",help="input gene-gene correlation (TSV)")
-  parser.add_argument("--i_sim",dest="ifile_sim",help="input gene-gene similarity (TSV)")
-  parser.add_argument("--o",dest="ofile",help="output (TSV)")
-  parser.add_argument("--min_sim",type=float,default=.7,help="min similarity")
-  parser.add_argument("--min_cor",type=float,default=.7,help="min correlation")
-  parser.add_argument("--max_anticor",type=float,default=-.7,help="max anti-correlation")
-  parser.add_argument("--decimals",type=int,default=3,help="output decimal places")
-  parser.add_argument("-v","--verbose",action="count")
+  parser.add_argument("--i_cor", dest="ifile_cor", help="input gene-gene correlation (TSV)")
+  parser.add_argument("--i_sim", dest="ifile_sim", help="input gene-gene similarity (TSV)")
+  parser.add_argument("--o", dest="ofile", help="output (TSV)")
+  parser.add_argument("--min_sim", type=float, default=.7, help="min similarity")
+  parser.add_argument("--min_cor", type=float, default=.7, help="min correlation")
+  parser.add_argument("--max_anticor", type=float, default=-.7, help="max anti-correlation")
+  parser.add_argument("--decimals", type=int, default=3, help="output decimal places")
+  parser.add_argument("-v", "--verbose", default=0, action="count")
   args = parser.parse_args()
 
   logging.basicConfig(format='%(levelname)s:%(message)s', level=(logging.DEBUG if args.verbose>1 else logging.INFO))

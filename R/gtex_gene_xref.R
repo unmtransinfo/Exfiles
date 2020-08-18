@@ -71,7 +71,8 @@ message(sprintf("N_gene_symbol: %d", uniqueN(gtex_gene$symbol)))
 message(sprintf("N_gene_name: %d", uniqueN(gtex_gene$name)))
 #
 ofile <- "data/gtex_gene_xref.tsv"
-ofile_uniprot <- "data/gtex_gene_xref.uniprot"
 write_delim(gtex_gene, ofile, "\t")
-write_delim(data.table(uniprot = unique(unlist(strsplit(gtex_gene$uniprot, "\\|")))), ofile_uniprot, "\t", col_names=F)
+###
+#ofile_uniprot <- "data/gtex_gene_xref.uniprot"
+#write_delim(data.table(uniprot = unique(unlist(strsplit(gtex_gene$uniprot, "\\|")))), ofile_uniprot, "\t", col_names=F)
 ###

@@ -12,8 +12,8 @@
 ### exfiles_tissue_order.tsv - manually curated, from GDoc
 ### gtex_gene_xref.tsv - from gtex_gene_xref.R
 ### gtex_gene_idg.tsv - BioClients.idg.Client 
-### exfiles_eps.tsv.gz - expression profiles; gtex_rnaseq_prep_app.py
-### exfiles_ggc.tsv.gz - gene-gene comparisons; exfiles_similarity_post.py
+### exfiles_eps.tsv - expression profiles; gtex_rnaseq_prep_app.py
+### exfiles_ggc.tsv - gene-gene comparisons; exfiles_similarity_post.py
 ##########################################################################################
 library(readr)
 library(wCorr)
@@ -50,11 +50,11 @@ if (file.exists("exfiles.Rdata")) {
   ###
   # ENSG, SEX, tissue.1, tissue.2, etc.
   ###
-  eps <- read_delim("data/exfiles_eps.tsv.gz", "\t", col_types=cols(SEX=col_character()))
+  eps <- read_delim("data/exfiles_eps.tsv", "\t", col_types=cols(SEX=col_character()))
   ###
   # ENSGA, ENSGB, Group, wRho, Ruzicka
   ###
-  ggc <- read_delim("data/exfiles_ggc.tsv.gz", "\t", col_types="cccdd")
+  ggc <- read_delim("data/exfiles_ggc.tsv", "\t", col_types="cccdd")
   ggc$Group[ggc$Group=="C"] <- "N"
   #
   tissue <- tissue[tissue$SMTSD %in% colnames(eps),]

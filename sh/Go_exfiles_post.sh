@@ -6,9 +6,9 @@ cwd=$(pwd)
 #
 DATADIR="$cwd/data"
 #
-OFILE_RUZICKA="$DATADIR/exfiles_eps_Ruzicka.tsv.gz"
+OFILE_RUZICKA="$DATADIR/exfiles_eps_Ruzicka.tsv"
 #
-OFILE_WPEARSON="$DATADIR/exfiles_eps_WPearson.tsv.gz"
+OFILE_WPEARSON="$DATADIR/exfiles_eps_WPearson.tsv"
 #
 ###
 printf "Start time: %s\n" "$(date)"
