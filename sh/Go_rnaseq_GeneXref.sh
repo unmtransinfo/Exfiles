@@ -14,6 +14,12 @@ set -x
 # rnaseqfile="$SRCDATADIR/GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm.gct.gz"
 rnaseqfile="$SRCDATADIR/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_tpm.gct.gz"
 #
+if [ -e "$rnaseqfile" ]; then
+	printf "RNAseq file: \"%s\"\n" "${rnaseqfile}"
+else
+	printf "Not found: \"%s\"\n" "${rnaseqfile}"
+	exit
+fi
 # Convert versioned ENSGV to unversioned ENSG:
 gunzip -c $rnaseqfile \
 	|sed -e '1,3d' \
@@ -31,7 +37,7 @@ printf "Unique ENSGs: %d\n" $(cat $DATADIR/gtex_rnaseq.ensg |wc -l)
 ###
 # gtex_gene_xref.R
 # Inputs:
-#	ensembl_biomart.tsv (Ensembl.org/biomart, Homo sapiens dataset w/ ENSP IDs.)
+#	biomart_ENSG2NCBI_human.tsv (Ensembl.org/biomart, Homo sapiens dataset w/ ENSP IDs.)
 #	hugo_protein-coding_gene.tsv (ftp)
 #	gtex_rnaseq.ensg
 # Output:

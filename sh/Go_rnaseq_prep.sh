@@ -2,7 +2,7 @@
 #
 set -x
 #
-SRCDATADIR="/home/data/GTEx/data"
+SRCDATADIR="$HOME/../data/GTEx/data"
 DATADIR="data"
 #
 cwd=$(pwd)

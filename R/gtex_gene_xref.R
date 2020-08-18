@@ -7,7 +7,7 @@ library(data.table)
 # dataset. Selecting only those with Ensembl Protein Family IDs, the number is 22710,
 # the protein-encoding genes.
 ###
-biomart <- read_delim("data/ensembl_biomart.tsv", "\t", na=c("","NA"))
+biomart <- read_delim("data/biomart_ENSG2NCBI_human.tsv", "\t", na=c("","NA"))
 setDT(biomart)
 setnames(biomart, c('ENSG', 'ENSGV', 'HGNCID', 'NCBI'))
 ###

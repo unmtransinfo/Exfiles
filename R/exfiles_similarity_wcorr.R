@@ -19,6 +19,11 @@
 #############################################################################
 # Conserve memory by writing results directly to file.
 #############################################################################
+# Issue: Having included all tissues, there are NAs for sex-specific
+# tissues. wCorr requires values. Converting NAs to zeros may be
+# problematic since zeros count toward correlation. However less so for
+# wCorr than unweighted correlation. So this is our approach, NAs -> zeros.
+#############################################################################
 library(readr)
 library(data.table)
 library(wCorr)
@@ -51,14 +56,17 @@ fout <- file(OFILE, "w")
 writeLines(paste0(c('ENSGA', 'SEXA', 'ENSGB', 'SEXB', 'wRho'), collapse='\t'), fout)
 ###
 ###
-wPearson <- function(A, B) { #Vector version (slow)
+#Vector version (slow)
+#Removes NAs.
+wPearson <- function(A, B) {
   ok <- !is.na(A) & !is.na(B)
   A <- A[ok]
   B <- B[ok]
   weightedCorr(A, B, method="Pearson", weights=(A+B)/2)
 }
 ###
-wPearson_mx <- function(A, B) { #Matrix version
+#Matrix version
+wPearson_mx <- function(A, B) {
   mapply(weightedCorr, as.list(as.data.frame(t(A))), as.list(as.data.frame(t(B))), 
          weights=as.list(as.data.frame(t((A+B)/2))),
          MoreArgs=list(method="Pearson"))
