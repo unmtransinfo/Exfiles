@@ -6,7 +6,7 @@ cwd=$(pwd)
 #
 DATADIR="$cwd/data"
 #
-IFILE="$DATADIR/exfiles_eps.tsv.gz"
+IFILE="$DATADIR/exfiles_eps.tsv"
 #N_IDCOLS="2"
 #
 ###

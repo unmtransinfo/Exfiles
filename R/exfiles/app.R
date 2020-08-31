@@ -11,7 +11,7 @@
 ##########################################################################################
 ### exfiles_tissue_order.tsv - manually curated, from GDoc
 ### gtex_gene_xref.tsv - from gtex_gene_xref.R
-### gtex_gene_idg.tsv - BioClients.idg.Client 
+### tcrd_targets.tsv - BioClients.idg.Client 
 ### exfiles_eps.tsv - expression profiles; gtex_rnaseq_prep_app.py
 ### exfiles_ggc.tsv - gene-gene comparisons; exfiles_similarity_post.py
 ##########################################################################################
@@ -20,6 +20,7 @@ library(wCorr)
 library(shiny, quietly=T)
 library(shinyBS, quietly=T)
 library(DT, quietly=T) #datatable
+library(data.table, quietly=T)
 library(dplyr, quietly=T)
 library(plotly, quietly=T)
 
@@ -38,15 +39,18 @@ if (file.exists("exfiles.Rdata")) {
   # i, SMTS, SMTSD
   ###
   tissue <- read_delim("data/exfiles_tissue_order.tsv", "\t")
+  setDT(tissue)
   ###
   # ENSG, NCBI, HGNCID, chr, uniprot, symbol, name
   ###
   gene <- read_delim("data/gtex_gene_xref.tsv", "\t") # gene attributes
+  setDT(gene)
   ###
-  idg <- read_delim("data/gtex_gene_idg.tsv", "\t") # IDG gene/protein attributes
-  idg <- idg[,c("accession", "idgTDL", "idgFamily")]
-  idg <- idg[!duplicated(idg$accession),]
-  colnames(idg) <- c("uniprot", "idgTDL", "idgDTO")
+  idg <- read_delim("data/tcrd_targets.tsv", "\t") # IDG gene attributes
+  setDT(idg)
+  idg <- idg[, .(accession, idgTDL, idgFamily)]
+  idg <- idg[!duplicated(accession)]
+  setnames(idg, c("uniprot", "idgTDL", "idgDTO"))
   ###
   # ENSG, SEX, tissue.1, tissue.2, etc.
   ###
@@ -55,34 +59,36 @@ if (file.exists("exfiles.Rdata")) {
   # ENSGA, ENSGB, Group, wRho, Ruzicka
   ###
   ggc <- read_delim("data/exfiles_ggc.tsv", "\t", col_types="cccdd")
-  ggc$Group[ggc$Group=="C"] <- "N"
+  setDT(ggc)
+  ggc[Group=="C", Group := "N"]
   #
-  tissue <- tissue[tissue$SMTSD %in% colnames(eps),]
-  eps <- eps[,c("ENSG","SEX",tissue$SMTSD)]
+  tissue <- tissue[SMTSD %in% colnames(eps)]
+  tags <- c("ENSG", "SEX", tissue$SMTSD)
+  eps <- eps[, ..TAGS]
   #
-  ensgs <- intersect(eps$ENSG, c(ggc$ENSGA,ggc$ENSGB))
+  ensgs <- intersect(eps$ENSG, c(ggc$ENSGA, ggc$ENSGB))
   ensgs <- intersect(ensgs, gene$ENSG)
-  eps <- eps[eps$ENSG %in% ensgs,]
-  ggc <- ggc[(ggc$ENSGA %in% ensgs) & (ggc$ENSGB %in% ensgs),]
+  eps <- eps[ENSG %in% ensgs]
+  ggc <- ggc[(ENSGA %in% ensgs) & (ENSGB %in% ensgs)]
   #
-  gene <- gene[gene$ENSG %in% ensgs,]
+  gene <- gene[ENSG %in% ensgs]
   gene <- merge(gene, idg, by="uniprot", all.x=F, all.y=F)
-  gene <- gene[!is.na(gene$symbol),]
-  gene <- gene[!duplicated(gene$ENSG),]
-  gene <- gene[!duplicated(gene$symbol),]
+  gene <- gene[!is.na(symbol)]
+  gene <- gene[!duplicated(ENSG)]
+  gene <- gene[!duplicated(symbol)]
   ###
   save(tissue, gene, idg, eps, ggc, file="exfiles.Rdata")
 }
 #
-message(sprintf("Tissue count: %d",nrow(tissue)))
+message(sprintf("Tissue count: %d", nrow(tissue)))
 message(sprintf("Gene count: %d", nrow(gene)))
-message(sprintf("Gene unique ENSG count: %d", length(unique(gene$ENSG))))
-message(sprintf("Gene unique SYMB count: %d", length(unique(gene$symbol))))
-message(sprintf("Gene unique UniProt count: %d", length(unique(gene$uniprot))))
+message(sprintf("Gene unique ENSG count: %d", uniqueN(gene$ENSG)))
+message(sprintf("Gene unique SYMB count: %d", uniqueN(gene$symbol)))
+message(sprintf("Gene unique UniProt count: %d", uniqueN(gene$uniprot)))
 #
 #
 ###
-ggc$Combo <- round(ggc$wRho*ggc$Ruzicka, digits=2)
+ggc[, Combo := round(wRho*Ruzicka, digits=2)]
 #
 t_elapsed <- (proc.time()-t0)[3]
 #
