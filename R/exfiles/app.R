@@ -64,7 +64,8 @@ if (file.exists("exfiles.Rdata")) {
   ggc[Group=="C", Group := "N"]
   #
   tissue <- tissue[SMTSD %in% colnames(eps)]
-  eps <- eps[, ..(c("ENSG", "SEX", tissue$SMTSD))]
+  TAGS_THIS <- c("ENSG", "SEX", tissue$SMTSD)
+  eps <- eps[, ..TAGS_THIS]
   #
   ensgs <- intersect(eps$ENSG, c(ggc$ENSGA, ggc$ENSGB))
   ensgs <- intersect(ensgs, gene$ENSG)
@@ -287,6 +288,7 @@ server <- function(input, output, session) {
       message(sprintf("ERROR: multiple ENSGs for qryA=%s: %s", qryA(), paste(collapse=",", ensg)))
       return(ensg[1])
     } else {
+      message(sprintf("DEBUG: qryA=%s; ensgA=%s", qryA(), paste(collapse=",", ensg)))
       return(ensg)
     }
   })
