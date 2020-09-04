@@ -55,6 +55,7 @@ if (file.exists("exfiles.Rdata")) {
   # ENSG, SEX, tissue.1, tissue.2, etc.
   ###
   eps <- read_delim("data/exfiles_eps.tsv", "\t", col_types=cols(SEX=col_character()))
+  setDT(eps)
   ###
   # ENSGA, ENSGB, Group, wRho, Ruzicka
   ###
@@ -63,7 +64,7 @@ if (file.exists("exfiles.Rdata")) {
   ggc[Group=="C", Group := "N"]
   #
   tissue <- tissue[SMTSD %in% colnames(eps)]
-  tags <- c("ENSG", "SEX", tissue$SMTSD)
+  TAGS <- c("ENSG", "SEX", tissue$SMTSD)
   eps <- eps[, ..TAGS]
   #
   ensgs <- intersect(eps$ENSG, c(ggc$ENSGA, ggc$ENSGB))
