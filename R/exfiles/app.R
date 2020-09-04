@@ -55,6 +55,7 @@ if (file.exists("exfiles.Rdata")) {
   # ENSG, SEX, tissue.1, tissue.2, etc.
   ###
   eps <- read_delim("data/exfiles_eps.tsv", "\t", col_types=cols(SEX=col_character()))
+  setDT(eps)
   ###
   # ENSGA, ENSGB, Group, wRho, Ruzicka
   ###
@@ -63,8 +64,7 @@ if (file.exists("exfiles.Rdata")) {
   ggc[Group=="C", Group := "N"]
   #
   tissue <- tissue[SMTSD %in% colnames(eps)]
-  tags <- c("ENSG", "SEX", tissue$SMTSD)
-  eps <- eps[, ..TAGS]
+  eps <- eps[, ..(c("ENSG", "SEX", tissue$SMTSD))]
   #
   ensgs <- intersect(eps$ENSG, c(ggc$ENSGA, ggc$ENSGB))
   ensgs <- intersect(ensgs, gene$ENSG)
@@ -223,13 +223,13 @@ ui <- fluidPage(
     htmlOutput(outputId = "result_htm", height = "60px")))),
   fluidRow(
     column(12, em(strong(sprintf("%s", APPNAME)), " web app from ", 
-	tags$a(href="http://datascience.unm.edu", target="_blank", span("UNM", tags$img(id="unm_logo", height="60", valign="bottom", src="unm_new.png"))),
+	tags$a(href="http://datascience.unm.edu", target="_blank", span("UNM", tags$img(id="unm_logo", height="60", valign="bottom", src="www/unm_new.png"))),
 	" and ",
-	tags$a(href="https://nihdatacommons.us", target="_blank", span("DCPPC", tags$img(id="dcppc_logo", height="60", valign="bottom", src="dcppc_logo_only.png"))),
+	tags$a(href="https://nihdatacommons.us", target="_blank", span("DCPPC", tags$img(id="dcppc_logo", height="60", valign="bottom", src="www/dcppc_logo_only.png"))),
 	" data from ",
-	tags$a(href="https://gtexportal.org", target="_blank", span("GTEx", tags$img(id="gtex_logo", height="50", valign="bottom", src="GTEx_logo_only.png"))),
+	tags$a(href="https://gtexportal.org", target="_blank", span("GTEx", tags$img(id="gtex_logo", height="50", valign="bottom", src="www/GTEx_logo_only.png"))),
 	" links to ",
-	tags$a(href="https://druggablegenome.net", target="_blank", span("IDG", tags$img(id="idg_logo", height="60", valign="bottom", src="IDG_logo_only.png")))
+	tags$a(href="https://druggablegenome.net", target="_blank", span("IDG", tags$img(id="idg_logo", height="60", valign="bottom", src="www/IDG_logo_only.png")))
 	))),
   bsTooltip("qryA", "Needed for all modes.", "top"),
   bsTooltip("qryB", "Needed for Compare mode only", "top"),
