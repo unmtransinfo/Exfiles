@@ -9,21 +9,24 @@ Steps for updating the Exfiles dataset from sources.
 
 ## Steps
 
-1. Download latest RNA-Seq files from [GTEx](https://www.gtexportal.org/home/)
+1. Download RNA-Seq files from [GTEx portal](https://www.gtexportal.org/)
   1. RNA-Seq: [Gene TPMs](https://storage.googleapis.com/gtex_analysis_v8/rna_seq_data/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_tpm.gct.gz)
   1. Annotations: [Sample Attributes](https://storage.googleapis.com/gtex_analysis_v8/annotations/GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt)
   1. Annotations: [Subject Phenotypes](https://storage.googleapis.com/gtex_analysis_v8/annotations/GTEx_Analysis_v8_Annotations_SubjectPhenotypesDS.txt)
 1. Generate gene xrefs, from Ensembl/Biomart and HUGO.
-  * [Go_rnaseq_GeneXref.sh](sh/Go_rnaseq_GeneXref.sh)
-  * [gtex_gene_xref.R](R/gtex_gene_xref.R)
+    * [Go_rnaseq_GeneXref.sh](sh/Go_rnaseq_GeneXref.sh)
+    * Download [protein-coding genes](ftp://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/locus_groups/protein-coding _gene.txt) from EBI.
+    * Interactively download BIOMART ENSG2NCBI (human) mapping from Ensembl.org/biomart, with NCBI and HUGO IDs and HUGO symbols.  Select only those with Ensembl Protein Family IDs, for protein-encoding genes.
+    * [gtex_gene_xref.R](R/gtex_gene_xref.R)
+    * Get TCRD targets from IDG.
 1. Prepare RNA-Seq data with [Go_rnaseq_prep.sh](sh/Go_rnaseq_prep.sh)
-  * [gtex_rnaseq_prep_app.py](python/gtex_rnaseq_prep_app.py)
+    * [gtex_rnaseq_prep_app.py](python/gtex_rnaseq_prep_app.py)
 1. Compute pairwise correlation coefficients between all profiles.
-  * [sh/Go_exfiles_cor.sh](sh/Go_exfiles_cor.sh)
-  * [R/exfiles_similarity_wcorr.R](R/exfiles_similarity_wcorr.R)
+    * [sh/Go_exfiles_cor.sh](sh/Go_exfiles_cor.sh)
+    * [R/exfiles_similarity_wcorr.R](R/exfiles_similarity_wcorr.R)
 1. Compute pairwise similarity coefficients between all profiles.
-  * [sh/Go_exfiles_sim.sh](sh/Go_exfiles_sim.sh)
-  * [R/exfiles_similarity_ruzicka.R](R/exfiles_similarity_ruzicka.R)
+    * [sh/Go_exfiles_sim.sh](sh/Go_exfiles_sim.sh)
+    * [R/exfiles_similarity_ruzicka.R](R/exfiles_similarity_ruzicka.R)
 1. Combine correlations and similarity into one file.
-  * [sh/Go_exfiles_post.sh](sh/Go_exfiles_post.sh)
-  * [python/exfiles_similarity_post.py](python/exfiles_similarity_post.py)
+    * [sh/Go_exfiles_post.sh](sh/Go_exfiles_post.sh)
+    * [python/exfiles_similarity_post.py](python/exfiles_similarity_post.py)

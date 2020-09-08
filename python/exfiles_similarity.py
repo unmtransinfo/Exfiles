@@ -13,7 +13,7 @@ Expression profiles similarity computation.
 
 """
 #############################################################################
-import sys,os,io,re,time,argparse,logging
+import sys,os,io,re,time,argparse,logging,tqdm
 import pandas,numpy,scipy,scipy.stats
 
 #############################################################################
@@ -195,6 +195,7 @@ def Tanimoto(exfiles, idcols, datacols, minval, ofile):
 
 #############################################################################
 def Ruzicka(exfiles, idcols, datacols, minval, ofile):
+  tq = None;
   t0 = time.time()
   idcoltags = exfiles.columns[idcols]
   logging.debug("Ruzicka IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())))
@@ -203,13 +204,14 @@ def Ruzicka(exfiles, idcols, datacols, minval, ofile):
   fout = open(ofile, 'w')
   fout.write('%s\tRuzicka\n'%('\t'.join([tag+'A' for tag in idcoltags]+[tag+'B' for tag in idcoltags])))
   n_out=0; n_nan=0; n_submin=0; n_calc=0;
-  n_calc_total=exfiles.shape[0]*(exfiles.shape[0]-1)/2
+  n_calc_total = exfiles.shape[0]*(exfiles.shape[0]-1)/2
   for iA in range(exfiles.shape[0]):
     A = exfiles.iloc[iA,datacols]
     for iB in range(iA+1, exfiles.shape[0]):
       B = exfiles.iloc[iB,datacols]
       s = sum(numpy.fmin(A,B))/sum(numpy.fmax(A,B))
       n_calc+=1
+      if tq is not None: tq.update()
       if numpy.isnan(s):
         n_nan+=1
         continue
@@ -220,7 +222,8 @@ def Ruzicka(exfiles, idcols, datacols, minval, ofile):
       idvalsB = exfiles.iloc[iB,idcols].tolist()
       n_out+=1
       fout.write('%s\t%f\n'%('\t'.join(exfiles.iloc[iA,idcols].tolist()+exfiles.iloc[iB,idcols].tolist()),s))
-    logging.info('Progress: %d / %d (%.1f%%) ; elapsed: %s'%(n_calc, n_calc_total, 100*n_calc/n_calc_total, time.strftime("%H:%M:%S",time.gmtime(time.time()-t0))))
+    if not tq: tq = tqdm.tqdm(total=n_calc_total, unit="calcs")
+    #logging.info('Progress: %d / %d (%.1f%%) ; elapsed: %s'%(n_calc, n_calc_total, 100*n_calc/n_calc_total, time.strftime("%H:%M:%S",time.gmtime(time.time()-t0))))
   logging.info("n_out: %d; n_nan: %d; n_submin: %d"%(n_out, n_nan, n_submin))
 
 #############################################################################

@@ -1,4 +1,5 @@
-# expression-profiles
+# `Exfiles` (expression-profiles)
+
 Gene expression profiles and analytics.
 Developed by UNM and others of Team Helium in the NIH Data Commons Pilot Phase Consortium as part of Key Capability 8, Scientific Use Cases.
 GTEx RNAseq pre-processing and analysis workflows initially developed by Oleg Ursu and Giovanni Bocci.
@@ -8,6 +9,9 @@ See R Shiny app at http://unmtid-shinyapps.net/exfiles/.
 
 ## Dependencies
 
-* R 3.6+
-* R packages: readr, data.table, labdsv, wCorr
-* [BioClients](https://github.com/jeremyjyang/BioClients) for `BioClients.lincs.Client_cmap`.
+* Python 3.6+; package [BioClients](https://github.com/jeremyjyang/BioClients)
+* R 3.6+; packages: readr, data.table, labdsv, wCorr
+
+## Workflow
+
+See [WORKFLOW](docs/WORKFLOW.md)
