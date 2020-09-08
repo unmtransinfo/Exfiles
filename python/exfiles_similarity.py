@@ -13,17 +13,17 @@ Expression profiles similarity computation.
 
 """
 #############################################################################
-import sys,os,io,re,time,argparse
+import sys,os,io,re,time,argparse,logging
 import pandas,numpy,scipy,scipy.stats
 
 #############################################################################
 ### Pearson correlation coefficient.
 #############################################################################
-def Pearson(exfiles, idcols, datacols, minval, ofile, verbose):
+def Pearson(exfiles, idcols, datacols, minval, ofile):
   idcoltags = exfiles.columns[idcols]
-  LOG("DEBUG: Pearson IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())))
-  LOG("DEBUG: idcols = %s ; datacols = %s"%(str(idcols),str(datacols)))
-  LOG("DEBUG: idcoltags = %s"%(str(idcoltags)))
+  logging.debug("Pearson IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())))
+  logging.debug("idcols = %s ; datacols = %s"%(str(idcols),str(datacols)))
+  logging.debug("idcoltags = %s"%(str(idcoltags)))
   fout = open(ofile, 'w')
   fout.write('%s\tPearson\n'%('\t'.join([tag+'A' for tag in idcoltags]+[tag+'B' for tag in idcoltags])))
   n_out=0; n_nan=0; n_submin=0;
@@ -40,16 +40,14 @@ def Pearson(exfiles, idcols, datacols, minval, ofile, verbose):
         continue
       n_out+=1
       fout.write('%s\t%f\n'%('\t'.join(exfiles.iloc[iA,idcols].tolist()+exfiles.iloc[iB,idcols].tolist()),c))
-  LOG("n_out: %d"%(n_out))
-  LOG("n_nan: %d"%(n_nan))
-  LOG("n_submin: %d"%(n_submin))
+  logging.info("n_out: %d; n_nan: %d; n_submin: %d"%(n_out, n_nan, n_submin))
 
 #############################################################################
-def Spearman(exfiles, idcols, datacols, minval, ofile, verbose):
+def Spearman(exfiles, idcols, datacols, minval, ofile):
   idcoltags = exfiles.columns[idcols]
-  LOG("DEBUG: Spearman IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())))
-  LOG("DEBUG: idcols = %s ; datacols = %s"%(str(idcols),str(datacols)))
-  LOG("DEBUG: idcoltags = %s"%(str(idcoltags)))
+  logging.debug("Spearman IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())))
+  logging.debug("idcols = %s ; datacols = %s"%(str(idcols),str(datacols)))
+  logging.debug("idcoltags = %s"%(str(idcoltags)))
   fout = open(ofile, 'w')
   fout.write('%s\tSpearmanRho\tSpearmanP\n'%('\t'.join([tag+'A' for tag in idcoltags]+[tag+'B' for tag in idcoltags])))
   n_out=0; n_nan=0; n_submin=0; n_err=0;
@@ -70,9 +68,7 @@ def Spearman(exfiles, idcols, datacols, minval, ofile, verbose):
         continue
       n_out+=1
       fout.write('%s\t%f\t%f\n'%('\t'.join(exfiles.iloc[iA,idcols].tolist()+exfiles.iloc[iB,idcols].tolist()),rho,pval))
-  LOG("n_out: %d"%(n_out))
-  LOG("n_nan: %d"%(n_nan))
-  LOG("n_submin: %d"%(n_submin))
+  logging.info("n_out: %d; n_nan: %d; n_submin: %d"%(n_out, n_nan, n_submin))
 
 #############################################################################
 def ABC(A,B):
@@ -102,11 +98,11 @@ def AULS(y1, y2, w):
   return(a)
 
 #############################################################################
-def ABC(exfiles, idcols, datacols, minval, ofile, verbose):
+def ABC(exfiles, idcols, datacols, minval, ofile):
   idcoltags = exfiles.columns[idcols]
-  LOG("DEBUG: ABC IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())))
-  LOG("DEBUG: idcols = %s ; datacols = %s"%(str(idcols),str(datacols)))
-  LOG("DEBUG: idcoltags = %s"%(str(idcoltags)))
+  logging.debug("ABC IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())))
+  logging.debug("idcols = %s ; datacols = %s"%(str(idcols),str(datacols)))
+  logging.debug("idcoltags = %s"%(str(idcoltags)))
   fout = open(ofile, 'w')
   fout.write('%s\tABC\tABC_sim\n'%('\t'.join([tag+'A' for tag in idcoltags]+[tag+'B' for tag in idcoltags])))
   n_out=0; n_nan=0; n_submin=0;
@@ -124,16 +120,14 @@ def ABC(exfiles, idcols, datacols, minval, ofile, verbose):
         continue
       n_out+=1
       fout.write('%s\t%f\t%f\n'%('\t'.join(exfiles.iloc[iA,idcols].tolist()+exfiles.iloc[iB,idcols].tolist()),abc,abc_sim))
-  LOG("n_out: %d"%(n_out))
-  LOG("n_nan: %d"%(n_nan))
-  LOG("n_submin: %d"%(n_submin))
+  logging.info("n_out: %d; n_nan: %d; n_submin: %d"%(n_out, n_nan, n_submin))
 
 #############################################################################
-def Cosine(exfiles, idcols, datacols, minval, ofile, verbose):
+def Cosine(exfiles, idcols, datacols, minval, ofile):
   idcoltags = exfiles.columns[idcols]
-  LOG("DEBUG: Cosine IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())))
-  LOG("DEBUG: idcols = %s ; datacols = %s"%(str(idcols),str(datacols)))
-  LOG("DEBUG: idcoltags = %s"%(str(idcoltags)))
+  logging.debug("Cosine IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())))
+  logging.debug("idcols = %s ; datacols = %s"%(str(idcols),str(datacols)))
+  logging.debug("idcoltags = %s"%(str(idcoltags)))
   fout = open(ofile, 'w')
   fout.write('%s\tCosine\n'%('\t'.join([tag+'A' for tag in idcoltags]+[tag+'B' for tag in idcoltags])))
   #First compute |V| for each vector.
@@ -159,9 +153,7 @@ def Cosine(exfiles, idcols, datacols, minval, ofile, verbose):
       idvalsB = exfiles.iloc[iB,idcols].tolist()
       fout.write('%s\t%f\n'%('\t'.join(exfiles.iloc[iA,idcols].tolist()+exfiles.iloc[iB,idcols].tolist()),c))
       n_out+=1
-  LOG("n_out: %d"%(n_out))
-  LOG("n_nan: %d"%(n_nan))
-  LOG("n_submin: %d"%(n_submin))
+  logging.info("n_out: %d; n_nan: %d; n_submin: %d"%(n_out, n_nan, n_submin))
 
 #############################################################################
 ###  Tanimoto(A,B) = (A %*% B) / (A %*% A + B %*% B - A %*% B)
@@ -169,11 +161,11 @@ def Cosine(exfiles, idcols, datacols, minval, ofile, verbose):
 ### Vectorize: use matrix form of numpy.dot(), or maybe numpy.matmul()
 ### ~14min for ~1000 input profiles, ~500k calculations.
 #############################################################################
-def Tanimoto(exfiles, idcols, datacols, minval, ofile, verbose):
+def Tanimoto(exfiles, idcols, datacols, minval, ofile):
   idcoltags = exfiles.columns[idcols]
-  LOG("DEBUG: Tanimoto IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())))
-  LOG("DEBUG: idcols = %s ; datacols = %s"%(str(idcols),str(datacols)))
-  LOG("DEBUG: idcoltags = %s"%(str(idcoltags)))
+  logging.debug("Tanimoto IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())))
+  logging.debug("idcols = %s ; datacols = %s"%(str(idcols),str(datacols)))
+  logging.debug("idcoltags = %s"%(str(idcoltags)))
   fout = open(ofile, 'w')
   fout.write('%s\tTanimoto\n'%('\t'.join([tag+'A' for tag in idcoltags]+[tag+'B' for tag in idcoltags])))
   #First compute |V|^2 for each vector.
@@ -199,17 +191,15 @@ def Tanimoto(exfiles, idcols, datacols, minval, ofile, verbose):
         continue
       n_out+=1
       fout.write('%s\t%f\n'%('\t'.join(exfiles.iloc[iA,idcols].tolist()+exfiles.iloc[iB,idcols].tolist()),t))
-  LOG("n_out: %d"%(n_out))
-  LOG("n_nan: %d"%(n_nan))
-  LOG("n_submin: %d"%(n_submin))
+  logging.info("n_out: %d; n_nan: %d; n_submin: %d"%(n_out, n_nan, n_submin))
 
 #############################################################################
-def Ruzicka(exfiles, idcols, datacols, minval, ofile, verbose):
+def Ruzicka(exfiles, idcols, datacols, minval, ofile):
   t0 = time.time()
   idcoltags = exfiles.columns[idcols]
-  LOG("DEBUG: Ruzicka IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())))
-  LOG("DEBUG: idcols = %s ; datacols = %s"%(str(idcols),str(datacols)))
-  LOG("DEBUG: idcoltags = %s"%(str(idcoltags)))
+  logging.debug("Ruzicka IN: nrows = %d, cols: %s"%(exfiles.shape[0],str(exfiles.columns.tolist())))
+  logging.debug("idcols = %s ; datacols = %s"%(str(idcols),str(datacols)))
+  logging.debug("idcoltags = %s"%(str(idcoltags)))
   fout = open(ofile, 'w')
   fout.write('%s\tRuzicka\n'%('\t'.join([tag+'A' for tag in idcoltags]+[tag+'B' for tag in idcoltags])))
   n_out=0; n_nan=0; n_submin=0; n_calc=0;
@@ -230,31 +220,25 @@ def Ruzicka(exfiles, idcols, datacols, minval, ofile, verbose):
       idvalsB = exfiles.iloc[iB,idcols].tolist()
       n_out+=1
       fout.write('%s\t%f\n'%('\t'.join(exfiles.iloc[iA,idcols].tolist()+exfiles.iloc[iB,idcols].tolist()),s))
-    LOG('Progress: %d / %d (%.1f%%) ; elapsed: %s'%(n_calc, n_calc_total, 100*n_calc/n_calc_total, time.strftime("%H:%M:%S",time.gmtime(time.time()-t0))), file=sys.stderr)
-  LOG("n_out: %d"%(n_out))
-  LOG("n_nan: %d"%(n_nan))
-  LOG("n_submin: %d"%(n_submin))
+    logging.info('Progress: %d / %d (%.1f%%) ; elapsed: %s'%(n_calc, n_calc_total, 100*n_calc/n_calc_total, time.strftime("%H:%M:%S",time.gmtime(time.time()-t0))))
+  logging.info("n_out: %d; n_nan: %d; n_submin: %d"%(n_out, n_nan, n_submin))
 
 #############################################################################
-def ReadExfiles(ifile, verbose):
+def ReadExfiles(ifile):
   fin = open(ifile)
-  LOG('=== Expression profiles datafile: %s'%fin.name)
+  logging.info('=== Expression profiles datafile: %s'%fin.name)
   exfiles = pandas.read_csv(fin, sep='\t')
-  LOG("Exfiles dataset nrows: %d ; ncols: %d:"%(exfiles.shape[0],exfiles.shape[1]))
+  logging.info("Exfiles dataset nrows: %d ; ncols: %d:"%(exfiles.shape[0],exfiles.shape[1]))
   for name,val in exfiles.SEX.value_counts().sort_index().iteritems():
-    LOG('\tExfiles (SEX=%s): %5d'%(name,val))
+    logging.info('\tExfiles (SEX=%s): %5d'%(name,val))
   return exfiles
 
 #############################################################################
 ### Replace missing (nan) values with 0.
 #############################################################################
-def CleanExfiles(exfiles, verbose):
+def CleanExfiles(exfiles):
   exfiles = exfiles.fillna(0)
   return exfiles
-
-#############################################################################
-def LOG(msg, file=sys.stdout):
-  print(msg, file=file, flush=True)
 
 #############################################################################
 if __name__=='__main__':
@@ -277,35 +261,36 @@ if __name__=='__main__':
   parser.add_argument("-v","--verbose",action="count")
   args = parser.parse_args()
 
-  PROG=os.path.basename(sys.argv[0])
+  logging.basicConfig(format='%(levelname)s:%(message)s', level=(logging.DEBUG if args.verbose>1 else logging.INFO))
+
   t0 = time.time()
 
   if args.verbose:
-    LOG('Python: %s; pandas: %s; numpy: %s; scipy: %s'%(sys.version.split()[0],pandas.__version__, numpy.__version__, scipy.__version__))
+    logging.info('Python: %s; pandas: %s; numpy: %s; scipy: %s'%(sys.version.split()[0],pandas.__version__, numpy.__version__, scipy.__version__))
 
   if not args.ifile:
     parser.error('Input file required.')
 
-  exfiles = ReadExfiles(args.ifile, args.verbose)
+  exfiles = ReadExfiles(args.ifile)
 
-  exfiles = CleanExfiles(exfiles, args.verbose)
+  exfiles = CleanExfiles(exfiles)
 
   if args.ofile_pearson:
-    Pearson(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.pearson_min, args.ofile_pearson, args.verbose)
+    Pearson(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.pearson_min, args.ofile_pearson)
 
   if args.ofile_spearman:
-    Spearman(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.spearman_min, args.ofile_spearman, args.verbose)
+    Spearman(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.spearman_min, args.ofile_spearman)
 
   if args.ofile_cosine:
-    Cosine(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.cosine_min, args.ofile_cosine, args.verbose)
+    Cosine(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.cosine_min, args.ofile_cosine)
 
   if args.ofile_ruzicka:
-    Ruzicka(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.ruzicka_min, args.ofile_ruzicka, args.verbose)
+    Ruzicka(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.ruzicka_min, args.ofile_ruzicka)
 
   if args.ofile_tanimoto:
-    Tanimoto(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.tanimoto_min, args.ofile_tanimoto, args.verbose)
+    Tanimoto(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.tanimoto_min, args.ofile_tanimoto)
 
   if args.ofile_abc:
-    ABC(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.abc_min, args.ofile_abc, args.verbose)
+    ABC(exfiles, list(range(args.n_idcols)), list(range(args.n_idcols,exfiles.shape[1])), args.abc_min, args.ofile_abc)
 
-  LOG("%s Elapsed: %ds"%(PROG,(time.time()-t0)))
+  logging.info("Elapsed: %ds"%((time.time()-t0)))

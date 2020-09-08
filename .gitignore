@@ -1,3 +1,7 @@
 target
 data
 .Rproj.user
+*.Rproj
+*.RData
+*.Rdata
+.Rhistory

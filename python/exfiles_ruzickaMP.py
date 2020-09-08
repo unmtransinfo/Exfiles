@@ -11,7 +11,7 @@ Expression profiles similarity computation.
 
 """
 #############################################################################
-import sys,os,io,re,time,argparse
+import sys,os,io,re,time,argparse,logging
 import pandas,numpy,scipy,scipy.stats
 import multiprocessing as mp
 
@@ -39,48 +39,45 @@ def Ruzicka_MPWorker(iotuple):
   fout.close()
 
 #############################################################################
-def ReadExfiles(ifile, verbose):
+def ReadExfiles(ifile):
   fin = open(ifile)
-  LOG('=== Expression profiles datafile: %s'%fin.name)
+  logging.info('=== Expression profiles datafile: %s'%fin.name)
   exfiles = pandas.read_csv(fin, sep='\t')
-  LOG("Exfiles dataset nrows: %d ; ncols: %d:"%(exfiles.shape[0],exfiles.shape[1]))
+  logging.info("Exfiles dataset nrows: %d ; ncols: %d:"%(exfiles.shape[0],exfiles.shape[1]))
   for name,val in exfiles.SEX.value_counts().sort_index().iteritems():
-    LOG('\tExfiles (SEX=%s): %5d'%(name,val))
+    logging.info('\tExfiles (SEX=%s): %5d'%(name,val))
   return exfiles
 
 #############################################################################
-def CleanExfiles(exfiles, verbose):
+def CleanExfiles(exfiles):
   #exfiles = exfiles.fillna(0)
   exfiles = exfiles.dropna(how="any")
   return exfiles
 
 #############################################################################
-def LOG(msg, file=sys.stdout):
-  print(msg, file=file, flush=True)
-
-#############################################################################
 if __name__=='__main__':
   parser = argparse.ArgumentParser(description='Exfiles similarity')
-  parser.add_argument("--i",dest="ifile",help="input profiles, 1-row/gene (TSV)")
-  parser.add_argument("--ruzicka_min",type=float,default=0,help="minimum values output")
-  parser.add_argument("--n_idcols",type=int,default=2,help="number of ID cols preceding TPMs")
-  parser.add_argument("--nproc",type=int,default=2,help="number of parallel processes")
-  parser.add_argument("--o",dest="ofile",help="output (TSV)")
-  parser.add_argument("-v","--verbose",action="count")
+  parser.add_argument("--i", dest="ifile", help="input profiles, 1-row/gene (TSV)")
+  parser.add_argument("--ruzicka_min", type=float, default=0, help="minimum values output")
+  parser.add_argument("--n_idcols", type=int, default=2, help="number of ID cols preceding TPMs")
+  parser.add_argument("--nproc", type=int, default=2, help="number of parallel processes")
+  parser.add_argument("--o", dest="ofile", help="output (TSV)")
+  parser.add_argument("-v", "--verbose", action="count")
   args = parser.parse_args()
 
-  PROG=os.path.basename(sys.argv[0])
+  logging.basicConfig(format='%(levelname)s:%(message)s', level=(logging.DEBUG if args.verbose>1 else logging.INFO))
+
   t0 = time.time()
 
   if args.verbose:
-    LOG('Python: %s; pandas: %s; numpy: %s; scipy: %s'%(sys.version.split()[0],pandas.__version__, numpy.__version__, scipy.__version__))
+    logging.info('Python: %s; pandas: %s; numpy: %s; scipy: %s'%(sys.version.split()[0],pandas.__version__, numpy.__version__, scipy.__version__))
 
   if not args.ifile:
     parser.error('Input file required.')
 
-  exfiles = ReadExfiles(args.ifile, args.verbose)
+  exfiles = ReadExfiles(args.ifile)
 
-  exfiles = CleanExfiles(exfiles, args.verbose)
+  exfiles = CleanExfiles(exfiles)
 
   if not args.ofile:
     parser.error('Output file required.')
@@ -103,4 +100,4 @@ if __name__=='__main__':
     exfiles, i_start, i_end, n_idcols, ruzicka_min, ofile, i_proc  = iotuples[i]
     i+=1
 
-  LOG("%s Elapsed: %ds"%(PROG,(time.time()-t0)))
+  logging.info("Elapsed: %ds"%((time.time()-t0)))

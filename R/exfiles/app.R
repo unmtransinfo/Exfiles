@@ -19,9 +19,8 @@ library(readr)
 library(wCorr)
 library(shiny, quietly=T)
 library(shinyBS, quietly=T)
-library(DT, quietly=T) #datatable
+library(DT, quietly=T)
 library(data.table, quietly=T)
-library(dplyr, quietly=T)
 library(plotly, quietly=T)
 
 ###
@@ -61,7 +60,7 @@ if (file.exists("exfiles.Rdata")) {
   ###
   ggc <- read_delim("data/exfiles_ggc.tsv", "\t", col_types="cccdd")
   setDT(ggc)
-  ggc[Group=="C", Group := "N"]
+  #ggc[Group=="C", Group := "N"] #Combined, not neutral!
   #
   tissue <- tissue[SMTSD %in% colnames(eps)]
   TAGS_THIS <- c("ENSG", "SEX", tissue$SMTSD)
@@ -91,12 +90,9 @@ message(sprintf("Gene unique UniProt count: %d", uniqueN(gene$uniprot)))
 ###
 ggc[, Combo := round(wRho*Ruzicka, digits=2)]
 #
-t_elapsed <- (proc.time()-t0)[3]
-#
-db_htm <- sprintf("<B>Dataset:</B> Genes: %d ; tissues: %d ; comparisons: %d (t_load: %.1fs)", nrow(gene), nrow(tissue), nrow(ggc), t_elapsed)
+db_htm <- sprintf("<B>Dataset:</B> Genes: %d ; tissues: %d ; comparisons: %d", nrow(gene), nrow(tissue), nrow(ggc))
+message(sprintf("t_load: %.1fs", (proc.time()-t0)[3]))
 ###
-#
-qryArand <- sample(gene$symbol, 1) # initial random query
 #
 #############################################################################
 #
@@ -125,16 +121,11 @@ for (i in 1:nrow(gene))
 }
 #
 OrderGeneSymbols <- function(symbols) {
-  genes <- data.frame(symbol=symbols, prefix=NA, i=NA)
-  are_prefixed <- grepl("^[A-Z]+[0-9]+$", genes$symbol)
-  if (sum(!are_prefixed)>0) {
-    genes$prefix[!are_prefixed] <- as.character(genes$symbol[!are_prefixed])
-  }
-  if (sum(are_prefixed)>0) {
-   genes$prefix[are_prefixed] <- sub("[0-9]+$", "", genes$symbol[are_prefixed])
-   genes$i[are_prefixed] <- sub("^[A-Z]+", "", genes$symbol[are_prefixed])
-  }
-  genes$i <- as.integer(genes$i)
+  genes <- data.table(symbol=symbols, prefix=NA, i=NA)
+  genes[, are_prefixed := grepl("^[A-Z]+[0-9]+$", symbol)]
+  genes[(!are_prefixed), prefix := as.character(symbol)]
+  genes[(are_prefixed), prefix := sub("[0-9]+$", "", symbol)]
+  genes[(are_prefixed), i := as.integer(sub("^[A-Z]+", "", symbol))]
   return(order(genes$prefix, genes$i, na.last=T))
 }
 #############################################################################
@@ -165,7 +156,7 @@ Ex-files modes of operation:
 <LI><B>Compare:</B> plots query GeneA vs. GeneB with sex-specific profiles.
 <LI><B>SimSearch:</B> returns hits based on the GeneA query. The top hit is displayed against GeneA in the plot, and other hits displayed in a table, plotted by manual selection, and downloadable as TSV.
 <LI><B>TxtSearch:</B> returns hits based on the query, which may be a substring, regular expression, or space-separated list of exact symbols. Hits are displayed in the table, plotted by manual selection, and downloadable as TSV.
-<LI><B>Groups</B> denote comparisons among F-only, M-only or N (Non-sexed) representing un-stratified subjects, computed as mean of F and M profiles.
+<LI><B>Groups</B> denote comparisons among F-only, M-only or C (Combined-sex) representing un-stratified subjects, computed as mean of F and M profiles.
 <LI>Expression units: <B>TPM</B> = RNA-seq Transcripts Per Million-kilobase or <B>LOG<SUB>10</SUB>(1+TPM)</B>.
 <LI>Expression profiles are computed as medians for GTEx samples, by tissue and sex.
 <LI>Option Dissim[ilarity] reverse-sorts search results. To find anti-correlated genes, search by wRho.
@@ -203,34 +194,32 @@ ui <- fluidPage(
 	      textInput("qryTxt", "Query (list or regex)", width='80%'),
 	      checkboxInput("iCase","IgnoreCase", value=T, width='20%')),
 	conditionalPanel(condition="input.mode != 'TxtSearch'",
-	       span("GeneA", style="font-weight:bold", actionButton("randGene", "Random", style='padding:1px')),
-        selectizeInput("qryA", label=NULL, choices=gene_choices, selected=qryArand)),
+
+        selectizeInput("qryA", label=NULL, choices=gene_choices)),
+
 	conditionalPanel(condition="input.mode == 'Compare'",
           selectizeInput("qryB", label="GeneB", choices = c(list('None'='none'), gene_choices))),
 	  conditionalPanel(condition="input.mode == 'SimSearch'",
             radioButtons("score", "Score", choices=c("Ruzicka", "wRho", "Combo"), selected="Combo", inline=T)),
 	  conditionalPanel(condition="input.mode == 'TxtSearch'",
             radioButtons("field", "Field", choices=c("Symbol", "Name"), selected="Symbol", inline=T)),
-          checkboxGroupInput("groups", "Groups", choices=c("F","M","N"), selected=c("N"), inline=T),
+          checkboxGroupInput("groups", "Groups", choices=c("F","M","C"), selected=c("C"), inline=T),
           checkboxGroupInput("opts", "Output", choices=c("IDG", "Dissim","LogY","Annplot"), selected=c("IDG","LogY"), inline=T)),
-	wellPanel(htmlOutput(outputId = "log_htm", height = "120px"))
+	wellPanel(htmlOutput(outputId = "log_htm", height = "120px")),
+        wellPanel(htmlOutput(outputId = "result_htm", height = "120px"))
 	),
     column(8, conditionalPanel(condition="true", plotlyOutput("plot", height = "580px")))
   ),
   conditionalPanel(condition="output.hits_exist=='TRUE'",
     wellPanel(fluidRow(column(12, DT::dataTableOutput("datarows"))),
               fluidRow(column(12, downloadButton("hits_file", label="Download"))))),
-  fluidRow(column(12, wellPanel(
-    htmlOutput(outputId = "result_htm", height = "60px")))),
   fluidRow(
     column(12, em(strong(sprintf("%s", APPNAME)), " web app from ", 
-	tags$a(href="http://datascience.unm.edu", target="_blank", span("UNM", tags$img(id="unm_logo", height="60", valign="bottom", src="www/unm_new.png"))),
+	tags$a(href="http://datascience.unm.edu", target="_blank", span("UNM", tags$img(id="unm_logo", height="60", valign="bottom", src="unm_new.png"))),
 	" and ",
-	tags$a(href="https://nihdatacommons.us", target="_blank", span("DCPPC", tags$img(id="dcppc_logo", height="60", valign="bottom", src="www/dcppc_logo_only.png"))),
-	" data from ",
-	tags$a(href="https://gtexportal.org", target="_blank", span("GTEx", tags$img(id="gtex_logo", height="50", valign="bottom", src="www/GTEx_logo_only.png"))),
-	" links to ",
-	tags$a(href="https://druggablegenome.net", target="_blank", span("IDG", tags$img(id="idg_logo", height="60", valign="bottom", src="www/IDG_logo_only.png")))
+	tags$a(href="https://druggablegenome.net", target="_blank", span("IDG", tags$img(id="idg_logo", height="60", valign="bottom", src="IDG_logo_only.png"))),
+	" built from ",
+	tags$a(href="https://gtexportal.org", target="_blank", span("GTEx", tags$img(id="gtex_logo", height="50", valign="bottom", src="GTEx_logo_only.png")))
 	))),
   bsTooltip("qryA", "Needed for all modes.", "top"),
   bsTooltip("qryB", "Needed for Compare mode only", "top"),
@@ -239,12 +228,10 @@ ui <- fluidPage(
   bsTooltip("score", "Ruzicka similarity, Pearson weighted correlation, or combination of both.", "top"),
   bsTooltip("groups", "Search F-only, M-only, or Non-sexed comparisons.", "top"),
   bsTooltip("opts", "Output options affecting plot and datatable but not query logic.", "top"),
-  bsTooltip("randGene", "Random GeneA query.", "top"),
   bsTooltip("goRefresh", "Refresh plot, output.", "top"),
   bsTooltip("unm_logo", "UNM Translational Informatics Division", "right"),
-  bsTooltip("dcppc_logo", "NIH Data Commons Pilot Phase Consortium", "right"),
-  bsTooltip("gtex_logo", "GTEx, Genotype-Tissue Expression project", "right"),
   bsTooltip("idg_logo", "IDG, Illuminating the Druggable Genome project", "right"),
+  bsTooltip("gtex_logo", "GTEx, Genotype-Tissue Expression project", "right"),
   conditionalPanel(condition="true", span(style="color:white", textOutput("hits_exist"))) #fails_if_hidden
 )
 
@@ -261,29 +248,23 @@ server <- function(input, output, session) {
   Sys.sleep(1)
   #outputOptions(output, "hits_exist", suspendWhenHidden=F) #Error: "hits_exist is not in list of output objects"
   
-  randGeneA_previous <- 0 # initialize once per session
   message(sprintf("NOTE: genes: %d ; correlations = %d", nrow(gene), nrow(ggc)))
   observe({
     message(sprintf("NOTE: mode: %s", input$mode))
     if (input$mode=="SimSearch") { message(sprintf("NOTE: score: %s", input$score)) }
-    if (!is.null(qryA())) { message(sprintf("NOTE: qryA = %s \"%s\"", qryA(), gene$name[gene$symbol==qryA()])) }
-    if (!is.null(qryB())) { message(sprintf("NOTE: qryB = %s \"%s\"", qryB(), gene$name[gene$symbol==qryB()])) }
+    if (!is.null(qryA())) { message(sprintf("NOTE: qryA = %s \"%s\"", qryA(), gene[symbol==qryA(), name])) }
+    if (!is.null(qryB())) { message(sprintf("NOTE: qryB = %s \"%s\"", qryB(), gene[symbol==qryB(), name])) }
   })
 
   qryA <- reactive({
     input$goRefresh # Re-run this and downstream on action button.
     if (input$mode=="TxtSearch") { return(NULL) }
-    if (input$randGene>randGeneA_previous) {
-      randGeneA_previous <<- input$randGene # Must assign to up-scoped variable.
-      qryArand <- sample(gene$symbol, 1)
-      updateTextInput(session, "qryA", value=qryArand) #Works better than updateSelectizeInput ??
-    }
     if (input$qryA=="") { return(NULL) }
     toupper(input$qryA)
   })
   ensgA <- reactive({
     if (is.null(qryA())) { return(NULL) }
-    ensg <- gene$ENSG[gene$symbol==qryA()]
+    ensg <- gene[symbol==qryA(), ENSG]
     if (length(ensg)>1) {
       message(sprintf("ERROR: multiple ENSGs for qryA=%s: %s", qryA(), paste(collapse=",", ensg)))
       return(ensg[1])
@@ -294,16 +275,16 @@ server <- function(input, output, session) {
   })
   chrA <- reactive({
     if (is.null(ensgA())) { return(NULL) }
-    gene$chr[gene$ENSG==ensgA()]
+    return(gene[ENSG==ensgA(), chr])
   })
   
   qryB <- reactive({
-    if (input$qryB %in% c("","NONE","none")) { return(NULL) }
+    if (input$qryB %in% c("", "NONE", "none")) { return(NULL) }
     toupper(input$qryB)
   })
   ensgB <- reactive({
     if (is.null(qryB())) { return(NULL) }
-    ensg <- gene$ENSG[gene$symbol==qryB()]
+    ensg <- gene[symbol==qryB(), ENSG]
     if (length(ensg)>1) {
       message(sprintf("ERROR: multiple ENSGs for qryB=%s: %s", qryB(), paste(collapse=",", ensg)))
       return(ensg[1])
@@ -313,14 +294,14 @@ server <- function(input, output, session) {
   })
   chrB <- reactive({
     if (is.null(ensgB())) { return(NULL) }
-    gene$chr[gene$ENSG==ensgB()]
+    return(gene[ENSG==ensgB(), chr])
   })
 
   # If space-separated list, convert input query to regular expression.
   qryRex <- reactive({
     if (is.null(input$qryTxt)) { return(NULL) }
-    if (gsub(" ","",input$qryTxt)=="") { return(NULL) }
-    qtxt <- sub("^ *(.*[^ ]) *$","\\1",input$qryTxt)
+    if (gsub(" ", "", input$qryTxt)=="") { return(NULL) }
+    qtxt <- sub("^ *(.*[^ ]) *$", "\\1", input$qryTxt)
     if (nchar(qtxt)<3) { return(NULL) }
     if (grepl(" ", qtxt)) {
       vals <- strsplit(qtxt, " +")[[1]]
@@ -334,44 +315,44 @@ server <- function(input, output, session) {
   hits <- reactive({
     if (input$mode == "SimSearch" ) {
       if (is.null(qryA())) { return(NULL) }
-      if (sum(ggc$ENSGA==ensgA()|ggc$ENSGB==ensgA())==0) { return(NULL) }
-      ggc_hits <- ggc[ggc$ENSGA==ensgA()|ggc$ENSGB==ensgA(),]
+      if (sum(ggc$ENSGA==ensgA() | ggc$ENSGB==ensgA())==0) { return(NULL) }
+      ggc_hits <- ggc[ENSGA==ensgA() | ENSGB==ensgA()]
       if (sum(ggc_hits$Group %in% input$groups)==0) { return(NULL) }
-      ggc_hits <- ggc_hits[ggc_hits$Group %in% input$groups,]
+      ggc_hits <- ggc_hits[Group %in% input$groups]
       if (input$score=="wRho") {
-        ggc_hits["Score"] <- round(ggc_hits$wRho, digits=2)
+        ggc_hits[, Score := round(wRho, digits=2)]
       } else if (input$score=="Ruzicka") {
-        ggc_hits["Score"] <- round(ggc_hits$Ruzicka, digits=2)
+        ggc_hits[, Score := round(Ruzicka, digits=2)]
       } else {
-        ggc_hits["Score"] <- round(ggc_hits$Combo, digits=2)
+        ggc_hits[, Score := round(Combo, digits=2)]
       }
-      ggc_hits["EnsemblID"] <- NA #Populate with non-query gene.
-      ggc_hits$EnsemblID[ggc_hits$ENSGA==ensgA()] <- ggc_hits$ENSGB[ggc_hits$ENSGA==ensgA()]
-      ggc_hits$EnsemblID[ggc_hits$ENSGB==ensgA()] <- ggc_hits$ENSGA[ggc_hits$ENSGB==ensgA()]
-      gene_cols <- c("ENSG", "uniprot", "symbol","name","chr","idgTDL","idgDTO")
-      ggc_hits <- merge(ggc_hits, gene[,gene_cols], by.x="EnsemblID", by.y="ENSG", all.x=T, all.y=F)
-      hits_cols <- c("EnsemblID","uniprot","symbol","name","chr","idgTDL","idgDTO","Group","Score") #datatable() ref by # (0+)
-      ggc_hits <- ggc_hits[,hits_cols]
+      ggc_hits[, EnsemblID := as.character(NA)] #Populate with non-query gene.
+      ggc_hits[ENSGA==ensgA(), EnsemblID := ENSGB]
+      ggc_hits[ENSGB==ensgA(), EnsemblID := ENSGA]
+      gene_cols <- c("ENSG", "uniprot", "symbol", "name", "chr", "idgTDL", "idgDTO")
+      ggc_hits <- merge(ggc_hits, gene[, ..gene_cols], by.x="EnsemblID", by.y="ENSG", all.x=T, all.y=F)
+      hits_cols <- c("EnsemblID", "uniprot", "symbol", "name", "chr", "idgTDL", "idgDTO", "Group", "Score") #datatable() ref by # (0+)
+      ggc_hits <- ggc_hits[, ..hits_cols]
       if ("Dissim" %in% input$opts) {
-        ggc_hits <- ggc_hits[order(ggc_hits$Score),]
+        setorder(ggc_hits, Score)
       } else {
-        ggc_hits <- ggc_hits[order(-ggc_hits$Score),]
+        setorder(ggc_hits, -Score)
       }
       return(ggc_hits)
     } else if (input$mode == "TxtSearch") {
       message(sprintf("DEBUG: is.null(qryRex()): %s", as.character(is.null(qryRex()))))
       if (is.null(qryRex())) { return(NULL) }
       if (input$field == "Symbol") {
-        gene_hits <- gene[grepl(qryRex(), gene$symbol, ignore.case=input$iCase),]
+        gene_hits <- gene[grepl(qryRex(), symbol, ignore.case=input$iCase)]
       } else if (input$field == "Name") {
-        gene_hits <- gene[grepl(qryRex(), gene$name, ignore.case=input$iCase),]
+        gene_hits <- gene[grepl(qryRex(), name, ignore.case=input$iCase)]
       }
       message(sprintf("DEBUG: nrow(gene_hits)=%d", nrow(gene_hits)))
       if (nrow(gene_hits)==0) { return(NULL) }
-      gene_hits <- rename(gene_hits, EnsemblID = ENSG)
-      hits_cols <- c("EnsemblID","uniprot","symbol","name","chr","idgTDL","idgDTO") #datatable() ref by # (0+)
-      gene_hits <- gene_hits[,hits_cols]
-      gene_hits <- gene_hits[OrderGeneSymbols(gene_hits$symbol),]
+      setnames(gene_hits, old="ENSG", new="EnsemblID")
+      hits_cols <- c("EnsemblID", "uniprot", "symbol", "name", "chr", "idgTDL", "idgDTO") #datatable() ref by # (0+)
+      gene_hits <- gene_hits[, ..hits_cols]
+      gene_hits <- gene_hits[OrderGeneSymbols(symbol)]
       return(gene_hits)
     } else { return(NULL) }
   })
@@ -401,23 +382,23 @@ server <- function(input, output, session) {
   })
   hit_symbol <- reactive({
     if (is.null(hit())) { return("") }
-    gene$symbol[gene$ENSG==hit()]
+    gene[ENSG==hit(), symbol]
   })
   hit_chr <- reactive({
     if (is.null(hit())) { return(NULL) }
-    gene$chr[gene$ENSG==hit()]
+    gene[ENSG==hit(), chr]
   })
 
   output$result_htm <- reactive({
     htm <- sprintf("<B>Results (%s):</B>", input$mode)
     if (!is.null(qryA())) {
-      htm <- paste0(htm, sprintf(" GeneA: %s \"%s\"%s", qryA(), gene$name[gene$ENSG==ensgA()],
-	ifelse(("IDG" %in% input$opts), sprintf(" <A HREF=\"https://pharos.nih.gov/idg/targets/%s\" target=\"_blank\">%s</A>", gene$uniprot[gene$ENSG==ensgA()], icon("external-link",lib="font-awesome")), "")))
+      htm <- paste0(htm, sprintf(" GeneA: %s \"%s\"%s", qryA(), gene[ENSG==ensgA(), name],
+	ifelse(("IDG" %in% input$opts), sprintf(" <A HREF=\"https://pharos.nih.gov/idg/targets/%s\" target=\"_blank\">%s</A>", gene[ENSG==ensgA(), uniprot], icon("external-link",lib="font-awesome")), "")))
       if (!is.null(chrA()) & grepl("^[XY]", chrA())) { htm <- paste0(htm, sprintf(", sex-linked, location %s", chrA())) }
     }
     if (!is.null(qryB())) {
-      htm <- paste0(htm, sprintf("; geneB: %s \"%s\"%s", qryB(), gene$name[gene$ENSG==ensgB()],
-	ifelse(("IDG" %in% input$opts), sprintf(" <A HREF=\"https://pharos.nih.gov/idg/targets/%s\" target=\"_blank\">%s</A>", gene$uniprot[gene$ENSG==ensgB()], icon("external-link",lib="font-awesome")), "")))
+      htm <- paste0(htm, sprintf("; geneB: %s \"%s\"%s", qryB(), gene[ENSG==ensgB(), name],
+	ifelse(("IDG" %in% input$opts), sprintf(" <A HREF=\"https://pharos.nih.gov/idg/targets/%s\" target=\"_blank\">%s</A>", gene[ENSG==ensgB(), uniprot], icon("external-link",lib="font-awesome")), "")))
       if (!is.null(chrB()) & grepl("^[XY]", chrB())) { htm <- paste0(htm, sprintf(", sex-linked, location %s", chrB())) }
     }
     if (!is.null(qryRex())) {
@@ -471,11 +452,11 @@ server <- function(input, output, session) {
     hits_out <- hits()
     if (input$mode=="SimSearch") {
       hits_out["Query"] <- qryA()
-      hits_out <- hits_out[,c(ncol(hits_out),1:(ncol(hits_out)-1))] #Query col 1st.
-      names(hits_out) <- c("Query", "EnsemblID","UniProt","GeneSymbol","GeneName","Chr", "idgTDL","idgDTO", "Group", input$score)
+      hits_out <- hits_out[, c(ncol(hits_out), 1:(ncol(hits_out)-1))] #Query col 1st.
+      setnames(hits_out, c("Query", "EnsemblID", "UniProt", "GeneSymbol", "GeneName", "Chr",  "idgTDL", "idgDTO", "Group", input$score))
       return(hits_out)
     } else if (input$mode=="TxtSearch") {
-      names(hits_out) <- c("EnsemblID","UniProt","GeneSymbol","GeneName","Chr", "idgTDL","idgDTO")
+      setnames(hits_out, c("EnsemblID", "UniProt", "GeneSymbol", "GeneName", "Chr", "idgTDL", "idgDTO"))
       return(hits_out)
     }
   })
@@ -489,13 +470,13 @@ server <- function(input, output, session) {
 
   plotTitle <- reactive({
     if (input$mode=="Compare" & !is.null(qryB())) {
-      titletxt = sprintf("GTEx Gene-Tissue Profiles: %s vs %s<BR>\"%s\" vs \"%s\"", qryA(), qryB(), gene$name[gene$ENSG==ensgA()], gene$name[gene$ENSG==ensgB()])
+      titletxt = sprintf("GTEx Gene-Tissue Profiles: %s vs %s<BR>\"%s\" vs \"%s\"", qryA(), qryB(), gene[ENSG==ensgA(), name], gene[ENSG==ensgB(),name])
     } else if (input$mode=="SimSearch" & !is.null(hit())) {
-      titletxt = sprintf("Ex-files, GTEx-Profiles: %s <BR>\"%s\"", qryA(), gene$name[gene$ENSG==ensgA()])
+      titletxt = sprintf("Ex-files, GTEx-Profiles: %s <BR>\"%s\"", qryA(), gene[ENSG==ensgA(), name])
     } else if (input$mode=="TxtSearch" & !is.null(hits())) {
       titletxt = sprintf("Ex-files, GTEx-Profiles: \"%s\"", input$qryTxt)
     } else { #View
-      titletxt = sprintf("Ex-files, GTEx-Profiles: %s<BR>\"%s\"", qryA(), gene$name[gene$ENSG==ensgA()])
+      titletxt = sprintf("Ex-files, GTEx-Profiles: %s<BR>\"%s\"", qryA(), gene[ENSG==ensgA(), name])
     }
     return(titletxt)
   })
@@ -505,16 +486,18 @@ server <- function(input, output, session) {
     if (length(input$groups)==0) { return(NULL) }
 
     if (!is.null(ensgA())) {
-      qryA_profile_f <- as.numeric(eps[eps$ENSG==ensgA() & eps$SEX=="F",][1,tissue$SMTSD])
-      qryA_profile_m <- as.numeric(eps[eps$ENSG==ensgA() & eps$SEX=="M",][1,tissue$SMTSD])
+      smtsds <- tissue$SMTSD
+      qryA_profile_f <- as.numeric(eps[ENSG==ensgA() & SEX=="F"][1, ..smtsds])
+      qryA_profile_m <- as.numeric(eps[ENSG==ensgA() & SEX=="M"][1, ..smtsds])
       rhoAfm <- wPearson(qryA_profile_f, qryA_profile_m)
       ruzAfm <- Ruzicka(qryA_profile_f, qryA_profile_m)
       qryA_profile_n <- (qryA_profile_f+qryA_profile_m)/2 #Non-sexed (F+M)/2
     }
 
     if (input$mode=="Compare" & !is.null(qryB())) {
-      qryB_profile_f <- as.numeric(eps[eps$ENSG==ensgB() & eps$SEX=="F",][1,tissue$SMTSD])
-      qryB_profile_m <- as.numeric(eps[eps$ENSG==ensgB() & eps$SEX=="M",][1,tissue$SMTSD])
+      smtsds <- tissue$SMTSD
+      qryB_profile_f <- as.numeric(eps[ENSG==ensgB() & SEX=="F"][1, ..smtsds])
+      qryB_profile_m <- as.numeric(eps[ENSG==ensgB() & SEX=="M"][1, ..smtsds])
       qryB_profile_n <- (qryB_profile_f+qryB_profile_m)/2
       #
       rhoNab <- wPearson(qryA_profile_n, qryB_profile_n)
@@ -558,8 +541,8 @@ server <- function(input, output, session) {
           marker = list(symbol="circle", size=10),
           text = paste0(qryA(), ": ", tissue$SMTSD))
     }
-      if ("N" %in% input$groups) {
-        p <- add_trace(p, name = paste("(N)", qryA()), x = tissue$SMTSD, y = EpLogIf(qryA_profile_n, ("LogY" %in% input$opts)),
+      if ("C" %in% input$groups) {
+        p <- add_trace(p, name = paste("(C)", qryA()), x = tissue$SMTSD, y = EpLogIf(qryA_profile_n, ("LogY" %in% input$opts)),
           type = 'scatter', mode = 'lines+markers',
           marker = list(symbol="circle", size=10),
           text = paste0(qryA(), ": ", tissue$SMTSD))
@@ -580,8 +563,8 @@ server <- function(input, output, session) {
           text = paste0(qryB(), ": ", tissue$SMTSD))
         annos <- c(annos, sprintf("Mab: rho = %.2f; ruz = %.2f", rhoMab, ruzMab))
       }
-      if ("N" %in% input$groups) {
-        p <- add_trace(p, name = paste("(N)", qryB()), x = tissue$SMTSD, y = EpLogIf(qryB_profile_n, ("LogY" %in% input$opts)),
+      if ("C" %in% input$groups) {
+        p <- add_trace(p, name = paste("(C)", qryB()), x = tissue$SMTSD, y = EpLogIf(qryB_profile_n, ("LogY" %in% input$opts)),
           type = 'scatter', mode = 'lines+markers',
           marker = list(symbol="circle", size=10),
           text = paste0(qryB(), ": ", tissue$SMTSD))
@@ -593,10 +576,11 @@ server <- function(input, output, session) {
       # Each row has hits()$Group[i] F|M|N so how to handle that?
       ##
       rows_selected <- input$datarows_rows_selected
+      smtsds <- tissue$SMTSD
       if (!is.null(rows_selected)) {
         for (i in rows_selected) {
-          hit_profile_f <- as.numeric(eps[eps$ENSG==hits()$EnsemblID[i] & eps$SEX=="F",][1,tissue$SMTSD])
-          hit_profile_m <- as.numeric(eps[eps$ENSG==hits()$EnsemblID[i] & eps$SEX=="M",][1,tissue$SMTSD])
+          hit_profile_f <- as.numeric(eps[ENSG==hits()$EnsemblID[i] & SEX=="F"][1, ..smtsds])
+          hit_profile_m <- as.numeric(eps[ENSG==hits()$EnsemblID[i] & SEX=="M"][1, ..smtsds])
           hit_profile_n <- (hit_profile_f+hit_profile_m)/2
           #
           if ("F" %in% input$groups) {
@@ -613,9 +597,9 @@ server <- function(input, output, session) {
                 text = paste0(hits()$symbol[i], ": ", tissue$SMTSD))
             if (!is.null(ensgA())) { annos <- c(annos, sprintf("Mab: rho = %.2f; ruz = %.2f", wPearson(qryA_profile_m, hit_profile_m), Ruzicka(qryA_profile_m, hit_profile_m))) }
           }
-          if ("N" %in% input$groups) {
+          if ("C" %in% input$groups) {
             hit_profile_n <- (hit_profile_f + hit_profile_m)/2
-            p <- add_trace(p, name = paste("(N)", hits()$symbol[i]), x = tissue$SMTSD, y = EpLogIf(hit_profile_n, ("LogY" %in% input$opts)),
+            p <- add_trace(p, name = paste("(C)", hits()$symbol[i]), x = tissue$SMTSD, y = EpLogIf(hit_profile_n, ("LogY" %in% input$opts)),
                 type = 'scatter', mode = 'lines+markers',
                 marker = list(symbol="circle", size=10),
                 text = paste0(hits()$symbol[i], ": ", tissue$SMTSD))
