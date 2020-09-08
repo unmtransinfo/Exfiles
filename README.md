@@ -14,4 +14,4 @@ See R Shiny app at http://unmtid-shinyapps.net/exfiles/.
 
 ## Workflow
 
-See [WORKFLOW](docs/WORKFLOW.md)
+See [WORKFLOW.md](doc/WORKFLOW.md)

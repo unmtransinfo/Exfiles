@@ -19,8 +19,22 @@ Steps for updating the Exfiles dataset from sources.
     * Interactively download BIOMART ENSG2NCBI (human) mapping from Ensembl.org/biomart, with NCBI and HUGO IDs and HUGO symbols.  Select only those with Ensembl Protein Family IDs, for protein-encoding genes.
     * [gtex_gene_xref.R](R/gtex_gene_xref.R)
     * Get TCRD targets from IDG.
-1. Prepare RNA-Seq data with [Go_rnaseq_prep.sh](sh/Go_rnaseq_prep.sh)
+1. Process RNA-Seq data to expression profiles (Exfiles). ___WARNING: Requires large memory computer (70+GB).___
+    * [Go_rnaseq_prep.sh](sh/Go_rnaseq_prep.sh)
     * [gtex_rnaseq_prep_app.py](python/gtex_rnaseq_prep_app.py)
+        1. READ: GTEx Subjects data, 1-row/subject.
+        1. READ: GTEx Samples data, 1-row/sample.
+        1. READ: GTEx RNAseq expression TPM data, 1-row/gene, 1-col/sample.
+        1. READ: gene IDs file, from GTEx/Ensembl/HGNC, via gtex_gene_xref.R. 
+        1. REMOVE: samples with Hardy score >2 (prefer healthier).
+        1. REMOVE: samples with high degree of autolysis (self-digestion).
+        1. MERGE: Samples and subjects, to 1-row/sample.
+        1. RESHAPE: RNAseq data from 1-col/sample, to 3 cols: gene, sample, TPM.
+        1. REMOVE: genes in pseudoautosomal regions (PAR) of chromosome Y.
+        1. AGGREGATE: samples, computing median TPM by gene+tissue.
+        1. AGGREGATE: samples, computing median TPM by gene+tissue+sex.
+        1. OUTPUT: median TPMs, 1-row/gene+tissue+sex: 
+        1. OUTPUT: expression profiles, 1-row/gene+sex: exfiles_eps.tsv.gz
 1. Compute pairwise correlation coefficients between all profiles.
     * [sh/Go_exfiles_cor.sh](sh/Go_exfiles_cor.sh)
     * [R/exfiles_similarity_wcorr.R](R/exfiles_similarity_wcorr.R)

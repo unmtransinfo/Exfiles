@@ -13,7 +13,7 @@ Workflow (prep):
  - READ: GTEx Subjects data, 1-row/subject.
  - READ: GTEx Samples data, 1-row/sample.
  - READ: GTEx RNAseq expression TPM data, 1-row/gene, 1-col/sample.
- - READ: gene IDs file, from GTEx/Ensembl/HGNC, via gtex_gene_map.R. 
+ - READ: gene IDs file, from GTEx/Ensembl/HGNC, via gtex_gene_xref.R. 
  - REMOVE: samples with Hardy score >2 (prefer healthier).
  - REMOVE: samples with high degree of autolysis (self-digestion).
  - MERGE: Samples and subjects, to 1-row/sample.
