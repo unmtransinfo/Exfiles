@@ -19,7 +19,7 @@ Steps for updating the Exfiles dataset from sources.
     * Interactively download BIOMART ENSG2NCBI (human) mapping from Ensembl.org/biomart, with NCBI and HUGO IDs and HUGO symbols.  Select only those with Ensembl Protein Family IDs, for protein-encoding genes.
     * [gtex_gene_xref.R](R/gtex_gene_xref.R)
     * Get TCRD targets from IDG.
-1. Process RNA-Seq data to expression profiles (Exfiles). ___WARNING: Requires large memory computer (70+GB).___
+1. Process RNA-Seq data to expression profiles (Exfiles). ___WARNING: Requires big memory computer (120+GB).___
     * [Go_rnaseq_prep.sh](sh/Go_rnaseq_prep.sh)
     * [gtex_rnaseq_prep_app.py](python/gtex_rnaseq_prep_app.py)
         1. READ: GTEx Subjects data, 1-row/subject.

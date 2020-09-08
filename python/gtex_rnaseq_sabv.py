@@ -25,73 +25,74 @@ Workflow (analysis):
 
 """
 #############################################################################
-import sys,os,io,re,time,argparse
+import sys,os,io,re,time,argparse,logging
 import numpy,scipy,scipy.stats
 import pandas
 
 #############################################################################
-def ReadMedianTPMs(ifile, verbose):
+def ReadMedianTPMs(ifile):
   fin = open(ifile)
-  print('=== GTEx Median-TPMs datafile: %s'%fin.name, file=sys.stdout)
+  logging.info('=== GTEx Median-TPMs datafile: %s'%fin.name)
   tpms = pandas.read_csv(fin, sep='\t')
-  print("Median-TPMs dataset nrows: %d ; ncols: %d:"%(tpms.shape[0],tpms.shape[1]), file=sys.stdout)
+  logging.info("Median-TPMs dataset nrows: %d ; ncols: %d:"%(tpms.shape[0],tpms.shape[1]))
   return tpms
 
 #############################################################################
-def ReadSampleTPMs(ifile, verbose):
+def ReadSampleTPMs(ifile):
   fin = open(ifile)
-  print('=== GTEx Sample-TPMs datafile: %s'%fin.name, file=sys.stdout)
+  logging.info('=== GTEx Sample-TPMs datafile: %s'%fin.name)
   tpms = pandas.read_csv(fin, sep='\t')
-  print("Sample-TPMs dataset nrows: %d ; ncols: %d:"%(tpms.shape[0],tpms.shape[1]), file=sys.stdout)
+  logging.info("Sample-TPMs dataset nrows: %d ; ncols: %d:"%(tpms.shape[0],tpms.shape[1]))
   return tpms
 
 #############################################################################
 ### Format: one line per tissue name, in preferred order.
 #############################################################################
-def ReadTissues(ifile, verbose):
+def ReadTissues(ifile):
   fin = open(ifile)
-  print('=== GTEx Tissues datafile: %s'%fin.name, file=sys.stdout)
+  logging.info('=== GTEx Tissues datafile: %s'%fin.name)
   tissues = pandas.read_csv(fin, sep=';', index_col=False, header=None, names=['name'])
   tissues = tissues.name.str.strip()
-  if verbose: print("n_tissues: %d:"%(tissues.size), file=sys.stdout)
-  if verbose: print("DEBUG: tissues:\n%s"%(str(tissues)), file=sys.stderr)
+  logging.info("n_tissues: %d:"%(tissues.size))
+  logging.debug("tissues:\n%s"%(str(tissues)))
   return tissues
 
 #############################################################################
-def DescribeDf(df, verbose):
+def DescribeDf(df):
   buff = io.StringIO()
-  df.info(buf=buff, verbose=bool(verbose>0), null_counts=bool(verbose>0))
-  print(re.sub(re.compile('^', re.M), '\t', buff.getvalue()), file=sys.stdout)
+  #df.info(buf=buff, verbose=bool(verbose>0), null_counts=bool(verbose>0))
+  df.info(buf=buff, verbose=True, null_counts=True)
+  logging.info(re.sub(re.compile('^', re.M), '\t', buff.getvalue()))
 
 #############################################################################
 ### Read gene symbols.
 #############################################################################
-def ReadGenes(ifile, verbose):
-  print("=== ReadGenes:", file=sys.stdout)
+def ReadGenes(ifile):
+  logging.info("=== ReadGenes:")
   fin = open(ifile)
-  print('Biomart ENSG2NCBI genes datafile: %s'%fin.name, file=sys.stdout)
+  logging.info('Biomart ENSG2NCBI genes datafile: %s'%fin.name)
   genes = pandas.read_csv(fin, sep='\t', usecols=[1,2,3], na_values=[''], dtype={2:str})
-  print("Genes dataset nrows: %d ; ncols: %d:"%(genes.shape[0],genes.shape[1]), file=sys.stdout)
+  logging.info("Genes dataset nrows: %d ; ncols: %d:"%(genes.shape[0],genes.shape[1]))
   genes.columns = ['ENSG','NCBI','HGNC']
   genes.dropna(inplace=True)
   return genes
 
 #############################################################################
-def TAUs(tpms, verbose):
+def TAUs(tpms):
   taus = tpms.groupby(['ENSG']).TPM.agg(TAU)
   taus = pandas.DataFrame(taus).rename(columns={'TPM':'TAU'})
   taus = taus.reset_index(drop=False)
   return taus
 
 #############################################################################
-def TAUs_SABV(tpms, verbose):
+def TAUs_SABV(tpms):
   taus_sex = tpms.groupby(['ENSG','SEX']).TPM.agg(TAU)
   taus_sex = pandas.DataFrame(taus_sex).rename(columns={'TPM':'TAU_BYSEX'})
   taus_sex = taus_sex.reset_index(drop=False)
   return taus_sex
 
 #############################################################################
-def RankByTissue(tpms, verbose):
+def RankByTissue(tpms):
   """
 	Avoid SettingwithCopyWarning with syntax:
 	df[(EXPRESSION), 'COLNAME'] = NEWVALS
@@ -109,7 +110,7 @@ def RankByTissue(tpms, verbose):
   return tpms
 
 #############################################################################
-def SABV_LogFoldChange(tpms, verbose):
+def SABV_LogFoldChange(tpms):
   lfc = pandas.merge(
 	tpms[tpms.SEX=='F'][['ENSG', 'SMTSD','TPM']].rename(columns={'TPM':'TPM_F'}),
 	tpms[tpms.SEX=='M'][['ENSG', 'SMTSD','TPM']].rename(columns={'TPM':'TPM_M'}),
@@ -125,7 +126,7 @@ def SABV_LogFoldChange(tpms, verbose):
 ### * x = expression profile component normalized by the maximal component value
 ###
 ### Validate with example vector from paper.  Should be 0.95.
-### print('%.2f'%TAU([0,8,0,0,0,2,0,2,0,0,0,0]), file=sys.stdout)
+### logging.info('%.2f'%TAU([0,8,0,0,0,2,0,2,0,0,0,0]))
 #############################################################################
 def TAU(X):
   N = len(X)
@@ -138,7 +139,7 @@ def TAU(X):
   return(tau)
 
 #############################################################################
-def WilcoxonRankSum(tpms, verbose):
+def WilcoxonRankSum(tpms):
   """May be very slow for large datasets."""
   wrs = tpms[['SMTSD', 'ENSG']].copy().drop_duplicates().sort_values(by=['SMTSD', 'ENSG'])
   wrs.reset_index(drop=True, inplace=True)
@@ -166,53 +167,54 @@ if __name__=='__main__':
   parser.add_argument("-v", "--verbose", action="count")
   args = parser.parse_args()
 
-  PROG=os.path.basename(sys.argv[0])
+  logging.basicConfig(format='%(levelname)s:%(message)s', level=(logging.DEBUG if args.verbose>1 else logging.INFO))
+
   t0 = time.time()
 
   if args.verbose:
-    print('Python: %s\nPandas: %s'%(sys.version, pandas.__version__), file=sys.stdout)
+    logging.info('Python: %s\nPandas: %s'%(sys.version, pandas.__version__))
 
   if args.ifile_tissue:
-    tissues = ReadTissues(args.ifile_tissue, args.verbose)
+    tissues = ReadTissues(args.ifile_tissue)
   else:
     tissues = None
 
   if not args.ifile:
     parser.error('Input TPM file required.')
 
-  tpms = ReadMedianTPMs(args.ifile, args.verbose)
+  tpms = ReadMedianTPMs(args.ifile)
 
   if args.verbose:
     #DescribeDf(tpms)
-    print("SABV TPM median unique counts: genes: %d"%(tpms.ENSG.nunique()), file=sys.stdout)
+    logging.info("SABV TPM median unique counts: genes: %d"%(tpms.ENSG.nunique()))
 
-  print('=== SABV analysis:', file=sys.stdout)
-  print('=== Compute TAU (tissue specificity):', file=sys.stdout)
-  taus = TAUs(tpms, args.verbose)
-  print('=== Compute TAU (tissue specificity)+SABV:', file=sys.stdout)
-  taus_sex = TAUs_SABV(tpms, args.verbose)
+  logging.info('=== SABV analysis:')
+  logging.info('=== Compute TAU (tissue specificity):')
+  taus = TAUs(tpms)
+  logging.info('=== Compute TAU (tissue specificity)+SABV:')
+  taus_sex = TAUs_SABV(tpms)
   tpms = pandas.merge(tpms, taus, on=['ENSG'], how='left')
   tpms = pandas.merge(tpms, taus_sex, on=['ENSG','SEX'], how='left')
 
-  print('=== Compute TPM rank (quantile) among tissues, including by sex:', file=sys.stdout)
-  tpms = RankByTissue(tpms, args.verbose)
+  logging.info('=== Compute TPM rank (quantile) among tissues, including by sex:')
+  tpms = RankByTissue(tpms)
 
-  print("=== Compute Log fold-change, log of ratio (F/M):", file=sys.stdout)
+  logging.info("=== Compute Log fold-change, log of ratio (F/M):")
   ### (One row per gene+tissue, cols for M and F TPM.)
-  lfc = SABV_LogFoldChange(tpms, args.verbose)
+  lfc = SABV_LogFoldChange(tpms)
   tpms = pandas.merge(tpms, lfc, on=['ENSG','SMTSD'], how='left')
 
   if args.ifile_sample:
-    print("=== From SAMPLE-LEVEL TPMs, compute Wilcoxon rank-sum statistic+pval:", file=sys.stdout)
-    sampletpms = ReadSampleTPMs(args.ifile_sample, args.verbose)
-    wrs = WilcoxonRankSum(sampletpms, args.verbose)
+    logging.info("=== From SAMPLE-LEVEL TPMs, compute Wilcoxon rank-sum statistic+pval:")
+    sampletpms = ReadSampleTPMs(args.ifile_sample)
+    wrs = WilcoxonRankSum(sampletpms)
     wrs = wrs.rename(columns={'stat':'WilcoxonRankSum_stat', 'pval':'WilcoxonRankSum_pval'})
     tpms = pandas.merge(tpms, wrs, on=['ENSG','SMTSD'], how='left')
   else:
-    print("NOTE: SAMPLE-LEVEL TPMs not provided, so SKIPPING Wilcoxon rank-sum test.", file=sys.stdout)
+    logging.info("NOTE: SAMPLE-LEVEL TPMs not provided, so SKIPPING Wilcoxon rank-sum test.")
 
   if args.ofile:
-    print("=== Output SABV file: %s"%args.ofile, file=sys.stdout)
+    logging.info("=== Output SABV file: %s"%args.ofile)
     tpms.round(args.decimals).to_csv(args.ofile, sep='\t', index=False)
 
-  print("%s Elapsed: %ds"%(PROG, (time.time()-t0)), file=sys.stderr)
+  logging.info("Elapsed: %ds"%((time.time()-t0)))
