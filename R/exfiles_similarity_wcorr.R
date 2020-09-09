@@ -32,7 +32,7 @@ t_start <- Sys.time()
 #
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args)>0) { IFILE <- args[1] } else { 
-  IFILE <- "data/exfiles_eps.tsv.gz"
+  IFILE <- "data/exfiles_eps.tsv"
 }
 if (length(args)>1) { OFILE <- args[2] } else { 
   OFILE <- "data/exfiles_eps_WPearson.tsv"
@@ -180,12 +180,12 @@ n_na_total <- n_na_total + n_na
 n_ok_total <- n_ok_total + n_ok
 #
 ###
-#N:
+#C (combined sex):
 for (n in names(eps_c)[(N_IDCOLS+1):ncol(eps_c)]) { 
   eps_c[is.na(get(n)), (n) := 0] 
 }
-eps_mx_n <- as.matrix(eps_c[, (N_IDCOLS+1):ncol(eps_c)])
-rownames(eps_mx_n) <- eps_c$ENSG
+eps_mx_c <- as.matrix(eps_c[, (N_IDCOLS+1):ncol(eps_c)])
+rownames(eps_mx_c) <- eps_c$ENSG
 #
 n_calc <- 0
 n_na <- 0
@@ -196,8 +196,8 @@ for (ensgA in eps_c$ENSG) {
   i <- i + 1
   ensgs_this <- eps_c[ENSG>ensgA, ENSG]
   group <- "C"
-  epAs <- eps_mx_n[rep(ensgA, length(ensgs_this)), ]
-  epBs <- eps_mx_n[ensgs_this, ]
+  epAs <- eps_mx_c[rep(ensgA, length(ensgs_this)), ]
+  epBs <- eps_mx_c[ensgs_this, ]
   results_this <- wPearson_mx(epAs, epBs)
   n_na <- n_na + sum(is.na(results_this))
   n_calc <- n_calc + length(results_this)

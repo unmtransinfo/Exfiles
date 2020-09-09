@@ -20,7 +20,6 @@ C = Combined-sexes, profiles = (F+M)/2
 (No longer filtering in this code. MIN_KEEP flawed idea since it helps 
 with Search mode but loses many comparisons for Compare mode. Cutoffs
 now in similarity and correlation calculation code.)
-
 """
 #############################################################################
 import sys,os,io,re,time,argparse,logging
@@ -29,53 +28,53 @@ import pandas,numpy,scipy,scipy.stats
 #############################################################################
 def ReadCorrfile(ifile):
   logging.info('=== Correlation datafile: %s'%ifile)
-  cors = pandas.read_csv(ifile, sep='\t', na_values=['','NA','NaN'], compression='infer')
+  cors = pandas.read_csv(ifile, sep='\t', na_values=['', 'NA', 'NaN'], compression='infer')
   cors.dropna(how='any', inplace=True)
-  logging.info("Correlation dataset nrows: %d ; ncols: %d:"%(cors.shape[0],cors.shape[1]))
+  logging.info("Correlation dataset nrows: %d ; ncols: %d:"%(cors.shape[0], cors.shape[1]))
   logging.info("Correlation cols: %s:"%(str(cors.columns.tolist())))
   return cors
 
 #############################################################################
 def ReadSimfile(ifile):
   logging.info('=== Similarity datafile: %s'%ifile)
-  sims = pandas.read_csv(ifile, sep='\t', na_values=['','NA','NaN'], compression='infer')
+  sims = pandas.read_csv(ifile, sep='\t', na_values=['', 'NA', 'NaN'], compression='infer')
   sims.dropna(how='any', inplace=True)
-  logging.info("Similarity dataset nrows: %d ; ncols: %d:"%(sims.shape[0],sims.shape[1]))
+  logging.info("Similarity dataset nrows: %d ; ncols: %d:"%(sims.shape[0], sims.shape[1]))
   logging.info("Similarity cols: %s:"%(str(sims.columns.tolist())))
   return sims
 
 #############################################################################
 def GroupComparisons(cors, sims):
-  cors = cors[['ENSGA','SEXA','ENSGB','SEXB','wRho']]
-  logging.debug("cors nrows: %d ; ncols: %d:"%(cors.shape[0],cors.shape[1]))
-  cors_f = cors[(cors.SEXA=='F')&(cors.SEXB=='F')].drop(columns=['SEXA','SEXB'])
+  cors = cors[['ENSGA', 'SEXA', 'ENSGB', 'SEXB', 'wRho']]
+  logging.debug("cors nrows: %d ; ncols: %d:"%(cors.shape[0], cors.shape[1]))
+  cors_f = cors[(cors.SEXA=='F')&(cors.SEXB=='F')].drop(columns=['SEXA', 'SEXB'])
   cors_f['Group']='F'
-  cors_m = cors[(cors.SEXA=='M')&(cors.SEXB=='M')].drop(columns=['SEXA','SEXB'])
+  cors_m = cors[(cors.SEXA=='M')&(cors.SEXB=='M')].drop(columns=['SEXA', 'SEXB'])
   cors_m['Group']='M'
-  cors_n = cors[(cors.SEXA=='C')&(cors.SEXB=='C')].drop(columns=['SEXA','SEXB'])
-  cors_n['Group'] = 'C'
+  cors_c = cors[(cors.SEXA=='C')&(cors.SEXB=='C')].drop(columns=['SEXA', 'SEXB'])
+  cors_c['Group'] = 'C'
   #
-  cors_grouped = pandas.concat([cors_f,cors_m,cors_n])
-  cors_grouped = cors_grouped[['ENSGA','ENSGB','Group','wRho']]
-  logging.debug("cors_grouped nrows: %d ; ncols: %d:"%(cors_grouped.shape[0],cors_grouped.shape[1]))
+  cors_grouped = pandas.concat([cors_f, cors_m, cors_c])
+  cors_grouped = cors_grouped[['ENSGA', 'ENSGB', 'Group', 'wRho']]
+  logging.debug("cors_grouped nrows: %d ; ncols: %d:"%(cors_grouped.shape[0], cors_grouped.shape[1]))
   logging.debug("cors_grouped.Group.value_counts():\n%s"%(str(cors_grouped.Group.value_counts())))
   ###
-  sims = sims[['ENSGA','SEXA','ENSGB','SEXB','Ruzicka']]
-  logging.debug("sims nrows: %d ; ncols: %d:"%(sims.shape[0],sims.shape[1]))
-  sims_f = sims[(sims.SEXA=='F')&(sims.SEXB=='F')].drop(columns=['SEXA','SEXB'])
+  sims = sims[['ENSGA', 'SEXA', 'ENSGB', 'SEXB', 'Ruzicka']]
+  logging.debug("sims nrows: %d ; ncols: %d:"%(sims.shape[0], sims.shape[1]))
+  sims_f = sims[(sims.SEXA=='F')&(sims.SEXB=='F')].drop(columns=['SEXA', 'SEXB'])
   sims_f['Group']='F'
-  sims_m = sims[(sims.SEXA=='M')&(sims.SEXB=='M')].drop(columns=['SEXA','SEXB'])
+  sims_m = sims[(sims.SEXA=='M')&(sims.SEXB=='M')].drop(columns=['SEXA', 'SEXB'])
   sims_m['Group']='M'
-  sims_n = sims[(sims.SEXA=='C')&(sims.SEXB=='C')].drop(columns=['SEXA','SEXB'])
-  sims_n['Group'] = 'C'
+  sims_c = sims[(sims.SEXA=='C')&(sims.SEXB=='C')].drop(columns=['SEXA', 'SEXB'])
+  sims_c['Group'] = 'C'
   #
-  sims_grouped = pandas.concat([sims_f,sims_m,sims_n])
-  sims_grouped = sims_grouped[['ENSGA','ENSGB','Group','Ruzicka']]
-  logging.debug("sims_grouped nrows: %d ; ncols: %d:"%(sims_grouped.shape[0],sims_grouped.shape[1]))
+  sims_grouped = pandas.concat([sims_f, sims_m, sims_c])
+  sims_grouped = sims_grouped[['ENSGA', 'ENSGB', 'Group', 'Ruzicka']]
+  logging.debug("sims_grouped nrows: %d ; ncols: %d:"%(sims_grouped.shape[0], sims_grouped.shape[1]))
   logging.debug("sims_grouped.Group.value_counts():\n%s"%(str(sims_grouped.Group.value_counts())))
   #
-  cmps = pandas.merge(cors_grouped, sims_grouped, on=['ENSGA','ENSGB','Group'])
-  cmps = cmps[['ENSGA','ENSGB','Group','wRho','Ruzicka']]
+  cmps = pandas.merge(cors_grouped, sims_grouped, on=['ENSGA', 'ENSGB', 'Group'])
+  cmps = cmps[['ENSGA', 'ENSGB', 'Group', 'wRho', 'Ruzicka']]
   logging.debug("cmps.Group.value_counts():\n%s"%(str(cmps.Group.value_counts())))
   #
   return cmps

@@ -35,12 +35,15 @@ Steps for updating the Exfiles dataset from sources.
         1. AGGREGATE: samples, computing median TPM by gene+tissue+sex.
         1. OUTPUT: median TPMs, 1-row/gene+tissue+sex: 
         1. OUTPUT: expression profiles, 1-row/gene+sex: exfiles_eps.tsv.gz
-1. Compute pairwise correlation coefficients between all profiles.
-    * [sh/Go_exfiles_cor.sh](sh/Go_exfiles_cor.sh)
-    * [R/exfiles_similarity_wcorr.R](R/exfiles_similarity_wcorr.R)
+    * Requires ~3hr.
 1. Compute pairwise similarity coefficients between all profiles.
-    * [sh/Go_exfiles_sim.sh](sh/Go_exfiles_sim.sh)
-    * [R/exfiles_similarity_ruzicka.R](R/exfiles_similarity_ruzicka.R)
+    * [Go_exfiles_sim.sh](sh/Go_exfiles_sim.sh)
+    * [exfiles_similarity_ruzicka.R](R/exfiles_similarity_ruzicka.R)
+    * Requires ~20GB RAM, ~10 min.
+1. Compute pairwise correlation coefficients between all profiles.
+    * [Go_exfiles_cor.sh](sh/Go_exfiles_cor.sh)
+    * [exfiles_similarity_wcorr.R](R/exfiles_similarity_wcorr.R)
+    * Requires ~6hr.
 1. Combine correlations and similarity into one file.
-    * [sh/Go_exfiles_post.sh](sh/Go_exfiles_post.sh)
-    * [python/exfiles_similarity_post.py](python/exfiles_similarity_post.py)
+    * [Go_exfiles_post.sh](sh/Go_exfiles_post.sh)
+    * [exfiles_similarity_post.py](python/exfiles_similarity_post.py)

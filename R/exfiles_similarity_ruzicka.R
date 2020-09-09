@@ -11,10 +11,11 @@ library(reshape2)
 library(labdsv)
 #
 Sys.time()
+t_start <- Sys.time()
 #
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args)>0) { IFILE <- args[1] } else { 
-  IFILE <- "data/exfiles_eps.tsv.gz"
+  IFILE <- "data/exfiles_eps.tsv"
 }
 if (length(args)>1) { OFILE <- args[2] } else { 
   OFILE <- "data/exfiles_eps_Ruzicka.tsv"
@@ -155,5 +156,7 @@ write_delim(ruz, path=OFILE, delim="\t", append=T)
 ###
 #
 message(sprintf("TOTAL results: all: %d; post-filtered: %d (%.1f%%)", n_calc_all_total, n_calc_filtered_total, 100*n_calc_filtered_total/n_calc_all_total))
-Sys.time()
 #
+t_elapsed <- (Sys.time()-t_start)
+message(sprintf("Elapsed time: %.2f %s", t_elapsed, attr(t_elapsed, "units")))
+Sys.time()
