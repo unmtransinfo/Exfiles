@@ -22,11 +22,18 @@ library(shinyBS, quietly=T)
 library(DT, quietly=T)
 library(data.table, quietly=T)
 library(plotly, quietly=T)
-
+#
+pkgs <- names(sessionInfo()$otherPkgs)
+pkgVerTxt <- paste(sprintf("%s %s", pkgs, sapply(pkgs, function(p){paste(packageVersion(p), collapse=".")})), collapse="; ")
+message(pkgVerTxt)
 ###
 # This code runs once for all sessions.
 ###
 APPNAME <- "Exfiles"
+APPNAME_FULL <- "Exfiles: Expression profile analytics SABV"
+GTEX_RELEASE <- "v8 (2017)"
+#
+IGNORE_SEX_SPECIFIC_TISSUES <- T
 ###
 t0 <- proc.time()
 if (file.exists("exfiles.Rdata")) {
@@ -37,7 +44,7 @@ if (file.exists("exfiles.Rdata")) {
   ###
   # i, SMTS, SMTSD
   ###
-  tissue <- read_delim("data/exfiles_tissue_order.tsv", "\t")
+  tissue <- read_delim("data/exfiles_tissue_order.tsv", "\t", col_types=cols(.default=col_character(), SEX_SPECIFIC=col_logical()))
   setDT(tissue)
   ###
   # ENSG, NCBI, HGNCID, chr, uniprot, symbol, name
@@ -85,6 +92,9 @@ hiddenTissues <- setdiff(names(eps)[3:ncol(eps)], tissue$SMTSD)
 for (tis in hiddenTissues) {
   message(sprintf("Tissue hidden (SMTSD): %s", tis))
 }
+if (IGNORE_SEX_SPECIFIC_TISSUES) {
+  tissue <- tissue[(!SEX_SPECIFIC)]
+}
 tissue <- tissue[SMTSD %in% colnames(eps)]
 TAGS_THIS <- c("ENSG", "SEX", tissue$SMTSD)
 eps <- eps[, ..TAGS_THIS]
@@ -94,6 +104,7 @@ ggc[, Combo := round(wRho*Ruzicka, digits=2)]
 #
 db_htm <- sprintf("<B>Dataset:</B> Genes: %d ; tissues: %d ; comparisons: %d", nrow(gene), nrow(tissue), nrow(ggc))
 message(sprintf("t_load: %.1fs", (proc.time()-t0)[3]))
+message(sprintf("IGNORE_SEX_SPECIFIC_TISSUES: %s", IGNORE_SEX_SPECIFIC_TISSUES))
 ###
 #
 #############################################################################
@@ -131,11 +142,14 @@ OrderGeneSymbols <- function(symbols) {
   return(order(genes$prefix, genes$i, na.last=T))
 }
 #############################################################################
-HelpHtm <- function() {(
-"<P><B>Ex-files SABV</B> allows exploration and analysis of co-expression patterns via gene expression profiles,
+HelpHtm <- function() {
+  htm <- sprintf(
+"<P><B>%s</B> allows exploration and analysis of co-expression patterns via gene expression profiles,
 from <B>GTEx</B> RNA-seq data, with <B>Sex As a Biological Variable (SABV)</B>.
 Gene expression profiles are computed as real valued vectors of expression levels 
-across the defined tissue types.</P>
+across the defined tissue types.
+<B>Expression data source:</B> <a href=\"https://gtexportal.org\">GTEx</a> [%s] RNA-Seq download file, 
+plus samples and subjects metadata/annotations.
 <P>
 <B>Inputs</B> are query GeneA, and <I>optionally</I>, GeneB.
 Ex-files modes of operation:
@@ -176,37 +190,36 @@ breast tissues not included. Also limited to protein-encoding genes unambiguousl
 Data from <A HREF=\"https://www.gtexportal.org/\" TARGET=\"_blank\">GTEx, The Genotype-Tissue Expression Project</A>.<BR/>
 Built with R-Shiny &amp; Plotly.<BR/>
 This work was supported by the National Institutes of Health grants OT3-OD025464 and U24-CA224370.<BR/>
-")}
+", APPNAME_FULL, GTEX_RELEASE)
+  return(htm)
+  }
 #
 #############################################################################
 ui <- fluidPage(
   titlePanel(
     tags$table(width="100%", tags$tr(tags$td(
-    h2(sprintf("%s, GTEx expression-profile exploration", APPNAME), em("SABV"), 
-                span(icon("venus",lib="font-awesome"), icon("mars", lib="font-awesome"), icon("lightbulb", lib="font-awesome")))),
+    h2(sprintf("%s", APPNAME_FULL), span(icon("venus", lib="font-awesome"), icon("mars", lib="font-awesome")))),
     tags$td(align="right",
       actionButton("goRefresh", "Refresh", style="padding:4px; background-color:#DDDDDD;font-weight:bold"),
       actionButton("showhelp", "Help", style="padding:4px; background-color:#DDDDDD;font-weight:bold")))),
-    windowTitle=paste(APPNAME, "SABV")),
+    windowTitle=APPNAME_FULL),
   fluidRow(
     column(4, 
         wellPanel(
     radioButtons("mode", "Mode", choices=c("View", "Compare", "SimSearch", "TxtSearch"), selected="View", inline=T),
 	conditionalPanel(condition="input.mode == 'TxtSearch'",
 	      textInput("qryTxt", "Query (list or regex)", width='80%'),
-	      checkboxInput("iCase","IgnoreCase", value=T, width='20%')),
+	      checkboxInput("iCase", "IgnoreCase", value=T, width='20%')),
 	conditionalPanel(condition="input.mode != 'TxtSearch'",
-
         selectizeInput("qryA", label=NULL, choices=gene_choices)),
-
 	conditionalPanel(condition="input.mode == 'Compare'",
           selectizeInput("qryB", label="GeneB", choices = c(list('None'='none'), gene_choices))),
 	  conditionalPanel(condition="input.mode == 'SimSearch'",
             radioButtons("score", "Score", choices=c("Ruzicka", "wRho", "Combo"), selected="Combo", inline=T)),
 	  conditionalPanel(condition="input.mode == 'TxtSearch'",
             radioButtons("field", "Field", choices=c("Symbol", "Name"), selected="Symbol", inline=T)),
-          checkboxGroupInput("groups", "Groups", choices=c("F","M","C"), selected=c("C"), inline=T),
-          checkboxGroupInput("opts", "Output", choices=c("IDG", "Dissim","LogY","Annplot"), selected=c("IDG","LogY"), inline=T)),
+          checkboxGroupInput("groups", "Groups", choiceValues=c("F", "M", "C"), choiceNames=c("F", "M", "Combined"), selected=c("F", "M"), inline=T),
+          checkboxGroupInput("opts", "Output", choices=c("IDG", "Dissim", "LogY", "Annplot"), selected=c("IDG", "LogY", "Annplot"), inline=T)),
 	wellPanel(htmlOutput(outputId = "log_htm", height = "120px")),
         wellPanel(htmlOutput(outputId = "result_htm", height = "120px"))
 	),
@@ -242,7 +255,7 @@ server <- function(input, output, session) {
   
   observeEvent(input$showhelp, {
     showModal(modalDialog(easyClose=T, footer=tagList(modalButton("Dismiss")),
-      title=HTML(sprintf("<H2>%s Help</H2>", paste(APPNAME, "SABV"))),
+      title=HTML(sprintf("<H2>%s Help</H2>", APPNAME)),
       HTML(HelpHtm())
     ))
   })
