@@ -60,7 +60,7 @@ if (file.exists("exfiles.Rdata")) {
   ###
   # ENSG, SEX, tissue.1, tissue.2, etc.
   ###
-  eps <- read_delim("data/exfiles_eps.tsv", "\t", col_types=cols(SEX=col_character()))
+  eps <- read_delim("data/exfiles_eps.tsv", "\t", col_types=cols(.default=col_double(), ENSG=col_character(), SEX=col_character()))
   setDT(eps)
   ###
   # ENSGA, ENSGB, Group, wRho, Ruzicka
