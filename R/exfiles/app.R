@@ -94,6 +94,7 @@ for (tis in hiddenTissues) {
 }
 if (IGNORE_SEX_SPECIFIC_TISSUES) {
   tissue <- tissue[(!SEX_SPECIFIC)]
+  tissue <- tissue[SMTSD != "Kidney - Medulla"] #No female TPMs in GTEx. Why?
 }
 tissue <- tissue[SMTSD %in% colnames(eps)]
 TAGS_THIS <- c("ENSG", "SEX", tissue$SMTSD)
@@ -182,15 +183,18 @@ and links to IDG data portal Pharos.
 </UL></P>
 <P>
 <B>Notes on data preparation:</B> This version is focused on SABV knowledge discovery, thus reproductive and 
-breast tissues not included. Also limited to protein-encoding genes unambiguously mapped to HUGO gene symbols. Search results where ruz&lt;0.50 and |wRho|&lt;0.50 are excluded from dataset.
+breast tissues not included in profile comparison computations. Also limited to protein-encoding genes unambiguously 
+mapped to HUGO gene symbols. Search results where ruz&lt;0.50 and |wRho|&lt;0.50 are excluded from dataset.
+Note that tissue \"Kidney - Medulla\" is not biologically but artifactually sex-specific since in GTEx there are no
+female TPM data.
 </P>
-<B>Reference:</B>\"Ex-files: Sex-Specific Gene Expression Profiles Explorer\", Bocci et al., <i>[submitted]</i>.<BR/>
+<B>Reference:</B>\"Exfiles: Sex-Specific Gene Expression Profiles Analytics\", Bocci et al., <i>[in preparation]</i>.<BR/>
 <B>Authors:</B> Giovanni Bocci, Oleg Ursu, Cristian Bologa, Steve Mathias, Jeremy Yang &amp; Tudor Oprea, <A HREF=\"http://datascience.unm.edu\" target=\"_blank\">Translational Informatics Division, University of New Mexico</A><BR/>
 <B>Correspondence</B> from users of this app is welcome, and should be directed to <a href=\"mailto:jjyang_REPLACE_WITH_ATSIGN_salud.unm.edu\">Jeremy Yang</a>.<br/>
 Data from <A HREF=\"https://www.gtexportal.org/\" TARGET=\"_blank\">GTEx, The Genotype-Tissue Expression Project</A>.<BR/>
-Built with R-Shiny &amp; Plotly.<BR/>
 This work was supported by the National Institutes of Health grants OT3-OD025464 and U24-CA224370.<BR/>
 ", APPNAME_FULL, GTEX_RELEASE)
+  htm <- paste(htm, sprintf("<hr>\nPowered by: <tt>%s; %s</tt>", R.version.string, pkgVerTxt), sep="\n")
   return(htm)
   }
 #
