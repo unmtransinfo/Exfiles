@@ -19,6 +19,7 @@ library(readr)
 library(wCorr)
 library(shiny, quietly=T)
 library(shinyBS, quietly=T)
+library(shinysky) #textInput.typeahead
 library(DT, quietly=T)
 library(data.table, quietly=T)
 library(plotly, quietly=T)
@@ -208,16 +209,33 @@ ui <- fluidPage(
       actionButton("showhelp", "Help", style="padding:4px; background-color:#DDDDDD;font-weight:bold")))),
     windowTitle=APPNAME_FULL),
   fluidRow(
-    column(4, 
+    column(5, 
         wellPanel(
     radioButtons("mode", "Mode", choices=c("View", "Compare", "SimSearch", "TxtSearch"), selected="View", inline=T),
 	conditionalPanel(condition="input.mode == 'TxtSearch'",
 	      textInput("qryTxt", "Query (list or regex)", width='80%'),
 	      checkboxInput("iCase", "IgnoreCase", value=T, width='20%')),
 	conditionalPanel(condition="input.mode != 'TxtSearch'",
-        selectizeInput("qryA", label=NULL, choices=gene_choices)),
+        shinysky::textInput.typeahead(
+		id="qryA"
+		,placeholder="GeneA..."
+		,local=gene
+		,valueKey="symbol"
+		,tokens=gene$symbol
+		,template=HTML("<p class='repo-name'>{{symbol}}</p> <p class='repo-description'>{{name}}</p>")
+		,limit=10)
+        ),
 	conditionalPanel(condition="input.mode == 'Compare'",
-          selectizeInput("qryB", label="GeneB", choices = c(list('None'='none'), gene_choices))),
+          #selectizeInput("qryB", label="GeneB", choices = c(list('None'='none'), gene_choices))
+        shinysky::textInput.typeahead(
+		id="qryB"
+		,placeholder="GeneB..."
+		,local=gene
+		,valueKey="symbol"
+		,tokens=gene$symbol
+		,template=HTML("<p class='repo-name'>{{symbol}}</p> <p class='repo-description'>{{name}}</p>")
+		,limit=10)
+	),
 	  conditionalPanel(condition="input.mode == 'SimSearch'",
             radioButtons("score", "Score", choices=c("Ruzicka", "wRho", "Combo"), selected="Combo", inline=T)),
 	  conditionalPanel(condition="input.mode == 'TxtSearch'",
@@ -227,7 +245,7 @@ ui <- fluidPage(
 	wellPanel(htmlOutput(outputId = "log_htm", height = "120px")),
         wellPanel(htmlOutput(outputId = "result_htm", height = "120px"))
 	),
-    column(8, conditionalPanel(condition="true", plotlyOutput("plot", height = "580px")))
+    column(7, conditionalPanel(condition="true", plotlyOutput("plot", height = "580px")))
   ),
   conditionalPanel(condition="output.hits_exist=='TRUE'",
     wellPanel(fluidRow(column(12, DT::dataTableOutput("datarows"))),
