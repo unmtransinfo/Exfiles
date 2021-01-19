@@ -27,14 +27,15 @@ fi
 # gtex_gene_xref.tsv from gtex_gene_xref.R, from Ensembl/Biomart and HUGO files.
 # "exfiles_eps.tsv" for Exfiles app.R.
 #
-$cwd/python/gtex_rnaseq_prep_app.py \
+$cwd/python/gtex_prep_app.py \
 	--i_subject ${anno_subj_file} \
 	--i_sample ${anno_samp_file} \
 	--i_rnaseq ${rnaseqfile} \
 	--i_gene $DATADIR/gtex_gene_xref.tsv \
-	--o_sample $DATADIR/gtex_rnaseq_prep_sample.tsv \
-	--o_median $DATADIR/gtex_rnaseq_prep_median.tsv \
-	--o_tissue $DATADIR/gtex_rnaseq_prep_tissues.tsv \
+	--o_sample $DATADIR/gtex_prep_sample.tsv \
+	--o_median $DATADIR/gtex_prep_median.tsv \
+	--o_median_sexage $DATADIR/gtex_prep_median_sexage.tsv \
+	--o_tissue $DATADIR/gtex_prep_tissues.tsv \
 	--o_profiles $DATADIR/exfiles_eps.tsv \
 	--keep_all_tissues \
 	-v
