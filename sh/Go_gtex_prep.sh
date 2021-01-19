@@ -3,9 +3,9 @@
 set -x
 #
 SRCDATADIR="$HOME/../data/GTEx/data"
-DATADIR="data"
 #
 cwd=$(pwd)
+DATADIR="${cwd}/data"
 #
 #DEMO="TRUE"
 #
@@ -32,11 +32,11 @@ $cwd/python/gtex_prep_app.py \
 	--i_sample ${anno_samp_file} \
 	--i_rnaseq ${rnaseqfile} \
 	--i_gene $DATADIR/gtex_gene_xref.tsv \
-	--o_sample $DATADIR/gtex_prep_sample.tsv \
-	--o_median $DATADIR/gtex_prep_median.tsv \
-	--o_median_sexage $DATADIR/gtex_prep_median_sexage.tsv \
+	--o_sample $DATADIR/gtex_prep_sample.tsv.gz \
+	--o_median $DATADIR/gtex_prep_median.tsv.gz \
+	--o_median_sexage $DATADIR/gtex_prep_median_sexage.tsv.gz \
+	--o_profiles $DATADIR/exfiles_eps.tsv.gz \
 	--o_tissue $DATADIR/gtex_prep_tissues.tsv \
-	--o_profiles $DATADIR/exfiles_eps.tsv \
 	--keep_all_tissues \
 	-v
 #

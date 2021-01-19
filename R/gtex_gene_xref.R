@@ -2,18 +2,39 @@
 #
 library(readr)
 library(data.table)
+#
+args <- commandArgs(trailingOnly=TRUE)
+if (length(args)==4) {
+  (ensgfile <- args[1])
+  (hugofile <- args[2])
+  (biomartfile <- args[3])
+  (ofile <- args[4])
+} else if (length(args)==0) {
+  ensgfile <- "data/gtex_rnaseq.ensg"
+  hugofile <- "data/hugo_protein-coding_gene.tsv"
+  biomartfile <- "data/biomart_ENSG2xrefs_human.tsv"
+  ofile <- "data/gtex_gene_xref.tsv"
+} else {
+  message("ERROR: Syntax: gtex_gene_xref.R ENSGFILE HUGOFILE BIOMARTFILE OFILE\n\t...or no args for defaults.")
+  quit()
+}
+message(sprintf("Input ENSG file: %s", ensgfile))
+message(sprintf("Input HUGO file: %s", hugofile))
+message(sprintf("Input BioMart file: %s", biomartfile))
+message(sprintf("Output: %s", ofile))
+
 ###
 # Ensembl.org/biomart reports 64561 total genes in the Homo sapiens (GRCh38.p12)
 # dataset. Selecting only those with Ensembl Protein Family IDs, the number is 22710,
 # the protein-encoding genes.
 ###
-biomart <- read_delim("data/biomart_ENSG2xrefs_human.tsv", "\t", na=c("", "NA"))
+biomart <- read_delim(biomartfile, "\t", na=c("", "NA"))
 setDT(biomart)
 setnames(biomart, c('ENSG', 'ENSGV', 'NCBI', 'HGNCID', 'HGNCSYMB'))
 ###
 # All ENSG (un-versioned) IDs from GTEx RNAseq (1 column).
 ###
-gtex_ensg <- read_delim("data/gtex_rnaseq.ensg", col_names=F, delim="\t")
+gtex_ensg <- read_delim(ensgfile, col_names=F, delim="\t")
 gtex_ensg <- data.table(ENSG = unique(gtex_ensg[[1]]))
 n_gtex_ensg <- nrow(gtex_ensg)
 message(sprintf("GTEx ENSGs: %d", n_gtex_ensg))
@@ -36,7 +57,7 @@ message(sprintf("ENSGs mapped to NCBI and HGNCID: %d / %d (%.1f%%)",
 # https://www.genenames.org/cgi-bin/statistics
 # ftp://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/locus_groups/protein-coding_gene.txt
 ###
-hugo <- read_delim("data/hugo_protein-coding_gene.tsv", "\t")
+hugo <- read_delim(hugofile, "\t")
 setDT(hugo)
 hugo <- unique(hugo[, .(hgnc_id, symbol, name, gene_family, ensembl_gene_id, uniprot_ids, location)])
 setnames(hugo, old=c("uniprot_ids", "location"), new=c("uniprot", "chr"))
@@ -70,9 +91,5 @@ message(sprintf("N_UniProt: %d", uniqueN(gtex_gene$uniprot)))
 message(sprintf("N_gene_symbol: %d", uniqueN(gtex_gene$symbol)))
 message(sprintf("N_gene_name: %d", uniqueN(gtex_gene$name)))
 #
-ofile <- "data/gtex_gene_xref.tsv"
 write_delim(gtex_gene, ofile, "\t")
-###
-#ofile_uniprot <- "data/gtex_gene_xref.uniprot"
-#write_delim(data.table(uniprot = unique(unlist(strsplit(gtex_gene$uniprot, "\\|")))), ofile_uniprot, "\t", col_names=F)
 ###
