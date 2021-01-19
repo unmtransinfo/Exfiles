@@ -18,7 +18,7 @@ suffix="_test"
 #
 #	--i_sample $DATADIR/gtex_rnaseq_prep_sample${suffix}.tsv \
 #
-$cwd/python/gtex_rnaseq_sabv.py \
+$cwd/python/gtex_sabv.py \
 	--i $DATADIR/gtex_rnaseq_prep_median${suffix}.tsv \
 	--o $DATADIR/gtex_rnaseq_sabv${suffix}.tsv \
 	-v

@@ -14,14 +14,14 @@ Steps for updating the Exfiles dataset from sources.
   1. Annotations: [Sample Attributes](https://storage.googleapis.com/gtex_analysis_v8/annotations/GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt)
   1. Annotations: [Subject Phenotypes](https://storage.googleapis.com/gtex_analysis_v8/annotations/GTEx_Analysis_v8_Annotations_SubjectPhenotypesDS.txt)
 1. Generate gene xrefs, from Ensembl/Biomart and HUGO.
-    * [Go_rnaseq_GeneXref.sh](sh/Go_rnaseq_GeneXref.sh)
+    * [Go_gtex_GeneXref.sh](sh/Go_gtex_GeneXref.sh)
     * Download [protein-coding genes](ftp://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/locus_groups/protein-coding _gene.txt) from EBI.
     * Interactively download BIOMART ENSG2NCBI (human) mapping from Ensembl.org/biomart, with NCBI and HUGO IDs and HUGO symbols.  Select only those with Ensembl Protein Family IDs, for protein-encoding genes.
     * [gtex_gene_xref.R](R/gtex_gene_xref.R)
     * Get TCRD targets from IDG.
 1. Process RNA-Seq data to expression profiles (Exfiles). ___WARNING: Requires big memory computer (120+GB).___
-    * [Go_rnaseq_prep.sh](sh/Go_rnaseq_prep.sh)
-    * [gtex_rnaseq_prep_app.py](python/gtex_rnaseq_prep_app.py)
+    * [Go_gtex_prep.sh](sh/Go_gtex_prep.sh)
+    * [gtex_prep_app.py](python/gtex_prep_app.py)
         1. READ: GTEx Subjects data, 1-row/subject.
         1. READ: GTEx Samples data, 1-row/sample.
         1. READ: GTEx RNAseq expression TPM data, 1-row/gene, 1-col/sample.
