@@ -11,8 +11,11 @@ DATADIR="${cwd}/data"
 #
 set -x
 #
-# rnaseqfile="$SRCDATADIR/GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm.gct.gz"
-rnaseqfile="$SRCDATADIR/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_tpm.gct.gz"
+GTEX_VERSION="v8"
+GTEX_VERSION_YEAR="2017"
+GTEX_VERSION_MONTH="06"
+GTEX_VERSION_DAY="05"
+rnaseqfile="$SRCDATADIR/GTEx_Analysis_${GTEX_VERSION_YEAR}-${GTEX_VERSION_MONTH}-${GTEX_VERSION_DAY}_${GTEX_VERSION}_RNASeQCv1.1.9_gene_tpm.gct.gz"
 #
 if [ -e "$rnaseqfile" ]; then
 	printf "RNAseq file: \"%s\"\n" "${rnaseqfile}"
@@ -20,6 +23,12 @@ else
 	printf "Not found: \"%s\"\n" "${rnaseqfile}"
 	exit
 fi
+#
+printf "GTEX_VERSION\tGTEX_VERSION_YEAR\tGTEX_VERSION_MONTH\tGTEX_VERSION_DAY\n" \
+	>$DATADIR/gtex_info.tsv
+printf "${GTEX_VERSION}\t${GTEX_VERSION_YEAR}\t${GTEX_VERSION_MONTH}\t${GTEX_VERSION_DAY}\n" \
+	>>$DATADIR/gtex_info.tsv
+#
 # Convert versioned ENSGV to unversioned ENSG:
 gunzip -c $rnaseqfile \
 	|sed -e '1,3d' \
@@ -46,11 +55,14 @@ printf "Unique ENSGs: %d\n" $(cat $DATADIR/gtex_rnaseq.ensg |wc -l)
 # https://www.genenames.org/cgi-bin/statistics
 wget -O - 'ftp://ftp.ebi.ac.uk/pub/databases/genenames/new/tsv/locus_groups/protein-coding_gene.txt' >$DATADIR/hugo_protein-coding_gene.tsv
 ###
-# Writes gtex_gene_xref.tsv
-${cwd}/R/gtex_gene_xref.R
+#
+${cwd}/R/gtex_gene_xref.R \
+	 $DATADIR/gtex_rnaseq.ensg \
+	 $DATADIR/hugo_protein-coding_gene.tsv \
+	 $DATADIR/biomart_ENSG2xrefs_human.tsv \
+	 $DATADIR/gtex_gene_xref.tsv
 #
 ###
 # IDG:
-python3 -m BioClients.idg.Client list_targets \
-	--o $DATADIR/tcrd_targets.tsv
+python3 -m BioClients.idg.tcrd.Client listTargets --o $DATADIR/tcrd_targets.tsv
 #

@@ -9,10 +9,6 @@ cwd=$(pwd)
 #
 #DEMO="TRUE"
 #
-#anno_subj_file="${SRCDATADIR}/GTEx_v7_Annotations_SubjectPhenotypesDS.txt"
-#anno_samp_file="${SRCDATADIR}/GTEx_v7_Annotations_SampleAttributesDS.txt"
-#rnaseqfile="$SRCDATADIR/GTEx_Analysis_2016-01-15_v7_RNASeQCv1.1.8_gene_tpm.gct.gz"
-#
 anno_subj_file="${SRCDATADIR}/GTEx_Analysis_v8_Annotations_SubjectPhenotypesDS.txt"
 anno_samp_file="${SRCDATADIR}/GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt"
 rnaseqfile="$SRCDATADIR/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_tpm.gct.gz"
