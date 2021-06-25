@@ -26,6 +26,8 @@ if __name__=='__main__':
 
   logging.basicConfig(format='%(levelname)s:%(message)s', level=(logging.DEBUG if args.verbose>1 else logging.INFO))
 
+  fout = open(args.ofile, "w") if args.ofile else sys.stdout
+
   f = h5py.File(args.ifile, 'r')
 
   logging.debug(list(f.keys()))
@@ -44,8 +46,11 @@ if __name__=='__main__':
   samples = f["meta"]["samples"]
   df = pd.DataFrame()
   for k in list(samples.keys()):
+    logging.debug(f"{samples[k].name}")
     if type(samples[k]) is h5py.Dataset:
       df_this = pd.DataFrame(samples[k])
       df = pd.concat([df, df_this], axis=1)
 
-  print(df[0:10,])
+  print(df.iloc[0:10,:])
+
+  df.to_csv(fout, "\t", index=False)
