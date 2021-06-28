@@ -15,6 +15,25 @@ def list_all(name, ob):
     logging.info(f"Dataset dtype: {ob.dtype}; shape: {ob.shape}; size: {ob.size}; ndim: {ob.ndim}; nbytes: {ob.nbytes}")
   return None
 
+#############################################################################
+def ListSamples(f):
+
+  samples_title = f["meta"]["samples/title"]
+  print(pd.DataFrame(samples_title.asstr()[0:10,]))
+
+  samples = f["meta"]["samples"]
+  df = pd.DataFrame()
+  for i,k in enumerate(list(samples.keys())):
+    logging.debug(f"{i+1}. {samples[k].name}")
+    if type(samples[k]) is h5py.Dataset:
+      df_this = pd.DataFrame(samples[k])
+      df = pd.concat([df, df_this], axis=1)
+    if i>2: break #DEBUG
+
+  print(df.iloc[0:10,:])
+  df.to_csv(fout, "\t", index=False)
+
+#############################################################################
 if __name__=='__main__':
   parser = argparse.ArgumentParser(description='H5 file operations', epilog="")
   OPS = ['summary']
@@ -40,17 +59,7 @@ if __name__=='__main__':
       logging.info(f"{f[k].name} ({h5_type(f[k])})")
 
 
-  samples_title = f["meta"]["samples/title"]
-  print(pd.DataFrame(samples_title.asstr()[0:10,]))
+  if "meta" not in f or "samples" not in f["meta"]:
+    sys.exit(1)
 
-  samples = f["meta"]["samples"]
-  df = pd.DataFrame()
-  for k in list(samples.keys()):
-    logging.debug(f"{samples[k].name}")
-    if type(samples[k]) is h5py.Dataset:
-      df_this = pd.DataFrame(samples[k])
-      df = pd.concat([df, df_this], axis=1)
-
-  print(df.iloc[0:10,:])
-
-  df.to_csv(fout, "\t", index=False)
+  ListSamples(f)
