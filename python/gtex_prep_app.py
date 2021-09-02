@@ -30,7 +30,8 @@ Workflow (prep):
 """
 #############################################################################
 import sys,os,io,re,time,argparse,logging
-import pandas,numpy,scipy,scipy.stats
+import numpy,scipy,scipy.stats
+import pandas as pd
 
 #############################################################################
 ### (GTEx_v7_Annotations_SubjectPhenotypesDS.txt)
@@ -38,7 +39,7 @@ import pandas,numpy,scipy,scipy.stats
 def ReadSubjects(ifile):
   fin = open(ifile)
   logging.info(f"=== GTEx Subjects datafile: {fin.name}")
-  subjects = pandas.read_csv(fin, sep="\t")
+  subjects = pd.read_csv(fin, sep="\t")
   logging.info(f"Subjects dataset nrows: {subjects.shape[0]} ; ncols: {subjects.shape[1]}:")
   return subjects
 
@@ -48,7 +49,7 @@ def ReadSubjects(ifile):
 def ReadTissues(ifile):
   fin = open(ifile)
   logging.info(f"=== GTEx Tissues datafile: {fin.name}")
-  tissues = pandas.read_csv(fin, sep=";", index_col=False, header=None, names=["name"])
+  tissues = pd.read_csv(fin, sep=";", index_col=False, header=None, names=["name"])
   tissues = tissues.name.str.strip()
   logging.info(f"n_tissues: {tissues.size}:")
   logging.info(f"tissues:\n{str(tissues)}")
@@ -87,7 +88,7 @@ def ReadSamples(ifile):
   logging.info("=== ReadSamples:")
   fin = open(ifile)
   logging.info(f"GTEx Samples datafile: {fin.name}")
-  samples = pandas.read_csv(fin, sep="\t")
+  samples = pd.read_csv(fin, sep="\t")
   samples = samples[["SAMPID", "SMATSSCR", "SMTS", "SMTSD"]]
   logging.info(f"Samples dataset nrows: {samples.shape[0]} ; ncols: {samples.shape[1]}:")
   ### SUBJID is first two hyphen-delimted fields of SAMPID.
@@ -151,7 +152,7 @@ READ GENE TPMs (full or demo subset)
   logging.info("=== ReadRnaseq:")
   fin = open(ifile, "rb")
   logging.info(f"GTEx RNAseq TPM datafile: {fin.name}")
-  rnaseq = pandas.read_table(fin, compression="gzip", sep="\t", skiprows=2)
+  rnaseq = pd.read_table(fin, compression="gzip", sep="\t", skiprows=2)
   logging.info(f"RNAseq dataset nrows: {rnaseq.shape[0]} ; ncols: {rnaseq.shape[1]}:")
   rnaseq = rnaseq.drop(columns=["Description"])
   rnaseq = rnaseq.rename(columns={"Name":"ENSG"})
@@ -169,7 +170,7 @@ def ReadGenes(ifile):
   logging.info("=== ReadGenes:")
   fin = open(ifile)
   logging.info(f"GTEx/Ensembl/HGNC genes datafile: {fin.name}")
-  genes = pandas.read_csv(fin, sep="\t", na_values=[""], dtype={2:str})
+  genes = pd.read_csv(fin, sep="\t", na_values=[""], dtype={2:str})
   logging.info(f"Genes dataset nrows: {genes.shape[0]} ; ncols: {genes.shape[1]}:")
   #genes.columns = ["ENSG","NCBI","HGNC"]
   #genes.dropna(inplace=True)
@@ -204,13 +205,13 @@ For each tissue, group and concatenate results.
     n_all0 = (tpm_all0.tpm_all0.value_counts()[True] if True in tpm_all0.tpm_all0.value_counts() else 0)
     if n_all0>0:
       logging.info(f"\t{smtsd}: removing TPMs-all-zero genes: {n_all0}")
-      rnaseq_this = pandas.merge(rnaseq_this, tpm_all0, left_on=["ENSG"], right_index=True)
+      rnaseq_this = pd.merge(rnaseq_this, tpm_all0, left_on=["ENSG"], right_index=True)
       rnaseq_this = rnaseq_this[~rnaseq_this["tpm_all0"]]
       rnaseq_this.drop(columns=["tpm_all0"], inplace=True)
     if i==0:
       rnaseq_out=rnaseq_this
     else:
-      rnaseq_out=pandas.concat([rnaseq_out,rnaseq_this])
+      rnaseq_out=pd.concat([rnaseq_out,rnaseq_this])
   rnaseq = rnaseq_out
 
   rnaseq = rnaseq[["ENSG","SMTSD","SAMPID","SMATSSCR","SEX","AGE","DTHHRDY","TPM"]]
@@ -251,7 +252,7 @@ def PivotToProfiles(rnaseq):
   """
   logging.info(f"PivotToProfiles IN: nrows = {rnaseq.shape[0]}, cols: {str(rnaseq.columns.tolist())}")
   logging.info(f"PivotToProfiles tissue count: {rnaseq.SMTSD.nunique()}")
-  tissues = pandas.Series(pandas.unique(rnaseq.SMTSD.sort_values()))
+  tissues = pd.Series(pd.unique(rnaseq.SMTSD.sort_values()))
 
   # Assure only 1-row per unique (ensg,smtsd) tuple (or pivot will fail).
   #rnaseq = rnaseq.drop_duplicates(subset=["ENSG","SMTSD"], keep="first")
@@ -268,7 +269,7 @@ def PivotToProfiles(rnaseq):
   exfiles_m.columns = exfiles_m.columns.get_level_values(1)
   exfiles_m = exfiles_m.reset_index(drop=False)
   exfiles_m["SEX"] = "M"
-  exfiles = pandas.concat([exfiles_f,exfiles_m])
+  exfiles = pd.concat([exfiles_f,exfiles_m])
   cols = ["ENSG","SEX"]+tissues.tolist()
   exfiles = exfiles[cols]
   DescribeDf(exfiles)
@@ -299,7 +300,7 @@ if __name__=="__main__":
   logging.info(time.strftime("%Y-%m-%d %H:%M:%S",time.localtime()))
 
   if args.verbose:
-    logging.info(f"Python: {sys.version.split()[0]}; Pandas: {pandas.__version__}; Scipy: {scipy.__version__} ; Numpy: {numpy.__version__}")
+    logging.info(f"Python: {sys.version.split()[0]}; Pandas: {pd.__version__}; Scipy: {scipy.__version__} ; Numpy: {numpy.__version__}")
 
   if not args.ifile_subject:
     parser.error("Input subject file required.")
@@ -316,7 +317,7 @@ if __name__=="__main__":
   samples = ReadSamples(args.ifile_sample)
 
   logging.info("=== MERGE samples and subjects:")
-  samples = pandas.merge(samples, subjects, how="inner", on="SUBJID")
+  samples = pd.merge(samples, subjects, how="inner", on="SUBJID")
 
   if args.verbose:
     DescribeSamples(samples)
@@ -340,7 +341,7 @@ if __name__=="__main__":
   logging.info(f"ReadRnaseq elapsed: {time.time()-t1}s")
 
   # Merge/inner with gene IDs file, to retain only protein-coding genes.
-  rnaseq = pandas.merge(rnaseq, genes[["ENSG"]], on="ENSG", how="inner")
+  rnaseq = pd.merge(rnaseq, genes[["ENSG"]], on="ENSG", how="inner")
   logging.info(f"RNAseq unique gene count (inner join with protein-coding gene ENSGs): {rnaseq.ENSG.nunique()}")
 
   logging.info("=== Remove genes in pseudoautosomal regions (PAR) of chromosome Y (ENSGR):")
@@ -356,11 +357,11 @@ if __name__=="__main__":
   logging.info(f"RNAseq unique gene count (after melt): {rnaseq.ENSG.nunique()}")
 
   # Merge/inner with gene IDs file. This time to add IDs, names.
-  rnaseq = pandas.merge(rnaseq, genes, on="ENSG", how="left")
+  rnaseq = pd.merge(rnaseq, genes, on="ENSG", how="left")
   logging.info(f"RNAseq unique gene count (after merge with gene IDs): {rnaseq.ENSG.nunique()}")
 
   logging.info("=== Merge with samples:")
-  rnaseq = pandas.merge(rnaseq, samples, how="inner", on="SAMPID")
+  rnaseq = pd.merge(rnaseq, samples, how="inner", on="SAMPID")
   logging.info(f"RNAseq unique gene count (after merge with samples): {rnaseq.ENSG.nunique()}")
   logging.info(f"RNAseq unique tissue count (after merge with samples): {rnaseq.SMTSD.nunique()}")
 

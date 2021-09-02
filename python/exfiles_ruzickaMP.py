@@ -12,7 +12,8 @@ Expression profiles similarity computation.
 """
 #############################################################################
 import sys,os,io,re,time,argparse,logging
-import pandas,numpy,scipy,scipy.stats
+import numpy,scipy,scipy.stats
+import pandas as pd
 import multiprocessing as mp
 
 #############################################################################
@@ -42,7 +43,7 @@ def Ruzicka_MPWorker(iotuple):
 def ReadExfiles(ifile):
   fin = open(ifile)
   logging.info('=== Expression profiles datafile: %s'%fin.name)
-  exfiles = pandas.read_csv(fin, sep='\t')
+  exfiles = pd.read_csv(fin, sep='\t')
   logging.info("Exfiles dataset nrows: %d ; ncols: %d:"%(exfiles.shape[0],exfiles.shape[1]))
   for name,val in exfiles.SEX.value_counts().sort_index().iteritems():
     logging.info('\tExfiles (SEX=%s): %5d'%(name,val))
@@ -70,7 +71,7 @@ if __name__=='__main__':
   t0 = time.time()
 
   if args.verbose:
-    logging.info('Python: %s; pandas: %s; numpy: %s; scipy: %s'%(sys.version.split()[0],pandas.__version__, numpy.__version__, scipy.__version__))
+    logging.info('Python: %s; pandas: %s; numpy: %s; scipy: %s'%(sys.version.split()[0],pd.__version__, numpy.__version__, scipy.__version__))
 
   if not args.ifile:
     parser.error('Input file required.')

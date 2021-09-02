@@ -23,12 +23,13 @@ now in similarity and correlation calculation code.)
 """
 #############################################################################
 import sys,os,io,re,time,argparse,logging
-import pandas,numpy,scipy,scipy.stats
+import numpy,scipy,scipy.stats
+import pandas as pd
 
 #############################################################################
 def ReadCorrfile(ifile):
   logging.info('=== Correlation datafile: %s'%ifile)
-  cors = pandas.read_csv(ifile, sep='\t', na_values=['', 'NA', 'NaN'], compression='infer')
+  cors = pd.read_csv(ifile, sep='\t', na_values=['', 'NA', 'NaN'], compression='infer')
   cors.dropna(how='any', inplace=True)
   logging.info("Correlation dataset nrows: %d ; ncols: %d:"%(cors.shape[0], cors.shape[1]))
   logging.info("Correlation cols: %s:"%(str(cors.columns.tolist())))
@@ -37,7 +38,7 @@ def ReadCorrfile(ifile):
 #############################################################################
 def ReadSimfile(ifile):
   logging.info('=== Similarity datafile: %s'%ifile)
-  sims = pandas.read_csv(ifile, sep='\t', na_values=['', 'NA', 'NaN'], compression='infer')
+  sims = pd.read_csv(ifile, sep='\t', na_values=['', 'NA', 'NaN'], compression='infer')
   sims.dropna(how='any', inplace=True)
   logging.info("Similarity dataset nrows: %d ; ncols: %d:"%(sims.shape[0], sims.shape[1]))
   logging.info("Similarity cols: %s:"%(str(sims.columns.tolist())))
@@ -54,7 +55,7 @@ def GroupComparisons(cors, sims):
   cors_c = cors[(cors.SEXA=='C')&(cors.SEXB=='C')].drop(columns=['SEXA', 'SEXB'])
   cors_c['Group'] = 'C'
   #
-  cors_grouped = pandas.concat([cors_f, cors_m, cors_c])
+  cors_grouped = pd.concat([cors_f, cors_m, cors_c])
   cors_grouped = cors_grouped[['ENSGA', 'ENSGB', 'Group', 'wRho']]
   logging.debug("cors_grouped nrows: %d ; ncols: %d:"%(cors_grouped.shape[0], cors_grouped.shape[1]))
   logging.debug("cors_grouped.Group.value_counts():\n%s"%(str(cors_grouped.Group.value_counts())))
@@ -68,12 +69,12 @@ def GroupComparisons(cors, sims):
   sims_c = sims[(sims.SEXA=='C')&(sims.SEXB=='C')].drop(columns=['SEXA', 'SEXB'])
   sims_c['Group'] = 'C'
   #
-  sims_grouped = pandas.concat([sims_f, sims_m, sims_c])
+  sims_grouped = pd.concat([sims_f, sims_m, sims_c])
   sims_grouped = sims_grouped[['ENSGA', 'ENSGB', 'Group', 'Ruzicka']]
   logging.debug("sims_grouped nrows: %d ; ncols: %d:"%(sims_grouped.shape[0], sims_grouped.shape[1]))
   logging.debug("sims_grouped.Group.value_counts():\n%s"%(str(sims_grouped.Group.value_counts())))
   #
-  cmps = pandas.merge(cors_grouped, sims_grouped, on=['ENSGA', 'ENSGB', 'Group'])
+  cmps = pd.merge(cors_grouped, sims_grouped, on=['ENSGA', 'ENSGB', 'Group'])
   cmps = cmps[['ENSGA', 'ENSGB', 'Group', 'wRho', 'Ruzicka']]
   logging.debug("cmps.Group.value_counts():\n%s"%(str(cmps.Group.value_counts())))
   #
@@ -97,7 +98,7 @@ if __name__=='__main__':
   t0 = time.time()
 
   if args.verbose:
-    logging.info('Python: %s; pandas: %s; numpy: %s; scipy: %s'%(sys.version.split()[0],pandas.__version__, numpy.__version__, scipy.__version__))
+    logging.info('Python: %s; pandas: %s; numpy: %s; scipy: %s'%(sys.version.split()[0],pd.__version__, numpy.__version__, scipy.__version__))
 
   if not args.ifile_cor: parser.error('Input cor file required.')
   if not args.ifile_sim: parser.error('Input sim file required.')

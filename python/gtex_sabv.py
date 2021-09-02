@@ -27,13 +27,13 @@ Workflow (analysis):
 #############################################################################
 import sys,os,io,re,time,argparse,logging
 import numpy,scipy,scipy.stats
-import pandas
+import pandas as pd
 
 #############################################################################
 def ReadMedianTPMs(ifile):
   fin = open(ifile)
   logging.info('=== GTEx Median-TPMs datafile: %s'%fin.name)
-  tpms = pandas.read_csv(fin, sep='\t')
+  tpms = pd.read_csv(fin, sep='\t')
   logging.info("Median-TPMs dataset nrows: %d ; ncols: %d:"%(tpms.shape[0],tpms.shape[1]))
   return tpms
 
@@ -41,7 +41,7 @@ def ReadMedianTPMs(ifile):
 def ReadSampleTPMs(ifile):
   fin = open(ifile)
   logging.info('=== GTEx Sample-TPMs datafile: %s'%fin.name)
-  tpms = pandas.read_csv(fin, sep='\t')
+  tpms = pd.read_csv(fin, sep='\t')
   logging.info("Sample-TPMs dataset nrows: %d ; ncols: %d:"%(tpms.shape[0],tpms.shape[1]))
   return tpms
 
@@ -51,7 +51,7 @@ def ReadSampleTPMs(ifile):
 def ReadTissues(ifile):
   fin = open(ifile)
   logging.info('=== GTEx Tissues datafile: %s'%fin.name)
-  tissues = pandas.read_csv(fin, sep=';', index_col=False, header=None, names=['name'])
+  tissues = pd.read_csv(fin, sep=';', index_col=False, header=None, names=['name'])
   tissues = tissues.name.str.strip()
   logging.info("n_tissues: %d:"%(tissues.size))
   logging.debug("tissues:\n%s"%(str(tissues)))
@@ -71,7 +71,7 @@ def ReadGenes(ifile):
   logging.info("=== ReadGenes:")
   fin = open(ifile)
   logging.info('Biomart ENSG2NCBI genes datafile: %s'%fin.name)
-  genes = pandas.read_csv(fin, sep='\t', usecols=[1,2,3], na_values=[''], dtype={2:str})
+  genes = pd.read_csv(fin, sep='\t', usecols=[1,2,3], na_values=[''], dtype={2:str})
   logging.info("Genes dataset nrows: %d ; ncols: %d:"%(genes.shape[0],genes.shape[1]))
   genes.columns = ['ENSG','NCBI','HGNC']
   genes.dropna(inplace=True)
@@ -80,14 +80,14 @@ def ReadGenes(ifile):
 #############################################################################
 def TAUs(tpms):
   taus = tpms.groupby(['ENSG']).TPM.agg(TAU)
-  taus = pandas.DataFrame(taus).rename(columns={'TPM':'TAU'})
+  taus = pd.DataFrame(taus).rename(columns={'TPM':'TAU'})
   taus = taus.reset_index(drop=False)
   return taus
 
 #############################################################################
 def TAUs_SABV(tpms):
   taus_sex = tpms.groupby(['ENSG','SEX']).TPM.agg(TAU)
-  taus_sex = pandas.DataFrame(taus_sex).rename(columns={'TPM':'TAU_BYSEX'})
+  taus_sex = pd.DataFrame(taus_sex).rename(columns={'TPM':'TAU_BYSEX'})
   taus_sex = taus_sex.reset_index(drop=False)
   return taus_sex
 
@@ -97,8 +97,8 @@ def RankByTissue(tpms):
 	Avoid SettingwithCopyWarning with syntax:
 	df[(EXPRESSION), 'COLNAME'] = NEWVALS
   """
-  tpms['TPM_RANK'] = pandas.Series(dtype=float)
-  tpms['TPM_RANK_BYSEX'] = pandas.Series(dtype=float)
+  tpms['TPM_RANK'] = pd.Series(dtype=float)
+  tpms['TPM_RANK_BYSEX'] = pd.Series(dtype=float)
   for ensg in tpms.ENSG.unique():
     tpms_this = tpms.loc[(tpms.ENSG==ensg)]
     tpms.loc[(tpms.ENSG==ensg), 'TPM_RANK'] = tpms_this.TPM.rank(ascending=True, pct=True)
@@ -111,7 +111,7 @@ def RankByTissue(tpms):
 
 #############################################################################
 def SABV_LogFoldChange(tpms):
-  lfc = pandas.merge(
+  lfc = pd.merge(
 	tpms[tpms.SEX=='F'][['ENSG', 'SMTSD','TPM']].rename(columns={'TPM':'TPM_F'}),
 	tpms[tpms.SEX=='M'][['ENSG', 'SMTSD','TPM']].rename(columns={'TPM':'TPM_M'}),
 	on=['ENSG', 'SMTSD'], how='inner')
@@ -143,8 +143,8 @@ def WilcoxonRankSum(tpms):
   """May be very slow for large datasets."""
   wrs = tpms[['SMTSD', 'ENSG']].copy().drop_duplicates().sort_values(by=['SMTSD', 'ENSG'])
   wrs.reset_index(drop=True, inplace=True)
-  wrs['stat'] = pandas.Series(dtype=float)
-  wrs['pval'] = pandas.Series(dtype=float)
+  wrs['stat'] = pd.Series(dtype=float)
+  wrs['pval'] = pd.Series(dtype=float)
   for smtsd in wrs.SMTSD.unique():
     tpms_this = tpms[tpms.SMTSD==smtsd]
     for ensg in tpms_this.ENSG.unique():
@@ -172,7 +172,7 @@ if __name__=='__main__':
   t0 = time.time()
 
   if args.verbose:
-    logging.info('Python: %s\nPandas: %s'%(sys.version, pandas.__version__))
+    logging.info('Python: %s\nPandas: %s'%(sys.version, pd.__version__))
 
   if args.ifile_tissue:
     tissues = ReadTissues(args.ifile_tissue)
@@ -193,8 +193,8 @@ if __name__=='__main__':
   taus = TAUs(tpms)
   logging.info('=== Compute TAU (tissue specificity)+SABV:')
   taus_sex = TAUs_SABV(tpms)
-  tpms = pandas.merge(tpms, taus, on=['ENSG'], how='left')
-  tpms = pandas.merge(tpms, taus_sex, on=['ENSG','SEX'], how='left')
+  tpms = pd.merge(tpms, taus, on=['ENSG'], how='left')
+  tpms = pd.merge(tpms, taus_sex, on=['ENSG','SEX'], how='left')
 
   logging.info('=== Compute TPM rank (quantile) among tissues, including by sex:')
   tpms = RankByTissue(tpms)
@@ -202,14 +202,14 @@ if __name__=='__main__':
   logging.info("=== Compute Log fold-change, log of ratio (F/M):")
   ### (One row per gene+tissue, cols for M and F TPM.)
   lfc = SABV_LogFoldChange(tpms)
-  tpms = pandas.merge(tpms, lfc, on=['ENSG','SMTSD'], how='left')
+  tpms = pd.merge(tpms, lfc, on=['ENSG','SMTSD'], how='left')
 
   if args.ifile_sample:
     logging.info("=== From SAMPLE-LEVEL TPMs, compute Wilcoxon rank-sum statistic+pval:")
     sampletpms = ReadSampleTPMs(args.ifile_sample)
     wrs = WilcoxonRankSum(sampletpms)
     wrs = wrs.rename(columns={'stat':'WilcoxonRankSum_stat', 'pval':'WilcoxonRankSum_pval'})
-    tpms = pandas.merge(tpms, wrs, on=['ENSG','SMTSD'], how='left')
+    tpms = pd.merge(tpms, wrs, on=['ENSG','SMTSD'], how='left')
   else:
     logging.info("NOTE: SAMPLE-LEVEL TPMs not provided, so SKIPPING Wilcoxon rank-sum test.")
 
