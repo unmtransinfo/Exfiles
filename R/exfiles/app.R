@@ -100,6 +100,9 @@ OrderGeneSymbols <- function(symbols) {
   genes[(are_prefixed), i := as.integer(sub("^[A-Z]+", "", symbol))]
   return(order(genes$prefix, genes$i, na.last=T))
 }
+#
+MODES <- c("VIEW", "COMPARE", "SIMSEARCH", "TXTSEARCH") #query modes
+#
 #############################################################################
 HelpHtm <- function() {
   htm <- sprintf(
@@ -184,17 +187,17 @@ ui <- fluidPage(
   fluidRow(
     column(5, 
         wellPanel(
-    radioButtons("mode", "Mode", choices=c("VIEW", "COMPARE", "SIMSEARCH", "TXTSEARCH"), selected="VIEW", inline=T),
+    radioButtons("mode", "Mode", choices=MODES, selected="VIEW", inline=T),
 	conditionalPanel(condition="input.mode == 'TXTSEARCH'",
 	      textInput("qryTxt", "Query (list or regex)", width='80%'),
 	      checkboxInput("iCase", "IgnoreCase", value=T, width='20%')),
 	conditionalPanel(condition="input.mode != 'TXTSEARCH'",
-        shinysky::textInput.typeahead(id="qryA", placeholder="GeneA...",
+        shinysky::textInput.typeahead(id="geneA", placeholder="GeneA...",
 		local=gene, valueKey="ENSG", tokens=gene$symbol,
 		template=HTML("<p class='repo-name'>{{symbol}}({{ENSG}})</p> <p class='repo-description'>{{name}}</p>"), limit=10)
         ),
 	conditionalPanel(condition="input.mode == 'COMPARE'",
-        shinysky::textInput.typeahead(id="qryB", placeholder="GeneB...",
+        shinysky::textInput.typeahead(id="geneB", placeholder="GeneB...",
 		local=gene, valueKey="ENSG", tokens=gene$symbol,
 		template=HTML("<p class='repo-name'>{{symbol}}({{ENSG}})</p> <p class='repo-description'>{{name}}</p>"), limit=10)
 	),
@@ -205,8 +208,7 @@ ui <- fluidPage(
           checkboxGroupInput("groups", "Groups", choiceValues=c("F", "M", "C"), choiceNames=c("F", "M", "Combined"), selected=c("F", "M"), inline=T),
           checkboxGroupInput("opts", "Output", choices=c("IDG", "Dissim", "LogY", "Annplot"), selected=c("IDG", "LogY", "Annplot"), inline=T)),
 	wellPanel(htmlOutput(outputId = "log_htm", height = "120px")),
-        wellPanel(htmlOutput(outputId = "result_htm", height = "120px")),
-	wellPanel(actionButton("goSubmit", label="Submit", icon=icon("cogs"), style='background-color:#EEEEEE;border-width:2px'))
+        wellPanel(htmlOutput(outputId = "result_htm", height = "120px"))
 	),
     column(7, conditionalPanel(condition="true", plotlyOutput("plot", height = "580px")))
   ),
@@ -221,8 +223,8 @@ ui <- fluidPage(
 	" built from ",
 	tags$a(href="https://gtexportal.org", target="_blank", span("GTEx", tags$img(id="gtex_logo", height="50", valign="bottom", src="GTEx_logo_only.png")))
 	))),
-  bsTooltip("qryA", "Needed for all modes.", "top"),
-  bsTooltip("qryB", "Needed for COMPARE mode only", "top"),
+  bsTooltip("geneA", "Needed for all modes.", "top"),
+  bsTooltip("geneB", "Needed for COMPARE mode only", "top"),
   bsTooltip("qryTxt", "Enter space-separated list of gene symbols, or regular expression.", "top"),
   bsTooltip("mode", "VIEW 1 gene, COMPARE 2 genes, or Search for similar genes.", "top"),
   bsTooltip("score", "Ruzicka similarity, Pearson weighted correlation, or combination of both.", "top"),
@@ -256,43 +258,36 @@ server <- function(input, output, session) {
     sprintf("%s%s", urlBase(), session$clientData$url_search)
   })
 
-  httpQstr <- reactive({
-    message(sprintf("DEBUG: url: \"%s\"", urlText()))
-    qStr <- getQueryString(session) #named list
-    if (length(qStr)>0)
-      for (key in names(qStr))
-        message(sprintf("DEBUG: qStr[[\"%s\"]]=\"%s\"", key, qStr[[key]]))
-    return(qStr)
-  })
-
   observe({
     message(sprintf("NOTE: mode: %s", qryVals()$mode))
     if (qryVals()$mode=="SIMSEARCH") { message(sprintf("NOTE: score: %s", input$score)) }
-    if (!is.na(qryVals()$geneA)) { message(sprintf("NOTE: qryA = %s (%s: \"%s\")", qryVals()$geneA, symbA(), gene[symbol==qryVals()$geneA, name])) }
-    if (!is.na(qryVals()$geneB)) { message(sprintf("NOTE: qryB = %s (%s: \"%s\")", qryVals()$geneB, symbB(), gene[symbol==qryVals()$geneB, name])) }
+    if (!is.na(qryVals()$geneA)) { message(sprintf("NOTE: geneA = %s (%s: \"%s\")", qryVals()$geneA, symbA(), gene[symbol==qryVals()$geneA, name])) }
+    if (!is.na(qryVals()$geneB)) { message(sprintf("NOTE: geneB = %s (%s: \"%s\")", qryVals()$geneB, symbB(), gene[symbol==qryVals()$geneB, name])) }
   })
 
   observeEvent(input$goReset, {
-    shiny::updateTextInput(session, "geneA", value="")
-    shiny::updateTextInput(session, "geneB", value="")
-    shiny::updateTextInput(session, "qryTxt", value="")
-    shiny::updateRadioButtons(session, "mode", choices=input$mode, selected="VIEW")
+    updateTextInput(session, "geneA", value="")
+    updateTextInput(session, "geneB", value="")
+    updateTextInput(session, "qryTxt", value="")
+    updateRadioButtons(session, "mode", choices=MODES, selected="VIEW")
     updateQueryString("?", "push", session)
     session$reload()
   })
 
   updateFromUrlParams <- function(qStr) {
-    if ("geneA" %in% names(qStr)) { shiny::updateTextInput(session, "qryA", value=qStr[["geneA"]]) }
-    if ("geneB" %in% names(qStr)) { shiny::updateTextInput(session, "qryB", value=qStr[["geneB"]]) }
-    if ("qryTxt" %in% names(qStr)) { shiny::updateTextInput(session, "qryTxt", value=qStr[["qryTxt"]]) }
-    if ("mode" %in% names(qStr)) { shiny::updateRadioButtons(session, "mode", choices=input$mode, selected=qStr[["mode"]]) }
+    if ("geneA" %in% names(qStr)) { updateTextInput(session, "geneA", value=qStr[["geneA"]]) }
+    if ("geneB" %in% names(qStr)) { updateTextInput(session, "geneB", value=qStr[["geneB"]]) }
+    if ("qryTxt" %in% names(qStr)) { updateTextInput(session, "qryTxt", value=qStr[["qryTxt"]]) }
+    if ("mode" %in% names(qStr)) { updateRadioButtons(session, "mode", choices=MODES, selected=qStr[["mode"]]) }
   }
 
   qryVals <- reactive({
-    input$goSubmit #trigger with goSubmit button?
     vals <- list(geneA = NA, geneB = NA, qryTxt = NA, mode = NA)
-    qStr <- httpQstr()
+    qStr <- getQueryString(session) #named list
     if (i_query==0 & length(names(qStr))>0) {  #1st query may be via URL http param.
+      message(sprintf("DEBUG: url: \"%s\"", urlText()))
+      for (key in names(qStr))
+        message(sprintf("DEBUG: qStr[[\"%s\"]]=\"%s\"", key, qStr[[key]]))
       vals$geneA <- ifelse("geneA" %in% names(qStr), qStr[["geneA"]], NA)
       vals$geneB <- ifelse("geneB" %in% names(qStr), qStr[["geneB"]], NA)
       vals$qryTxt <- ifelse("qryTxt" %in% names(qStr), qStr[["qryTxt"]], NA)
@@ -304,29 +299,23 @@ server <- function(input, output, session) {
       vals$qryTxt <- ifelse("qryTxt" %in% names(input), input$qryTxt, NA)
       vals$mode <- ifelse("mode" %in% names(input), input$mode, NA)
     }
-    message(sprintf("DEBUG: qryVals(): i_query: %d; input$geneA: %s; vals$geneA: %s; input$geneB: %s; vals$geneB: %s; vals$qryTxt: %s", i_query, input$geneA, vals$geneA, input$geneB, vals$geneB, input$qryTxt))
     i_query <<- i_query + 1  # Must assign to up-scoped variable.
+    vals$geneA <- ifelse(vals$geneA!="", vals$geneA, NA)
+    vals$geneB <- ifelse(vals$geneB!="", vals$geneB, NA)
+    vals$qryTxt <- ifelse(vals$qryTxt!="", vals$qryTxt, NA)
+    vals$mode <- ifelse(vals$mode!="", vals$mode, NA)
+    #message(sprintf("DEBUG: qryVals(): i_query: %d; input$geneA: %s; vals$geneA: %s; input$geneB: %s; vals$geneB: %s; vals$qryTxt: %s", i_query, input$geneA, vals$geneA, input$geneB, vals$geneB, input$qryTxt))
     return(vals)
   })
 
-#  qryA <- reactive({
-#    input$goSubmit # Re-run this and downstream on action button.
-#    i_query <<- i_query + 1  # Must assign to up-scoped variable.
-#    if (i_query==1 && length(names(httpQstr()))>0 && "geneA" %in% names(httpQstr())) {
-#      return(httpQstr()[["geneA"]])
-#    }
-#    if (inputMode()=="TXTSEARCH") { return(NULL) }
-#    if (input$qryA=="") { return(NULL) }
-#    return(input$qryA)
-#  })
   symbA <- reactive({
     if (is.na(qryVals()$geneA)) { return(NULL) }
     symb <- gene[ENSG==qryVals()$geneA, symbol]
     if (length(symb)>1) {
-      message(sprintf("ERROR: multiple geneSymbols for qryA=%s: %s", qryVals()$geneA, paste(collapse=",", symb)))
+      message(sprintf("ERROR: multiple geneSymbols for geneA=%s: %s", qryVals()$geneA, paste(collapse=",", symb)))
       return(symb[1])
     } else {
-      message(sprintf("DEBUG: qryA=%s; symbA=%s", qryVals()$geneA, paste(collapse=",", symb)))
+      #message(sprintf("DEBUG: geneA=%s; symbA=%s", qryVals()$geneA, paste(collapse=",", symb)))
       return(symb)
     }
   })
@@ -335,18 +324,11 @@ server <- function(input, output, session) {
     return(gene[ENSG==qryVals()$geneA, chr])
   })
   
-#  qryB <- reactive({
-#    if (length(names(httpQstr()))>0 && "geneB" %in% names(httpQstr())) {
-#      return(httpQstr()[["geneB"]])
-#    }
-#    if (input$qryB %in% c("", "NONE", "none")) { return(NULL) }
-#    return(input$qryB)
-#  })
   symbB <- reactive({
     if (is.na(qryVals()$geneB)) { return(NULL) }
     symb <- gene[ENSG==qryVals()$geneB, symbol]
     if (length(symb)>1) {
-      message(sprintf("ERROR: multiple geneSymbols for qryB=%s: %s", qryVals()$geneB, paste(collapse=",", symb)))
+      message(sprintf("ERROR: multiple geneSymbols for geneB=%s: %s", qryVals()$geneB, paste(collapse=",", symb)))
       return(symb[1])
     } else {
       return(symb)
@@ -373,14 +355,6 @@ server <- function(input, output, session) {
     return(qrex)
   })
 
-#  inputMode <- reactive({
-#    if (length(names(httpQstr()))>0 && "mode" %in% names(httpQstr())) {
-#      return(httpQstr()[["mode"]])
-#    } else {
-#      return(input$mode)
-#    }
-#  })
-  
   hits <- reactive({
     if (qryVals()$mode == "SIMSEARCH" ) {
       if (is.na(qryVals()$geneA)) { return(NULL) }
@@ -409,14 +383,13 @@ server <- function(input, output, session) {
       }
       return(ggc_hits)
     } else if (qryVals()$mode == "TXTSEARCH") {
-      message(sprintf("DEBUG: is.na(qryRex()): %s", as.character(is.na(qryRex()))))
       if (is.na(qryRex())) { return(NULL) }
       if (input$field == "Symbol") {
         gene_hits <- gene[grepl(qryRex(), symbol, ignore.case=input$iCase)]
       } else if (input$field == "Name") {
         gene_hits <- gene[grepl(qryRex(), name, ignore.case=input$iCase)]
       }
-      message(sprintf("DEBUG: nrow(gene_hits)=%d", nrow(gene_hits)))
+      #message(sprintf("DEBUG: nrow(gene_hits)=%d", nrow(gene_hits)))
       if (nrow(gene_hits)==0) { return(NULL) }
       setnames(gene_hits, old="ENSG", new="EnsemblID")
       hits_cols <- c("EnsemblID", "uniprot", "symbol", "name", "chr", "idgTDL", "idgFamily") #datatable() ref by # (0+)
@@ -427,7 +400,7 @@ server <- function(input, output, session) {
   })
   
   output$hits_exist <- renderText({
-    message(sprintf("DEBUG: hits_exist: %s", as.character(!is.null(hits()))))
+    #message(sprintf("DEBUG: hits_exist: %s", as.character(!is.null(hits()))))
     if (!grepl("SEARCH", qryVals()$mode)) { return("FALSE") }
     return(as.character(!is.null(hits())))
   })
@@ -463,7 +436,7 @@ server <- function(input, output, session) {
     if (qryVals()$mode=="VIEW" && is.na(qryVals()$geneA)) {
       paste0(htm, "No query. Enter geneA.")
     }
-    message(sprintf("DEBUG: (Results) geneA:%s; geneB:%s; mode: %s", qryVals()$geneA, qryVals()$geneB, qryVals()$mode))
+    #message(sprintf("DEBUG: (Results) geneA:%s; geneB:%s; mode: %s", qryVals()$geneA, qryVals()$geneB, qryVals()$mode))
     if (!is.na(qryVals()$geneA)) {
       htm <- paste0(htm, sprintf(" GeneA: %s \"%s\"%s", symbA(), gene[ENSG==qryVals()$geneA, name],
 	ifelse(("IDG" %in% input$opts), sprintf(" <A HREF=\"https://pharos.nih.gov/idg/targets/%s\" target=\"_blank\">%s</A>", gene[ENSG==qryVals()$geneA, uniprot], icon("external-link",lib="font-awesome")), "")))
@@ -560,28 +533,28 @@ server <- function(input, output, session) {
 
     if (!is.na(qryVals()$geneA)) {
       smtsds <- tissue$SMTSD
-      qryA_profile_f <- as.numeric(eps[ENSG==qryVals()$geneA & SEX=="F"][1, ..smtsds])
-      qryA_profile_m <- as.numeric(eps[ENSG==qryVals()$geneA & SEX=="M"][1, ..smtsds])
-      rhoAfm <- wPearson(qryA_profile_f, qryA_profile_m)
-      ruzAfm <- Ruzicka(qryA_profile_f, qryA_profile_m)
-      qryA_profile_n <- (qryA_profile_f+qryA_profile_m)/2 #Non-sexed (F+M)/2
+      geneA_profile_f <- as.numeric(eps[ENSG==qryVals()$geneA & SEX=="F"][1, ..smtsds])
+      geneA_profile_m <- as.numeric(eps[ENSG==qryVals()$geneA & SEX=="M"][1, ..smtsds])
+      rhoAfm <- wPearson(geneA_profile_f, geneA_profile_m)
+      ruzAfm <- Ruzicka(geneA_profile_f, geneA_profile_m)
+      geneA_profile_n <- (geneA_profile_f+geneA_profile_m)/2 #Non-sexed (F+M)/2
     }
 
     if (qryVals()$mode=="COMPARE" & !is.na(qryVals()$geneB)) {
       smtsds <- tissue$SMTSD
-      qryB_profile_f <- as.numeric(eps[ENSG==qryVals()$geneB & SEX=="F"][1, ..smtsds])
-      qryB_profile_m <- as.numeric(eps[ENSG==qryVals()$geneB & SEX=="M"][1, ..smtsds])
-      qryB_profile_n <- (qryB_profile_f+qryB_profile_m)/2
+      geneB_profile_f <- as.numeric(eps[ENSG==qryVals()$geneB & SEX=="F"][1, ..smtsds])
+      geneB_profile_m <- as.numeric(eps[ENSG==qryVals()$geneB & SEX=="M"][1, ..smtsds])
+      geneB_profile_n <- (geneB_profile_f+geneB_profile_m)/2
       #
-      rhoNab <- wPearson(qryA_profile_n, qryB_profile_n)
-      rhoBfm <- wPearson(qryB_profile_f, qryB_profile_m)
-      rhoFab <- wPearson(qryA_profile_f, qryB_profile_f)
-      rhoMab <- wPearson(qryA_profile_m, qryB_profile_m)
+      rhoNab <- wPearson(geneA_profile_n, geneB_profile_n)
+      rhoBfm <- wPearson(geneB_profile_f, geneB_profile_m)
+      rhoFab <- wPearson(geneA_profile_f, geneB_profile_f)
+      rhoMab <- wPearson(geneA_profile_m, geneB_profile_m)
       #
-      ruzNab <- Ruzicka(qryA_profile_n, qryB_profile_n)
-      ruzBfm <- Ruzicka(qryB_profile_f, qryB_profile_m)
-      ruzFab <- Ruzicka(qryA_profile_f, qryB_profile_f)
-      ruzMab <- Ruzicka(qryA_profile_m, qryB_profile_m)
+      ruzNab <- Ruzicka(geneA_profile_n, geneB_profile_n)
+      ruzBfm <- Ruzicka(geneB_profile_f, geneB_profile_m)
+      ruzFab <- Ruzicka(geneA_profile_f, geneB_profile_f)
+      ruzMab <- Ruzicka(geneA_profile_m, geneB_profile_m)
       #
     }
 
@@ -603,19 +576,19 @@ server <- function(input, output, session) {
 
     if (!is.na(qryVals()$geneA)) {
       if ("F" %in% input$groups) {
-        p <-  add_trace(p, name = paste("(F)", symbA()), x = tissue$SMTSD, y = EpLogIf(qryA_profile_f, ("LogY" %in% input$opts)),
+        p <-  add_trace(p, name = paste("(F)", symbA()), x = tissue$SMTSD, y = EpLogIf(geneA_profile_f, ("LogY" %in% input$opts)),
           type = 'scatter', mode = 'lines+markers',
           marker = list(symbol="circle", size=10),
           text = paste0(symbA(), ": ", tissue$SMTSD))
     }
       if ("M" %in% input$groups) {
-        p <- add_trace(p, name = paste("(M)", symbA()), x = tissue$SMTSD, y = EpLogIf(qryA_profile_m, ("LogY" %in% input$opts)),
+        p <- add_trace(p, name = paste("(M)", symbA()), x = tissue$SMTSD, y = EpLogIf(geneA_profile_m, ("LogY" %in% input$opts)),
           type = 'scatter', mode = 'lines+markers',
           marker = list(symbol="circle", size=10),
           text = paste0(symbA(), ": ", tissue$SMTSD))
     }
       if ("C" %in% input$groups) {
-        p <- add_trace(p, name = paste("(C)", symbA()), x = tissue$SMTSD, y = EpLogIf(qryA_profile_n, ("LogY" %in% input$opts)),
+        p <- add_trace(p, name = paste("(C)", symbA()), x = tissue$SMTSD, y = EpLogIf(geneA_profile_n, ("LogY" %in% input$opts)),
           type = 'scatter', mode = 'lines+markers',
           marker = list(symbol="circle", size=10),
           text = paste0(symbA(), ": ", tissue$SMTSD))
@@ -623,21 +596,21 @@ server <- function(input, output, session) {
     }
     if (qryVals()$mode=="COMPARE" & !is.na(qryVals()$geneB)) {
       if ("F" %in% input$groups) {
-        p <- add_trace(p, name = paste("(F)", symbB()), x = tissue$SMTSD, y = EpLogIf(qryB_profile_f, ("LogY" %in% input$opts)),
+        p <- add_trace(p, name = paste("(F)", symbB()), x = tissue$SMTSD, y = EpLogIf(geneB_profile_f, ("LogY" %in% input$opts)),
           type = 'scatter', mode = 'lines+markers',
           marker = list(symbol="circle", size=10),
           text = paste0(symbB(), ": ", tissue$SMTSD))
         annos <- c(annos, sprintf("Fab: rho = %.2f; ruz = %.2f", rhoFab, ruzFab))
       }
       if ("M" %in% input$groups) {
-        p <- add_trace(p, name = paste("(M)", symbB()), x = tissue$SMTSD, y = EpLogIf(qryB_profile_m, ("LogY" %in% input$opts)),
+        p <- add_trace(p, name = paste("(M)", symbB()), x = tissue$SMTSD, y = EpLogIf(geneB_profile_m, ("LogY" %in% input$opts)),
           type = 'scatter', mode = 'lines+markers',
           marker = list(symbol="circle", size=10),
           text = paste0(symbB(), ": ", tissue$SMTSD))
         annos <- c(annos, sprintf("Mab: rho = %.2f; ruz = %.2f", rhoMab, ruzMab))
       }
       if ("C" %in% input$groups) {
-        p <- add_trace(p, name = paste("(C)", symbB()), x = tissue$SMTSD, y = EpLogIf(qryB_profile_n, ("LogY" %in% input$opts)),
+        p <- add_trace(p, name = paste("(C)", symbB()), x = tissue$SMTSD, y = EpLogIf(geneB_profile_n, ("LogY" %in% input$opts)),
           type = 'scatter', mode = 'lines+markers',
           marker = list(symbol="circle", size=10),
           text = paste0(symbB(), ": ", tissue$SMTSD))
@@ -661,14 +634,14 @@ server <- function(input, output, session) {
                 type = 'scatter', mode = 'lines+markers',
                 marker = list(symbol="circle", size=10),
                 text = paste0(hits()$symbol[i], ": ", tissue$SMTSD))
-            if (!is.na(qryVals()$geneA)) { annos <- c(annos, sprintf("Fab: rho = %.2f; ruz = %.2f", wPearson(qryA_profile_f, hit_profile_f), Ruzicka(qryA_profile_f, hit_profile_f))) }
+            if (!is.na(qryVals()$geneA)) { annos <- c(annos, sprintf("Fab: rho = %.2f; ruz = %.2f", wPearson(geneA_profile_f, hit_profile_f), Ruzicka(geneA_profile_f, hit_profile_f))) }
           }
           if ("M" %in% input$groups) {
             p <- add_trace(p, name = paste("(M)", hits()$symbol[i]), x = tissue$SMTSD, y = EpLogIf(hit_profile_m, ("LogY" %in% input$opts)),
                 type = 'scatter', mode = 'lines+markers',
                 marker = list(symbol="circle", size=10),
                 text = paste0(hits()$symbol[i], ": ", tissue$SMTSD))
-            if (!is.na(qryVals()$geneA)) { annos <- c(annos, sprintf("Mab: rho = %.2f; ruz = %.2f", wPearson(qryA_profile_m, hit_profile_m), Ruzicka(qryA_profile_m, hit_profile_m))) }
+            if (!is.na(qryVals()$geneA)) { annos <- c(annos, sprintf("Mab: rho = %.2f; ruz = %.2f", wPearson(geneA_profile_m, hit_profile_m), Ruzicka(geneA_profile_m, hit_profile_m))) }
           }
           if ("C" %in% input$groups) {
             hit_profile_n <- (hit_profile_f + hit_profile_m)/2
@@ -676,7 +649,7 @@ server <- function(input, output, session) {
                 type = 'scatter', mode = 'lines+markers',
                 marker = list(symbol="circle", size=10),
                 text = paste0(hits()$symbol[i], ": ", tissue$SMTSD))
-            if (!is.na(qryVals()$geneA)) { annos <- c(annos, sprintf("Nab: rho = %.2f; ruz = %.2f", wPearson(qryA_profile_n, hit_profile_n), Ruzicka(qryA_profile_n, hit_profile_n))) }
+            if (!is.na(qryVals()$geneA)) { annos <- c(annos, sprintf("Nab: rho = %.2f; ruz = %.2f", wPearson(geneA_profile_n, hit_profile_n), Ruzicka(geneA_profile_n, hit_profile_n))) }
           }
         }
       }
