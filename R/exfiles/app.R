@@ -21,6 +21,7 @@ library(shinysky) #textInput.typeahead
 library(DT, quietly=T)
 library(data.table, quietly=T)
 library(plotly, quietly=T)
+library(waiter, quietly=F)
 #
 pkgs <- names(sessionInfo()$otherPkgs)
 pkgVerTxt <- paste(sprintf("%s %s", pkgs, sapply(pkgs, function(p){paste(packageVersion(p), collapse=".")})), collapse="; ")
@@ -34,40 +35,11 @@ GTEX_RELEASE <- "v8 (2017)"
 #
 IGNORE_SEX_SPECIFIC_TISSUES <- T
 ###
-t0 <- proc.time()
-if (!file.exists("exfiles.Rdata")) {
-  message(sprintf("ERROR: exfiles.Rdata NOT FOUND."))
-} else {
-  message(sprintf("Loading exfiles.Rdata..."))
-  load("exfiles.Rdata")
-}
-#
-message(sprintf("Gene count (ENSG): %d", uniqueN(gene$ENSG)))
-message(sprintf("Gene count (SYMB): %d", uniqueN(gene$symbol)))
-message(sprintf("Gene count (UniProt): %d", uniqueN(gene$uniprot)))
-message(sprintf("Tissue count (profiles): %d", ncol(eps)-2))
-message(sprintf("Tissue count (shown): %d", uniqueN(tissue$SMTSD)))
-message(sprintf("Gene-gene signature comparisons: %d", nrow(ggc)))
-#
-hiddenTissues <- setdiff(names(eps)[3:ncol(eps)], tissue$SMTSD)
-for (tis in hiddenTissues) {
-  message(sprintf("Tissue hidden (SMTSD): %s", tis))
-}
-if (IGNORE_SEX_SPECIFIC_TISSUES) {
-  tissue <- tissue[(!SEX_SPECIFIC)]
-  tissue <- tissue[SMTSD != "Kidney - Medulla"] #No female TPMs in GTEx. Why?
-}
-tissue <- tissue[SMTSD %in% colnames(eps)]
-TAGS_THIS <- c("ENSG", "SEX", tissue$SMTSD)
-eps <- eps[, ..TAGS_THIS]
-#
 ###
-ggc[, Combo := round(wRho*Ruzicka, digits=2)]
-#
-db_htm <- sprintf("<B>Dataset:</B> Genes: %d ; tissues: %d ; comparisons: %d", uniqueN(gene$ENSG), uniqueN(tissue$SMTSD), nrow(ggc))
-message(sprintf("t_load: %.1fs", (proc.time()-t0)[3]))
+#loadData <- function() {
+#}
+###
 message(sprintf("IGNORE_SEX_SPECIFIC_TISSUES: %s", IGNORE_SEX_SPECIFIC_TISSUES))
-###
 #
 #############################################################################
 #
@@ -87,10 +59,6 @@ EpLogIf <- function(ep, condition) {
   if (condition) { return(log10(ep+1)) }
   else { return(ep) }
 }
-###
-# Create menu input autocomplete.
-gene_menu <- gene
-gene_menu[, symbol := ifelse(!is.na(symbol), symbol, ENSG)] #NAs break autocomplete.
 #
 OrderGeneSymbols <- function(symbols) {
   genes <- data.table(symbol=symbols, prefix=NA, i=NA)
@@ -103,8 +71,10 @@ OrderGeneSymbols <- function(symbols) {
 #
 MODES <- c("VIEW", "COMPARE", "SIMSEARCH", "TXTSEARCH") #query modes
 #
+message("DEBUG: Done with functions...")
+#
 #############################################################################
-HelpHtm <- function() {
+HelpHtm <- function(appname_full, gtex_release) {
   htm <- sprintf(
 "<P><B>%s</B> allows exploration and analysis of co-expression patterns via gene expression profiles,
 from <B>GTEx</B> RNA-seq data, with <B>Sex As a Biological Variable (SABV)</B>.
@@ -170,18 +140,21 @@ female TPM data.
 <B>Correspondence</B> from users of this app is welcome, and should be directed to <a href=\"mailto:jjyang_REPLACE_WITH_ATSIGN_salud.unm.edu\">Jeremy Yang</a>.<br/>
 Data from <A HREF=\"https://www.gtexportal.org/\" TARGET=\"_blank\">GTEx, The Genotype-Tissue Expression Project</A>.<BR/>
 This work was supported by the National Institutes of Health grants OT3-OD025464 and U24-CA224370.<BR/>
-", APPNAME_FULL, GTEX_RELEASE)
+", appname_full, gtex_release)
   htm <- paste(htm, sprintf("<hr>\nPowered by: <tt>%s; %s</tt>", R.version.string, pkgVerTxt), sep="\n")
   return(htm)
-  }
+}
+message("DEBUG: Done with HelpHtm...")
 #
 #############################################################################
 ui <- fluidPage(
+  useWaitress(),
   titlePanel(
     tags$table(width="100%", tags$tr(tags$td(
     h2("IDG", tags$img(height="50", valign="bottom", src="IDG_logo_only.png"), APPNAME_FULL, span(icon("venus", lib="font-awesome"), icon("mars", lib="font-awesome")))),
     tags$td(align="right",
       actionButton("goReset", "Reset", style="padding:4px; background-color:#DDDDDD;font-weight:bold"),
+      actionButton("goDemo", "Demo", style="padding:4px; background-color:#DDDDDD;font-weight:bold"),
       actionButton("showhelp", "Help", style="padding:4px; background-color:#DDDDDD;font-weight:bold")))),
     windowTitle=APPNAME_FULL),
   fluidRow(
@@ -238,11 +211,69 @@ ui <- fluidPage(
 
 #############################################################################
 server <- function(input, output, session) {
+  message("DEBUG: server()...")
+  
+  waitress <- Waitress$new(theme = "overlay-percent")$start()
+  for (i in 1:10) {
+    waitress$inc(10) # increase by 10%
+    Sys.sleep(.3)
+  }
+  #message("DEBUG: loadData()...")
+  #loadData()
+  t0 <- proc.time()
+  if (!file.exists("exfiles.Rdata")) {
+    message(sprintf("ERROR: exfiles.Rdata NOT FOUND."))
+  } else {
+    message(sprintf("Loading exfiles.Rdata..."))
+    load("exfiles.Rdata")
+  }
+  #
+  message(sprintf("Gene count (ENSG): %d", uniqueN(gene$ENSG)))
+  message(sprintf("Gene count (SYMB): %d", uniqueN(gene$symbol)))
+  message(sprintf("Gene count (UniProt): %d", uniqueN(gene$uniprot)))
+  message(sprintf("Tissue count (profiles): %d", ncol(eps)-2))
+  message(sprintf("Tissue count (shown): %d", uniqueN(tissue$SMTSD)))
+  message(sprintf("Gene-gene signature comparisons: %d", nrow(ggc)))
+  #
+  hiddenTissues <- setdiff(names(eps)[3:ncol(eps)], tissue$SMTSD)
+  for (tis in hiddenTissues) {
+    message(sprintf("Tissue hidden (SMTSD): %s", tis))
+  }
+  if (IGNORE_SEX_SPECIFIC_TISSUES) {
+    tissue <- tissue[(!SEX_SPECIFIC)]
+    tissue <- tissue[SMTSD != "Kidney - Medulla"] #No female TPMs in GTEx. Why?
+  }
+  tissue <- tissue[SMTSD %in% colnames(eps)]
+  TAGS_THIS <- c("ENSG", "SEX", tissue$SMTSD)
+  eps <- eps[, ..TAGS_THIS]
+  #
+  ###
+  ggc[, Combo := round(wRho*Ruzicka, digits=2)]
+  #
+  ###
+  # Create menu input autocomplete.
+  gene_menu <<- gene # Global
+  gene_menu[, symbol := ifelse(!is.na(symbol), symbol, ENSG)] #NAs break autocomplete.
+  #
+  db_htm <- sprintf("<B>Dataset:</B> Genes: %d ; tissues: %d ; comparisons: %d", uniqueN(gene$ENSG), uniqueN(tissue$SMTSD), nrow(ggc))
+  ###
+  #gene <<- gene # Global
+  #eps <<- eps # Global
+  #tissue <<- tissue # Global
+  #ggc <<- ggc # Global
+  ###
+  message(sprintf("t_load: %.1fs", (proc.time()-t0)[3]))
+  #gene <<- gene # Global
+  #eps <<- eps # Global
+  #tissue <<- tissue # Global
+  #ggc <<- ggc # Global
+  
+  waitress$close()
   
   observeEvent(input$showhelp, {
     showModal(modalDialog(easyClose=T, footer=tagList(modalButton("Dismiss")),
       title=HTML(sprintf("<H2>%s Help</H2>", APPNAME)),
-      HTML(HelpHtm())
+      HTML(HelpHtm(APPNAME_FULL, GTEX_RELEASE))
     ))
   })
   
@@ -269,9 +300,17 @@ server <- function(input, output, session) {
     updateTextInput(session, "geneA", value="")
     updateTextInput(session, "geneB", value="")
     updateTextInput(session, "qryTxt", value="")
-    updateRadioButtons(session, "mode", choices=MODES, selected="VIEW")
+    updateRadioButtons(session, "mode", choices=MODES, selected="VIEW", inline=T)
     updateQueryString("?", "push", session)
     session$reload()
+  })
+
+  observeEvent(input$goDemo, {
+    updateQueryString("?", "push", session)
+    updateRadioButtons(session, "mode", choices=MODES, selected="VIEW", inline=T)
+    updateTextInput(session, "qryTxt", value="")
+    updateTextInput(session, "geneB", value="")
+    updateTextInput(session, "geneA", value=sample(gene_menu[, ENSG], 1))
   })
 
   updateFromUrlParams <- function(qStr) {
