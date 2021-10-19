@@ -36,9 +36,6 @@ GTEX_RELEASE <- "v8 (2017)"
 IGNORE_SEX_SPECIFIC_TISSUES <- T
 ###
 ###
-#loadData <- function() {
-#}
-###
 message(sprintf("IGNORE_SEX_SPECIFIC_TISSUES: %s", IGNORE_SEX_SPECIFIC_TISSUES))
 #
 #############################################################################
@@ -71,7 +68,7 @@ OrderGeneSymbols <- function(symbols) {
 #
 MODES <- c("VIEW", "COMPARE", "SIMSEARCH", "TXTSEARCH") #query modes
 #
-message("DEBUG: Done with functions...")
+gene_menu <- NULL #Global; assigned by load().
 #
 #############################################################################
 HelpHtm <- function(appname_full, gtex_release) {
@@ -144,7 +141,6 @@ This work was supported by the National Institutes of Health grants OT3-OD025464
   htm <- paste(htm, sprintf("<hr>\nPowered by: <tt>%s; %s</tt>", R.version.string, pkgVerTxt), sep="\n")
   return(htm)
 }
-message("DEBUG: Done with HelpHtm...")
 #
 #############################################################################
 ui <- fluidPage(
@@ -166,12 +162,12 @@ ui <- fluidPage(
 	      checkboxInput("iCase", "IgnoreCase", value=T, width='20%')),
 	conditionalPanel(condition="input.mode != 'TXTSEARCH'",
         shinysky::textInput.typeahead(id="geneA", placeholder="GeneA...",
-		local=gene, valueKey="ENSG", tokens=gene$symbol,
+		local=gene_menu, valueKey="ENSG", tokens=gene_menu$symbol,
 		template=HTML("<p class='repo-name'>{{symbol}}({{ENSG}})</p> <p class='repo-description'>{{name}}</p>"), limit=10)
         ),
 	conditionalPanel(condition="input.mode == 'COMPARE'",
         shinysky::textInput.typeahead(id="geneB", placeholder="GeneB...",
-		local=gene, valueKey="ENSG", tokens=gene$symbol,
+		local=gene_menu, valueKey="ENSG", tokens=gene_menu$symbol,
 		template=HTML("<p class='repo-name'>{{symbol}}({{ENSG}})</p> <p class='repo-description'>{{name}}</p>"), limit=10)
 	),
 	  conditionalPanel(condition="input.mode == 'SIMSEARCH'",
@@ -211,22 +207,35 @@ ui <- fluidPage(
 
 #############################################################################
 server <- function(input, output, session) {
-  message("DEBUG: server()...")
   
-  waitress <- Waitress$new(theme = "overlay-percent")$start()
+  # How to increment during load()?
+  waitress <- Waitress$new(theme="overlay-percent")$start()
   for (i in 1:10) {
     waitress$inc(10) # increase by 10%
-    Sys.sleep(.3)
+    Sys.sleep(.1)
   }
-  #message("DEBUG: loadData()...")
-  #loadData()
-  t0 <- proc.time()
-  if (!file.exists("exfiles.Rdata")) {
-    message(sprintf("ERROR: exfiles.Rdata NOT FOUND."))
-  } else {
-    message(sprintf("Loading exfiles.Rdata..."))
-    load("exfiles.Rdata")
+
+  #https://shiny.rstudio.com/articles/scoping.html
+  # Global gene_menu for ui access.
+  if (is.null(gene_menu)) {
+    t0 <- proc.time()
+    if (!file.exists("exfiles.Rdata")) {
+      message(sprintf("ERROR: exfiles.Rdata NOT FOUND."))
+    } else {
+      message(sprintf("Loading exfiles.Rdata..."))
+      load("exfiles.Rdata", envir=.GlobalEnv, verbose=T)
+    }
+    message(sprintf("t_load: %.1fs", (proc.time()-t0)[3]))
+    #
+    if (IGNORE_SEX_SPECIFIC_TISSUES) {
+      tissue <- tissue[(!SEX_SPECIFIC)]
+      tissue <- tissue[SMTSD != "Kidney - Medulla"] #No female TPMs in GTEx. Why?
+    }
+    TAGS_THIS <- c("ENSG", "SEX", tissue$SMTSD)
+    eps <- eps[, ..TAGS_THIS]
+    #
   }
+  waitress$close()
   #
   message(sprintf("Gene count (ENSG): %d", uniqueN(gene$ENSG)))
   message(sprintf("Gene count (SYMB): %d", uniqueN(gene$symbol)))
@@ -235,40 +244,8 @@ server <- function(input, output, session) {
   message(sprintf("Tissue count (shown): %d", uniqueN(tissue$SMTSD)))
   message(sprintf("Gene-gene signature comparisons: %d", nrow(ggc)))
   #
-  hiddenTissues <- setdiff(names(eps)[3:ncol(eps)], tissue$SMTSD)
-  for (tis in hiddenTissues) {
-    message(sprintf("Tissue hidden (SMTSD): %s", tis))
-  }
-  if (IGNORE_SEX_SPECIFIC_TISSUES) {
-    tissue <- tissue[(!SEX_SPECIFIC)]
-    tissue <- tissue[SMTSD != "Kidney - Medulla"] #No female TPMs in GTEx. Why?
-  }
-  tissue <- tissue[SMTSD %in% colnames(eps)]
-  TAGS_THIS <- c("ENSG", "SEX", tissue$SMTSD)
-  eps <- eps[, ..TAGS_THIS]
-  #
-  ###
-  ggc[, Combo := round(wRho*Ruzicka, digits=2)]
-  #
-  ###
-  # Create menu input autocomplete.
-  gene_menu <<- gene # Global
-  gene_menu[, symbol := ifelse(!is.na(symbol), symbol, ENSG)] #NAs break autocomplete.
-  #
   db_htm <- sprintf("<B>Dataset:</B> Genes: %d ; tissues: %d ; comparisons: %d", uniqueN(gene$ENSG), uniqueN(tissue$SMTSD), nrow(ggc))
-  ###
-  #gene <<- gene # Global
-  #eps <<- eps # Global
-  #tissue <<- tissue # Global
-  #ggc <<- ggc # Global
-  ###
-  message(sprintf("t_load: %.1fs", (proc.time()-t0)[3]))
-  #gene <<- gene # Global
-  #eps <<- eps # Global
-  #tissue <<- tissue # Global
-  #ggc <<- ggc # Global
-  
-  waitress$close()
+  #
   
   observeEvent(input$showhelp, {
     showModal(modalDialog(easyClose=T, footer=tagList(modalButton("Dismiss")),

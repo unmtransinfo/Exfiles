@@ -42,10 +42,20 @@ setnames(idg, c("uniprot", "idgTDL", "idgFamily"))
 eps <- read_delim("data/exfiles_eps.tsv", "\t", col_types=cols(.default=col_double(), ENSG=col_character(), SEX=col_character()))
 setDT(eps)
 ###
+# Filter tissues absent from custom tissues list.
+hiddenTissues <- setdiff(names(eps)[3:ncol(eps)], tissue$SMTSD)
+for (tis in hiddenTissues) {
+  message(sprintf("Tissue hidden (SMTSD): %s", tis))
+}
+tissue <- tissue[SMTSD %in% colnames(eps)]
+TAGS_THIS <- c("ENSG", "SEX", tissue$SMTSD)
+eps <- eps[, ..TAGS_THIS]
+###
 # ENSGA, ENSGB, Group, wRho, Ruzicka
 ###
 ggc <- read_delim("data/exfiles_ggc.tsv", "\t", col_types="cccdd")
 setDT(ggc)
+ggc[, Combo := round(wRho*Ruzicka, digits=2)]
 #
 ensgs <- intersect(eps$ENSG, c(ggc$ENSGA, ggc$ENSGB))
 ensgs <- intersect(ensgs, gene$ENSG)
@@ -57,8 +67,11 @@ gene <- merge(gene, idg, by="uniprot", all.x=F, all.y=F)
 gene <- gene[!is.na(symbol)]
 gene <- gene[!duplicated(ENSG)]
 gene <- gene[!duplicated(symbol)]
+#
+gene_menu <- gene
+gene_menu[, symbol := ifelse(!is.na(symbol), symbol, ENSG)] #NAs break autocomplete. 
 ###
-save(tissue, gene, idg, eps, ggc, file="data/exfiles.Rdata")
+save(tissue, gene, gene_menu, idg, eps, ggc, file="data/exfiles.Rdata")
 #
 message(sprintf("Gene count (ENSG): %d", uniqueN(gene$ENSG)))
 message(sprintf("Gene count (SYMB): %d", uniqueN(gene$symbol)))
