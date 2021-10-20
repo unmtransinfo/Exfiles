@@ -144,7 +144,8 @@ This work was supported by the National Institutes of Health grants OT3-OD025464
 #
 #############################################################################
 ui <- fluidPage(
-  useWaitress(),
+  #useWaitress(),
+  useWaiter(),
   titlePanel(
     tags$table(width="100%", tags$tr(tags$td(
     h2("IDG", tags$img(height="50", valign="bottom", src="IDG_logo_only.png"), APPNAME_FULL, span(icon("venus", lib="font-awesome"), icon("mars", lib="font-awesome")))),
@@ -207,13 +208,21 @@ ui <- fluidPage(
 
 #############################################################################
 server <- function(input, output, session) {
-  
-  # How to increment during load()?
-  waitress <- Waitress$new(theme="overlay-percent")$start()
-  for (i in 1:10) {
-    waitress$inc(10) # increase by 10%
-    Sys.sleep(.1)
-  }
+
+  waiter_show(
+    color = "#333e48",
+    image = "IDG_logo_only.png",
+    #html = spin_fading_circles()
+    html = spin_wave()
+    #html = spin_gauge()
+    #html = spin_pulsar()
+  )
+    
+  #waitress <- Waitress$new(theme="overlay-percent")$start()
+  #for (i in 1:10) { # How to increment during load()?
+  #  waitress$inc(10) # increase by 10%
+  #  Sys.sleep(.1)
+  #}
 
   #https://shiny.rstudio.com/articles/scoping.html
   # Global gene_menu for ui access.
@@ -224,6 +233,7 @@ server <- function(input, output, session) {
     } else {
       message(sprintf("Loading exfiles.Rdata..."))
       load("exfiles.Rdata", envir=.GlobalEnv, verbose=T)
+      #load("exfiles.Rdata", envir=parent.frame(2), verbose=T)
     }
     message(sprintf("t_load: %.1fs", (proc.time()-t0)[3]))
     #
@@ -235,7 +245,8 @@ server <- function(input, output, session) {
     eps <- eps[, ..TAGS_THIS]
     #
   }
-  waitress$close()
+  #waitress$close()
+  waiter_hide()
   #
   message(sprintf("Gene count (ENSG): %d", uniqueN(gene$ENSG)))
   message(sprintf("Gene count (SYMB): %d", uniqueN(gene$symbol)))
