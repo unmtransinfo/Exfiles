@@ -34,12 +34,24 @@ APPNAME_FULL <- "Exfiles: Expression profile analytics SABV"
 GTEX_RELEASE <- "v8 (2017)"
 #
 IGNORE_SEX_SPECIFIC_TISSUES <- T
-###
-###
 message(sprintf("IGNORE_SEX_SPECIFIC_TISSUES: %s", IGNORE_SEX_SPECIFIC_TISSUES))
+###
+NFRAME_TOP <- sys.nframe()
+message(sprintf("DEBUG: NFRAME_TOP = %d", NFRAME_TOP))
+###
 #
 #############################################################################
 #
+LoadData <- function(nframe) {
+  t0 <- proc.time()
+  if (!file.exists("exfiles.Rdata")) {
+    message(sprintf("ERROR: exfiles.Rdata NOT FOUND."))
+  } else {
+    message(sprintf("Loading exfiles.Rdata..."))
+    load("exfiles.Rdata", envir=parent.frame(nframe), verbose=T)
+  }
+  message(sprintf("t_load: %.1fs", (proc.time()-t0)[3]))
+}
 ### Unweight smaller, noise-dominated expression values.
 wPearson <- function(A,B) {
   ok <- !is.na(A) & !is.na(B)
@@ -68,7 +80,9 @@ OrderGeneSymbols <- function(symbols) {
 #
 MODES <- c("VIEW", "COMPARE", "SIMSEARCH", "TXTSEARCH") #query modes
 #
-gene_menu <- NULL #Global; assigned by load().
+if (!exists("gene_menu")) {
+  gene_menu <- NULL #Global; assigned by load().
+}
 #
 #############################################################################
 HelpHtm <- function(appname_full, gtex_release) {
@@ -144,7 +158,6 @@ This work was supported by the National Institutes of Health grants OT3-OD025464
 #
 #############################################################################
 ui <- fluidPage(
-  #useWaitress(),
   useWaiter(),
   titlePanel(
     tags$table(width="100%", tags$tr(tags$td(
@@ -208,34 +221,15 @@ ui <- fluidPage(
 
 #############################################################################
 server <- function(input, output, session) {
-
-  waiter_show(
-    color = "#333e48",
-    image = "IDG_logo_only.png",
-    #html = spin_fading_circles()
-    html = spin_wave()
-    #html = spin_gauge()
-    #html = spin_pulsar()
-  )
-    
-  #waitress <- Waitress$new(theme="overlay-percent")$start()
-  #for (i in 1:10) { # How to increment during load()?
-  #  waitress$inc(10) # increase by 10%
-  #  Sys.sleep(.1)
-  #}
-
+  message(sprintf("DEBUG: (server) sys.nframe = %d", sys.nframe()))
+  
   #https://shiny.rstudio.com/articles/scoping.html
   # Global gene_menu for ui access.
   if (is.null(gene_menu)) {
-    t0 <- proc.time()
-    if (!file.exists("exfiles.Rdata")) {
-      message(sprintf("ERROR: exfiles.Rdata NOT FOUND."))
-    } else {
-      message(sprintf("Loading exfiles.Rdata..."))
-      load("exfiles.Rdata", envir=.GlobalEnv, verbose=T)
-      #load("exfiles.Rdata", envir=parent.frame(2), verbose=T)
-    }
-    message(sprintf("t_load: %.1fs", (proc.time()-t0)[3]))
+    waiter_show(color = "#333e48", image="IDG_logo_only_DARK.png", html=spin_wave())
+    LoadData(NFRAME_TOP)
+    Sys.sleep(1)
+    waiter_hide()
     #
     if (IGNORE_SEX_SPECIFIC_TISSUES) {
       tissue <- tissue[(!SEX_SPECIFIC)]
@@ -244,9 +238,8 @@ server <- function(input, output, session) {
     TAGS_THIS <- c("ENSG", "SEX", tissue$SMTSD)
     eps <- eps[, ..TAGS_THIS]
     #
+    session$reload()
   }
-  #waitress$close()
-  waiter_hide()
   #
   message(sprintf("Gene count (ENSG): %d", uniqueN(gene$ENSG)))
   message(sprintf("Gene count (SYMB): %d", uniqueN(gene$symbol)))
@@ -265,7 +258,7 @@ server <- function(input, output, session) {
     ))
   })
   
-  Sys.sleep(1) #Needed?
+  #Sys.sleep(1) #Needed?
   i_query <- 0 # initialize once per session
 
   urlBase <- reactive({
@@ -466,12 +459,12 @@ server <- function(input, output, session) {
     #message(sprintf("DEBUG: (Results) geneA:%s; geneB:%s; mode: %s", qryVals()$geneA, qryVals()$geneB, qryVals()$mode))
     if (!is.na(qryVals()$geneA)) {
       htm <- paste0(htm, sprintf(" GeneA: %s \"%s\"%s", symbA(), gene[ENSG==qryVals()$geneA, name],
-	ifelse(("IDG" %in% input$opts), sprintf(" <A HREF=\"https://pharos.nih.gov/idg/targets/%s\" target=\"_blank\">%s</A>", gene[ENSG==qryVals()$geneA, uniprot], icon("external-link",lib="font-awesome")), "")))
+	ifelse(("IDG" %in% input$opts), sprintf(" <A HREF=\"https://pharos.nih.gov/idg/targets/%s\" target=\"_blank\">%s</A>", gene[ENSG==qryVals()$geneA, uniprot], icon("external-link-alt",lib="font-awesome")), "")))
       if (!is.na(chrA()) && grepl("^[XY]", chrA())) { htm <- paste0(htm, sprintf(", sex-linked, location %s", chrA())) }
     }
     if (!is.na(qryVals()$geneB)) {
       htm <- paste0(htm, sprintf("; geneB: %s \"%s\"%s", symbB(), gene[ENSG==qryVals()$geneB, name],
-	ifelse(("IDG" %in% input$opts), sprintf(" <A HREF=\"https://pharos.nih.gov/idg/targets/%s\" target=\"_blank\">%s</A>", gene[ENSG==qryVals()$geneB, uniprot], icon("external-link",lib="font-awesome")), "")))
+	ifelse(("IDG" %in% input$opts), sprintf(" <A HREF=\"https://pharos.nih.gov/idg/targets/%s\" target=\"_blank\">%s</A>", gene[ENSG==qryVals()$geneB, uniprot], icon("external-link-alt",lib="font-awesome")), "")))
       if (!is.na(chrB()) && grepl("^[XY]", chrB())) { htm <- paste0(htm, sprintf(", sex-linked, location %s", chrB())) }
     }
     if (!is.na(qryRex())) {
