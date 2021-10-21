@@ -80,8 +80,11 @@ OrderGeneSymbols <- function(symbols) {
 #
 MODES <- c("VIEW", "COMPARE", "SIMSEARCH", "TXTSEARCH") #query modes
 #
-if (!exists("gene_menu")) {
-  gene_menu <- NULL #Global; assigned by load().
+message(sprintf("DEBUG: (top) exists('gene_menu')=%s", exists("gene_menu")))
+if (exists("gene_menu")) {
+  message(sprintf("DEBUG: (top) is.null(gene_menu)=%s", is.null(gene_menu)))
+} else {
+  gene_menu <<- NULL #Global; assigned by load().
 }
 #
 #############################################################################
@@ -228,8 +231,10 @@ server <- function(input, output, session) {
   if (is.null(gene_menu)) {
     waiter_show(color = "#333e48", image="IDG_logo_only_DARK.png", html=spin_wave())
     LoadData(NFRAME_TOP)
-    Sys.sleep(1)
+    Sys.sleep(10) #Time for loaded objects to appear?
     waiter_hide()
+    message(sprintf("DEBUG: is.null(gene_menu)=%s", is.null(gene_menu)))
+    message(sprintf("DEBUG: is.null(gene)=%s", is.null(gene)))
     #
     if (IGNORE_SEX_SPECIFIC_TISSUES) {
       tissue <- tissue[(!SEX_SPECIFIC)]
