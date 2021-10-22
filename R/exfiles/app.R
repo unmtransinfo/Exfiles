@@ -43,13 +43,13 @@ message(sprintf("DEBUG: NFRAME_TOP = %d", NFRAME_TOP))
 #############################################################################
 #
 LoadData <- function(nframe) {
-  t0 <- proc.time()
   if (!file.exists("exfiles.Rdata")) {
     message(sprintf("ERROR: exfiles.Rdata NOT FOUND."))
-  } else {
-    message(sprintf("Loading exfiles.Rdata..."))
-    load("exfiles.Rdata", envir=parent.frame(nframe), verbose=T)
+    return
   }
+  t0 <- proc.time()
+  message(sprintf("Loading exfiles.Rdata..."))
+  load("exfiles.Rdata", envir=parent.frame(nframe), verbose=T)
   message(sprintf("t_load: %.1fs", (proc.time()-t0)[3]))
 }
 ### Unweight smaller, noise-dominated expression values.
@@ -84,7 +84,7 @@ message(sprintf("DEBUG: (top) exists('gene_menu')=%s", exists("gene_menu")))
 if (exists("gene_menu")) {
   message(sprintf("DEBUG: (top) is.null(gene_menu)=%s", is.null(gene_menu)))
 } else {
-  gene_menu <<- NULL #Global; assigned by load().
+  gene_menu <<- NULL #Top scope; assigned by load().
 }
 #
 #############################################################################
@@ -229,9 +229,9 @@ server <- function(input, output, session) {
   #https://shiny.rstudio.com/articles/scoping.html
   # Global gene_menu for ui access.
   if (is.null(gene_menu)) {
-    waiter_show(color = "#333e48", image="IDG_logo_only_DARK.png", html=spin_wave())
+    waiter_show(color="#333e48", image="IDG_logo_only_faded_TINY.png", html=spin_wave())
     LoadData(NFRAME_TOP)
-    Sys.sleep(10) #Time for loaded objects to appear?
+    Sys.sleep(2) #Time for loaded objects to appear?
     waiter_hide()
     message(sprintf("DEBUG: is.null(gene_menu)=%s", is.null(gene_menu)))
     message(sprintf("DEBUG: is.null(gene)=%s", is.null(gene)))
@@ -243,7 +243,7 @@ server <- function(input, output, session) {
     TAGS_THIS <- c("ENSG", "SEX", tissue$SMTSD)
     eps <- eps[, ..TAGS_THIS]
     #
-    session$reload()
+    session$reload() #Refresh ui to use loaded gene_menu.
   }
   #
   message(sprintf("Gene count (ENSG): %d", uniqueN(gene$ENSG)))
@@ -296,7 +296,9 @@ server <- function(input, output, session) {
     updateRadioButtons(session, "mode", choices=MODES, selected="VIEW", inline=T)
     updateTextInput(session, "qryTxt", value="")
     updateTextInput(session, "geneB", value="")
-    updateTextInput(session, "geneA", value=sample(gene_menu[, ENSG], 1))
+    rand_ensg <- sample(gene_menu[, ENSG], 1)
+    message(sprintf("DEBUG: rand_ensg: \"%s\"", rand_ensg))
+    updateTextInput(session, "geneA", value=rand_ensg)
   })
 
   updateFromUrlParams <- function(qStr) {
